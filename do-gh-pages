@@ -1,0 +1,6 @@
+#!/bin/sh
+
+PARENT_SHA=$(git show-ref -s refs/heads/gh-pages)
+DOC_SHA=$(git ls-tree -d HEAD doc | awk '{print $3}')
+NEW_COMMIT=$(echo "Auto-update docs." | git commit-tree $DOC_SHA -p $PARENT_SHA)
+git update-ref refs/heads/gh-pages $NEW_COMMIT
