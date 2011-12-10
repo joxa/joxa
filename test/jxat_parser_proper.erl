@@ -6,16 +6,17 @@
 
 to_string({ident, Ident, _}) ->
     Ident;
+to_string({symbol, Ident, _}) ->
+    ":" ++ Ident;
+to_string({fun_ref, {Module, Fun, Arity}, _}) ->
+    Module ++ ":" ++
+        Fun ++ "/" ++
+        integer_to_list(Arity);
+to_string({fun_ref, {Fun, Arity}, _}) ->
+    Fun ++ "/" ++
+        integer_to_list(Arity);
 to_string({char, Char, _}) ->
     [$\\, Char];
-to_string({syntax_quote, Ast, _}) ->
-    "`" ++ to_string(Ast);
-to_string({unquote_splicing, Ast, _}) ->
-    "~@" ++ to_string(Ast);
-to_string({unquote, Ast, _}) ->
-    "~" ++ to_string(Ast);
-to_string({quote, Ast, _}) ->
-    "'" ++ to_string(Ast);
 to_string({integer, I, _}) ->
     erlang:integer_to_list(I);
 to_string({float, F, _}) ->
@@ -36,16 +37,12 @@ to_binary(AST) ->
 
 compare({ident, Ident, _}, {ident, Ident, _}) ->
     true;
+compare({symbol, Ident, _}, {symbol, Ident, _}) ->
+    true;
 compare({char, Char, _}, {char, Char, _}) ->
     true;
-compare({syntax_quote, A1, _}, {syntax_quote, A2, _}) ->
-    compare(A1, A2);
-compare({unquote_splicing, A1, _}, {unquote_splicing, A2, _}) ->
-    compare(A1, A2);
-compare({unquote, A1, _}, {unquote, A2, _}) ->
-    compare(A1, A2);
-compare({quote, A1, _}, {quote, A2, _}) ->
-    compare(A1, A2);
+compare({fun_ref, Spec, _}, {fun_ref, Spec, _}) ->
+    true;
 compare({integer, I, _}, {integer, I, _}) ->
     true;
 compare({float, F, _}, {float, F, _}) ->
@@ -69,7 +66,7 @@ prop_parser() ->
     ?FORALL({Expr}, {expression()},
             begin
                 BinExpr = to_binary(Expr),
-                {ParsedExpr, _, _} = jxa_parser:parse(BinExpr),
+                {ParsedExpr, _, _} = jxa_parser:intermediate_parse(BinExpr),
                 compare(Expr, ParsedExpr)
             end).
 
@@ -88,16 +85,16 @@ internal_string() ->
 ident_initial() ->
     union([33,
            integer(35, 38),
-           integer(42, 47),
-           integer(58, 90),
+           integer(42, 46),
+           integer(59, 90),
            integer(94, 95),
            integer(97, 125)]).
 
 ident_character() ->
     union([33,
            integer(35, 38),
-           integer(42, 47),
-           integer(58, 90),
+           integer(42, 46),
+           integer(59, 90),
            integer(94, 125)]).
 
 ident_string() ->
@@ -105,10 +102,6 @@ ident_string() ->
          {ident_initial(),
           list([ident_character()])},
          [S1 | erlang:binary_to_list(unicode:characters_to_binary(S2))]).
-
-keyword_style_ident() ->
-    ?LET(S, ident_string(),
-         ":" ++ S).
 
 defvar_style_ident() ->
     ?LET(S, ident_string(),
@@ -120,35 +113,18 @@ split_ident() ->
 normal_ident() ->
     ident_string().
 
+symbol() ->
+   ?LET(I, normal_ident(),
+        {symbol, I, 0}).
+
 ident() ->
     {ident, union([normal_ident(),
                    split_ident(),
-                   defvar_style_ident(),
-                   keyword_style_ident()]), 0}.
+                   defvar_style_ident()]), 0}.
 
 character() ->
     ?LET(Char, string_character(),
          {char, list_to_binary([Char]), 0}).
-
-syntax_quote(0) ->
-    {syntax_quote, {list, [], 0}, 0};
-syntax_quote(Size) ->
-    {syntax_quote, value(Size div 4), 0}.
-
-unquote_splicing(0) ->
-    {unquote_splicing, {list, [], 0}, 0};
-unquote_splicing(Size) ->
-    {unquote_splicing, jxa_list(Size div 4), 0}.
-
-unquote(0) ->
-    {unquote, {list, [], 0}, 0};
-unquote(Size) ->
-    {unquote, value(Size div 4), 0}.
-
-quote(0) ->
-    {quote, {list, [], 0}, 0};
-quote(Size) ->
-    {quote, value(Size div 4), 0}.
 
 jxa_int() ->
     {integer, integer(), 0}.
@@ -175,13 +151,9 @@ value(Size) ->
            jxa_float(),
            jxa_int(),
            jxa_string(),
-           quote(Size),
-           unquote(Size),
-           unquote_splicing(Size),
-           syntax_quote(Size),
            character(),
+           symbol(),
            ident()]).
 
 expression() ->
-    %%?SIZED(N, value(N)).
-    value(10).
+    ?SIZED(N, value(N)).

@@ -2,11 +2,11 @@
         (require io)
         (require [io :as print])
         (attr hello world)
-        (use [string :only split]))
+        (use [string :only split :rename [split/2 str-split]]))
 
 (defn+ hello-world []
   (io:format "~s" '("Hello World")))
 
 (defn+ hello-world
-  ([:bar] (print:format "atom bar" '[bar]))
-  ([foo] (print:format "~s" '[foo])))
+  ([:bar] (print:format "atom bar" '(bar)))
+  ([foo] (print:format "~s" '(foo))))
