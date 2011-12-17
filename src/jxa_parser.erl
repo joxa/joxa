@@ -35,8 +35,9 @@
 %% for testing purposes
 -export([intermediate_parse/1]).
 
--export_type([ast/0, type_desc/0, annotation/0]).
+-include_lib("joxa/include/joxa.hrl").
 
+-export_type([ast/0, type_desc/0, annotation/0]).
 
 %%=============================================================================
 %% Types
@@ -80,41 +81,71 @@ file(Filename) ->
 intermediate_parse(Input) when is_binary(Input) ->
     intermediate_parse(Input, new_index()).
 
--spec parse(binary()) -> ast().
+-spec parse(binary()) ->
+                   {[{Type::atom(), Value::term(), index()}],
+                    jxa_annots:annotations()}.
 parse(Input) ->
-    {IntermediateAst, _, _} = intermediate_parse(Input),
-    transform_ast(jxa_annot:new_path(), jxa_annot:new(), IntermediateAst).
+    do_parse(jxa_path:new(),
+             jxa_annot:new(), [], Input, new_index()).
 
 %%=============================================================================
 %% Internal Functions
 %%=============================================================================
--spec transform_ast(jxa_annot:path(), jxa_annot:annotations(), fail | intermediate_ast()) ->
+-spec do_parse(jxa_path:path(), jxa_annots:annotations(), [term()], binary(),
+               index()) ->
+                      {[{Type::atom(), Value::term(), index()}],
+                       jxa_annots:annotations()}.
+do_parse(_Path0, Annots, Ast, <<>>, _Idx) ->
+    {Annots, lists:reverse(Ast)};
+do_parse(Path0, Annots0, Ast, Input, Idx0) ->
+    case intermediate_parse(Input, Idx0) of
+        {fail,{expected, Expected, Idx}} ->
+            ?JXA_THROW({invalid_form, Expected, Idx});
+        {IntermediateAst, Rest, Idx1} ->
+            {Annots1, FinalAST} =
+                transform_ast(jxa_path:add(Path0), Annots0, IntermediateAst),
+            do_parse(jxa_path:incr(Path0), Annots1, [FinalAST | Ast],
+                     Rest, Idx1)
+
+    end.
+
+-spec transform_ast(jxa_path:state(), jxa_annot:annotations(),
+                    fail | intermediate_ast()) ->
                            {jxa_annot:annotations(), raw_type()}.
 transform_ast(_, _, fail) ->
    erlang:throw(fail);
 transform_ast(Path0, Annotations, {Type, Ident, Idx})
-  when Type == symbol; Type == ident ->
+  when Type == ident ->
     AIdent = list_to_atom(Ident),
-    {jxa_annot:add_annot(Path0, {Type, Idx}, Annotations),
+    {jxa_annot:add(jxa_path:path(Path0), {Type, Idx}, Annotations),
      AIdent};
 transform_ast(Path0, Annotations, {char, Char, Idx}) ->
-    {jxa_annot:add_annot(Path0, {char, Idx}, Annotations), Char};
+    {jxa_annot:add(jxa_path:path(Path0), {char, Idx}, Annotations), Char};
 transform_ast(Path0, Annotations, {string, List, Idx}) ->
-    {jxa_annot:add_annot(Path0, {string, Idx}, Annotations), List};
+    {jxa_annot:add(jxa_path:path(Path0), {string, Idx},
+                   Annotations), List};
 transform_ast(Path0, Annotations, {float, Float, Idx}) ->
-    {jxa_annot:add_annot(Path0, {float, Idx}, Annotations), Float};
+    {jxa_annot:add(jxa_path:path(Path0), {float, Idx},
+                   Annotations), Float};
 transform_ast(Path0, Annotations, {integer, Integer, Idx}) ->
-    {jxa_annot:add_annot(Path0, {integer, Idx}, Annotations), Integer};
+    {jxa_annot:add(jxa_path:path(Path0),
+                   {integer, Idx}, Annotations), Integer};
+transform_ast(Path0, Annotations0, {quote, Quote, Idx}) ->
+    {Annotations1, Quoted} =
+        transform_ast(jxa_path:add(Path0), Annotations0, Quote),
+    {jxa_annot:add(jxa_path:path(Path0),
+                   {quote, Idx}, Annotations1), [quote, Quoted]};
 transform_ast(Path0, Annotations0, {Type, List, Idx})
   when Type == vector; Type == list ->
        {_, Annotations3, TransformList} =
-        lists:foldl(fun(El, {Count0, Annotations1, Elements}) ->
-                            Count1 = Count0 + 1,
+        lists:foldl(fun(El, {Path1, Annotations1, Elements}) ->
                             {Annotations2, Transformed} =
-                                transform_ast(jxa_annot:add(Count1, Path0), Annotations1, El),
-                            {Count1, Annotations2, [Transformed | Elements]}
-                    end, {0, Annotations0, []}, List),
-    {jxa_annot:add_annot(Path0, {Type, Idx}, Annotations3),
+                                transform_ast(jxa_path:add(Path1),
+                                              Annotations1, El),
+                            Path2 = jxa_path:incr(Path1),
+                            {Path2, Annotations2, [Transformed | Elements]}
+                    end, {Path0, Annotations0, []}, List),
+    {jxa_annot:add(jxa_path:path(Path0), {Type, Idx}, Annotations3),
      lists:reverse(TransformList)}.
 
 -spec intermediate_parse(string(), index()) -> intermediate_ast() | fail.
@@ -551,9 +582,11 @@ string_test() ->
                        value(<<"\"Hello\t World\"">>, index()))).
 
 ident_test() ->
+    ?memo(?assertMatch({{ident, "/", {1, _}}, <<>>, _},
+                       value(<<"/">>, index()))),
     ?memo(?assertMatch({{ident, "true", {1, _}}, <<>>, _}, value(<<"true">>, index()))),
     ?memo(?assertMatch({{ident, "false", {1, _}},  <<>>, _},value(<<"false">>, index()))),
-    ?memo(?assertMatch({{symbol, "keyword", {1, _}}, <<>>, _},
+    ?memo(?assertMatch({{quote, {ident, "keyword", _}, {1, _}}, <<>>, _},
                        value(<<":keyword">>, index()))),
     ?memo(?assertMatch({{ident, "*foo*", {1, _}}, <<>>, _}, value(<<"*foo*">>, index()))),
     ?memo(?assertMatch({{ident, "foo-bar", {1, _}}, <<>>, _}, value(<<"foo-bar">>, index()))),
@@ -568,16 +601,16 @@ ident_test() ->
 parse_test() ->
     Value = list_to_binary("(io:format \n \"~p\" \n '(\n(foo \n bar \n baz 33)))"),
     {Annots, Result} =  parse(Value),
-    ?assertMatch(['io:format', "~p", '\'',
-                  [[foo, bar, baz, 33]]], Result),
+    ?assertMatch(['io:format', "~p",
+                  [quote, [[foo, bar, baz, 33]]]], Result),
 
     ?assertMatch({ident, {1, 2}},
-                 jxa_annot:get_annot({0, [1]}, Annots)),
+                 jxa_annot:get([1], Annots)),
     ?assertMatch({string, {2, 2}},
-                 jxa_annot:get_annot({0, [2]}, Annots)),
-    ?assertMatch({ident, {3, 2}},
-                 jxa_annot:get_annot({0, [3]}, Annots)),
+                 jxa_annot:get([2], Annots)),
+    ?assertMatch({quote, {3, 2}},
+                 jxa_annot:get([3], Annots)),
     ?assertMatch({ident, {4, 2}},
-                 jxa_annot:get_annot({0, [1, 1, 4]}, Annots)).
+                 jxa_annot:get([1, 1, 1, 3], Annots)).
 
 -endif.
