@@ -24,10 +24,19 @@ comp(Path0, Ctx0, Arg) when is_atom(Arg) ->
         _ ->
             ?JXA_THROW({undefined_variable, Idx})
     end;
-comp(Path0, Ctx0, [cons, Arg1, Arg2]) ->
-    {Ctx1, Cerl1} = comp(jxa_path:incr(2, jxa_add:add(Path0)),
+
+comp(Path0, Ctx0, [Arg1, '. ', Arg2]) ->
+    {Ctx1, Cerl1} = comp(Path0,
                          Ctx0, Arg1),
-    {Ctx2, Cerl2} = comp(jxa_path:incr(3, jxa_path:add(Path0)),
+    {Ctx2, Cerl2} = comp(jxa_path:incr(2, Path0),
+                         Ctx1, Arg2),
+    {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
+                                   jxa_ctx:annots(Ctx2)),
+    {Ctx2, cerl:ann_c_cons(Line, Cerl1, Cerl2)};
+comp(Path0, Ctx0, [cons, Arg1, Arg2]) ->
+    {Ctx1, Cerl1} = comp(jxa_path:incr(Path0),
+                         Ctx0, Arg1),
+    {Ctx2, Cerl2} = comp(jxa_path:incr(2, Path0),
                          Ctx1, Arg2),
     {ident, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
                                        jxa_ctx:annots(Ctx2)),
