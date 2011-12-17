@@ -27,11 +27,16 @@ comp(FileName) ->
 -spec comp(ModuleName::atom(), Body::binary()) ->
                   {jxa_ctx:context(), binary()}.
 comp(ModuleName, BinaryData) when is_binary(BinaryData) ->
-    {Annots, Ast} = jxa_parser:parse(BinaryData),
-    Ctx = jxa_ctx:new(Annots, ModuleName, -1),
-    Result = {_, Binary} = comp_forms(jxa_annot:new_path(), Ctx, Ast),
+    {Annots, Ast0} = jxa_parser:parse(BinaryData),
+    Ctx0 = jxa_ctx:new(Annots, ModuleName, -1),
+    {_, Ctx2, Binary} =
+        lists:foldl(fun(DefAst, {Path, Ctx1, _Binary}) ->
+                            {Ctx2, Binary1} = comp_forms(jxa_path:add(Path),
+                                                         Ctx1, DefAst),
+                            {jxa_path:incr(Path), Ctx2, Binary1}
+                    end, {jxa_path:new(), Ctx0, <<>>}, Ast0),
     {module, ModuleName} = code:load_binary(ModuleName, "", Binary),
-    Result.
+    {Ctx2, Binary}.
 
 -spec format_exception(ExceptionBody::term()) -> IoList::[term()].
 format_exception({file_access, enoent, FileName}) ->
@@ -58,16 +63,16 @@ extract_module_name(FileName) ->
     erlang:list_to_atom(filename:rootname(
                           filename:basename(FileName))).
 
--spec comp_forms(jxa_annot:path(),
+-spec comp_forms(jxa_path:state(),
                  jxa_ctx:context(),
                  [term()]) ->
                         jxa_ctx:context().
 comp_forms(Path0, Ctx0, Module = [module | _]) ->
     Ctx1 = jxa_module:comp(Path0, Ctx0, Module),
     compile_context(Ctx1);
-comp_forms(Path0, Ctx0, _) ->
-    {_, Idx} = jxa_annot:get_annot(Path0, jxa_ctx:annots(Ctx0)),
-    ?JXA_THROW({invalid_form, Idx}).
+comp_forms(Path0, Ctx0, Definition) ->
+    Ctx1 = jxa_definition:comp(Path0, Ctx0, Definition),
+    compile_context(Ctx1).
 
 -spec compile_context(jxa_ctx:context()) -> jxa_ctx:context().
 compile_context(Ctx0) ->
@@ -78,7 +83,8 @@ compile_context(Ctx0) ->
    Exports = [cerl:ann_c_fname([ELine], Fun, Arity) ||
                  {Fun, Arity, ELine} <- jxa_ctx:exports(Ctx1)],
     Attrs = jxa_ctx:attrs(Ctx1),
-    Defs = jxa_ctx:definitions(Ctx1),
+    Defs = [Value || {_, Value} <-
+                ec_dictionary:to_list(jxa_ctx:definitions(Ctx1))],
     {Ctx1, erl_comp(cerl:ann_c_module([Line], ModuleName,
                                       Exports, Attrs, Defs))}.
 
