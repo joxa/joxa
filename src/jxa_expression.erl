@@ -99,7 +99,10 @@ comp(Path0, Ctx0, Form = [Val | Args]) ->
                     {Ctx1, Cerl} = comp(Path1, Ctx1, Val),
                     {Ctx1, cerl:ann_c_apply([BaseLine], Cerl, ArgList)}
             end
-    end.
+    end;
+comp(Path0, Ctx0, _Form) ->
+    {_, Idx} = jxa_annot:get(jxa_path:path(Path0), jxa_ctx:annots(Ctx0)),
+    ?JXA_THROW({invalid_form, Idx}).
 
 convert_vector(Path0, Ctx0, Args) ->
     Path1 = jxa_path:incr(jxa_path:add(Path0)),
