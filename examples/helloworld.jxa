@@ -1,12 +1,6 @@
 (module helloworld
-        (require io)
-        (require [io :as print])
-        (attr hello world)
-        (use [string :only split :rename [split/2 str-split]]))
+        (use [io :only [format/2]
+                 :rename [[format/2 print]]]))
 
-(defn+ hello-world []
-  (io:format "~s" '("Hello World")))
-
-(defn+ hello-world
-  ([:bar] (print:format "atom bar" '(bar)))
-  ([foo] (print:format "~s" '(foo))))
+(defn+ hello-world [Arg]
+  (print "~p" (list Arg)))
