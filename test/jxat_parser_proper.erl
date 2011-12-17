@@ -8,6 +8,8 @@ to_string({ident, Ident, _}) ->
     Ident;
 to_string({symbol, Ident, _}) ->
     ":" ++ Ident;
+to_string({quote, Value, _}) ->
+   "'" ++ to_string(Value);
 to_string({fun_ref, {Module, Fun, Arity}, _}) ->
     Module ++ ":" ++
         Fun ++ "/" ++
@@ -49,6 +51,8 @@ compare({float, F, _}, {float, F, _}) ->
     true;
 compare({string, S, _}, {string, S, _}) ->
     true;
+compare({quote, Value1, _}, {quote, Value2, _}) ->
+    compare(Value1, Value2);
 compare({vector, V1, _}, {vector, V2, _}) ->
     lists:all(fun({I1, I2}) ->
                       compare(I1, I2)
@@ -138,15 +142,21 @@ jxa_string() ->
 jxa_vector(0) ->
     {vector, [], 0};
 jxa_vector(Size) ->
-    {vector, resize(Size, list(value(Size - 1))), 0}.
+    {vector, resize(Size, list(value(Size div 4))), 0}.
 
 jxa_list(0) ->
     {list, [], 0};
 jxa_list(Size) ->
     {list, resize(Size, list(value(Size div 4))), 0}.
 
+jxa_quote(0) ->
+    {list, [], 0};
+jxa_quote(Size) ->
+    {quote, value(Size div 4), 0}.
+
 value(Size) ->
-    union([jxa_vector(Size),
+    union([jxa_quote(Size),
+           jxa_vector(Size),
            jxa_list(Size),
            jxa_float(),
            jxa_int(),
@@ -156,4 +166,4 @@ value(Size) ->
            ident()]).
 
 expression() ->
-    ?SIZED(N, value(N)).
+    value(10).

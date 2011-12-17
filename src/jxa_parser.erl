@@ -305,12 +305,23 @@ ident(Input, Index) ->
               {ident, Result, Idx}
       end).
 
+-spec quote(binary(), index()) -> intermediate_ast().
+quote(Input, Index) ->
+    p(Input, Index, quote,
+      p_seq([p_string("'"),
+             fun value/2]),
+
+      fun([_, Item], Idx) ->
+              {quote, Item, Idx}
+      end).
+
 -spec value(binary(), index()) -> intermediate_ast().
 value(Input, Index) ->
     p(Input, Index, value,
       fun(I,D) ->
               (p_seq([p_optional(fun space/2),
-                      p_choose([fun list/2,
+                      p_choose([fun quote/2,
+                                fun list/2,
                                 fun vector/2,
                                 fun float/2,
                                 fun integer/2,
