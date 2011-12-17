@@ -40,21 +40,13 @@ comp(Path0, Ctx0, [list | Args]) ->
     Path1 = jxa_path:incr(Path0),
     convert_list(Path1, Ctx0, Args);
 comp(Path0, Ctx0, [vector | Args]) ->
-    Path1 = jxa_path:incr(jxa_path:add(Path0)),
-    {_, Ctx3, Body} =
-        lists:foldl(fun(Arg, {Path2, Ctx1, Acc}) ->
-                            Path3 = jxa_path:incr(Path2),
-                            {Ctx2, Element} =
-                                comp(Path3, Ctx1, Arg),
-                            {Path3, Ctx2, [Element | Acc]}
-                    end, {Path1, Ctx0, []}, Args),
-    {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
-                                   jxa_ctx:annots(Ctx3)),
-    cerl:ann_c_tuple([Line], lists:reverse(Body));
+    convert_vector(Path0, Ctx0, Args);
 comp(Path0, Ctx0, Form = [Val | Args]) ->
     case jxa_annot:get(jxa_path:path(Path0), jxa_ctx:annots(Ctx0)) of
         {string, {Line, _}} ->
            {Ctx0, cerl:ann_c_string([Line], Form)};
+        {vector, {_, _}} ->
+            convert_vector(Path0, Ctx0, Form);
         {Type, {BaseLine, _}} when Type == list; Type == vector ->
             PossibleArity = erlang:length(Args),
             Path1 = jxa_path:add(Path0),
@@ -88,6 +80,19 @@ comp(Path0, Ctx0, Form = [Val | Args]) ->
                     {Ctx1, cerl:ann_c_apply([BaseLine], Cerl, ArgList)}
             end
     end.
+
+convert_vector(Path0, Ctx0, Args) ->
+    Path1 = jxa_path:incr(jxa_path:add(Path0)),
+    {_, Ctx3, Body} =
+        lists:foldl(fun(Arg, {Path2, Ctx1, Acc}) ->
+                            Path3 = jxa_path:incr(Path2),
+                            {Ctx2, Element} =
+                                comp(Path3, Ctx1, Arg),
+                            {Path3, Ctx2, [Element | Acc]}
+                    end, {Path1, Ctx0, []}, Args),
+    {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
+                                   jxa_ctx:annots(Ctx3)),
+    cerl:ann_c_tuple([Line], lists:reverse(Body)).
 
 convert_list(_Path0, Ctx0, []) ->
     {Ctx0, cerl:c_nil()};
