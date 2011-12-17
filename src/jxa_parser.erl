@@ -286,10 +286,8 @@ symbol(Input, Index) ->
     p(Input, Index, symbol,
       p_seq([p_string(":"),
              fun ident/2]),
-      fun([_, {ident, Symbol, _}], Idx) ->
-              Result =
-                  binary_to_list(iolist_to_binary(Symbol)),
-              {symbol, Result, Idx}
+      fun([_, Result = {ident, _, _}], Idx) ->
+              {quote, Result, Idx}
       end).
 
 -spec ident(binary(), index()) -> intermediate_ast().
