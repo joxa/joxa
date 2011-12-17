@@ -25,6 +25,15 @@ comp(Path0, Ctx0, Arg) when is_atom(Arg) ->
             ?JXA_THROW({undefined_variable, Idx})
     end;
 
+comp(Path0, Ctx0, [values | Args0]) ->
+    {_, Ctx2, Args1} =
+        lists:foldl(fun(Val, {Path1, Ctx1, Acc}) ->
+                            {Ctx1, Cerl} = comp(jxa_path:add(Path1), Ctx1, Val),
+                            {jxa_path:incr(Path1), Ctx1, [Cerl | Acc]}
+                    end, {jxa_path:incr(Path0), Ctx0, []}, Args0),
+    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
+                                   jxa_ctx:annots(Ctx0)),
+    {Ctx2, cerl:ann_c_values([Line], lists:reverse(Args1))};
 comp(Path0, Ctx0, [Arg1, '. ', Arg2]) ->
     {Ctx1, Cerl1} = comp(Path0,
                          Ctx0, Arg1),
