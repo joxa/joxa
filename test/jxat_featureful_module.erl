@@ -11,11 +11,13 @@ given([a,featureful,module], _State, _) ->
                           :rename [[member/2 mbr]]])
               (use [file :as f
                          :exclude [delete/1]
-                         :rename [[change_group/2 chgrp] [change_mode/2 chmod]]])
+                         :rename [[change_group/2 chgrp]
+                                  [change_mode/2 chmod]]])
               (attr super_duper \"Hello World\")
               (require [proplists :as props])
               (require erlang code)
-              (use [filename :exclude [flatten/1 append/2 join/2  absname/1 absname_join/2]]))">>,
+              (use [filename :exclude [flatten/1 append/2 join/2
+                                       absname/1 absname_join/2]]))">>,
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], State, _) ->
@@ -34,9 +36,9 @@ then([the,joxa,context,for,a,featureful,module,is,correctly,formed], State={Ctx0
     Required = jxa_ctx:require(Ctx0),
     Alias = jxa_ctx:alias(Ctx0),
     _Attrs = jxa_ctx:attrs(Ctx0),
-    ?assertMatch(true, sets:is_element(proplists, Required)),
-    ?assertMatch(true, sets:is_element(erlang, Required)),
-    ?assertMatch(true, sets:is_element(code, Required)),
+    ?assertMatch(true, ec_dictionary:has_key(proplists, Required)),
+    ?assertMatch(true, ec_dictionary:has_key(erlang, Required)),
+    ?assertMatch(true, ec_dictionary:has_key(code, Required)),
     ?assertMatch(proplists, ec_dictionary:get(props, Alias)),
     ?assertMatch(file, ec_dictionary:get(f, Alias)),
     ?assertMatch("Hello World",
