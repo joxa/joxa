@@ -52,17 +52,24 @@ format_exception({invalid_module, Module, {Line, Column}}) ->
 %%
 %% comp compiles the provided AST into a Joxa context. Later that context
 %% must be compiled to core erlang.
--spec comp(jxa_annot:path(), jxa_ctx:context(), jxa_parser:ast()) ->
+-spec comp(jxa_path:state(), jxa_ctx:context(), jxa_parser:ast()) ->
                   xa_ctx:context().
 comp(Path0, Ctx0, [module, ModuleName | Rest])
   when is_atom(ModuleName) ->
-    Path1 = jxa_annot:add(2, Path0),
-    case jxa_annot:get_annot(Path1, jxa_ctx:annots(Ctx0)) of
+    Path1 = jxa_path:add(Path0),
+    case jxa_annot:get(jxa_path:path(Path1), jxa_ctx:annots(Ctx0)) of
         {ident, {Line, _}} ->
-            comp_body(jxa_annot:new_base_position(2, Path0),
-                      jxa_ctx:line(Line,
-                                   jxa_ctx:module_name(ModuleName, Ctx0)),
-                      Rest);
+            {_, Ctx1} =
+                lists:foldl(
+                  fun(Form, {Path2, Ctx1}) ->
+                          Ctx2 =
+                          comp_body(jxa_path:add(Path2),
+                                    jxa_ctx:line(Line,
+                                                 jxa_ctx:module_name(ModuleName,
+                                                                     Ctx1)), Form),
+                      {jxa_path:incr(Path2), Ctx2}
+                  end, {jxa_path:incr(2, Path0), Ctx0}, Rest),
+            Ctx1;
         {_, Idx} ->
             ?JXA_THROW({invalid_module_declaration, Idx});
         _ ->
@@ -76,20 +83,22 @@ comp(Path0, Ctx0, [module, ModuleName | Rest])
 %%  clauses in any order. Each clause starts with a (require ...)
 %%  (use ....) or (attr ...)
 %%
--spec comp_body(jxa_annot:path(), jxa_ctx:context(), term()) ->
+-spec comp_body(jxa_path:state(), jxa_ctx:context(), term()) ->
                        jxa_ctx:context().
 comp_body(_Path0, Ctx0, []) ->
     Ctx0;
-comp_body(Path0, Ctx0, [[require | ReqBody] | Rest]) ->
-    Ctx1 = comp_require(jxa_annot:new_base_position(1, jxa_annot:add(1, Path0)), Ctx0, ReqBody),
-    comp_body(jxa_annot:add_base_position(1, Path0), Ctx1, Rest);
-comp_body(Path0, Ctx0, [[attr | AttrBody] | Rest]) ->
-    Ctx1 = comp_attr(jxa_annot:new_base_position(1, jxa_annot:add(1, Path0)), Ctx0, AttrBody),
-    comp_body(jxa_annot:add_base_position(1, Path0), Ctx1, Rest);
-comp_body(Path0, Ctx0, [[use | UseBody] | Rest]) ->
-    {_, Idx} = jxa_annot:get_annot(jxa_annot:add(1, Path0), jxa_ctx:annots(Ctx0)),
-    Ctx1 = comp_use(Idx, Ctx0, UseBody, {undefined, []}),
-    comp_body(jxa_annot:add_base_position(1, Path0), Ctx1, Rest).
+comp_body(Path0, Ctx0, [require | ReqBody]) ->
+    comp_require(jxa_path:incr(1, Path0), Ctx0, ReqBody);
+comp_body(Path0, Ctx0, [attr | AttrBody]) ->
+    comp_attr(jxa_path:incr(1, Path0), Ctx0, AttrBody);
+comp_body(Path0, Ctx0, [use | UseBody]) ->
+    {_, Idx} = jxa_annot:get(jxa_path:path(Path0), jxa_ctx:annots(Ctx0)),
+    comp_use(Idx, Ctx0, UseBody, {undefined, []});
+comp_body(Path0, Ctx0, _) ->
+    {_, Idx} = jxa_annot:get(jxa_path:path(Path0), jxa_ctx:annots(Ctx0)),
+    ?JXA_THROW({invalid_form, Idx}).
+
+
 
 %% Require Clause
 %% --------------
@@ -118,7 +127,7 @@ comp_body(Path0, Ctx0, [[use | UseBody] | Rest]) ->
 %%
 %%    [string :as str]
 %%
--spec comp_require(jxa_annot:path(), jxa_ctx:context(),
+-spec comp_require(jxa_path:state(), jxa_ctx:context(),
                   RequireClause::term()) -> jxa_ctx:context().
 comp_require(_Path0, Ctx0, []) ->
     Ctx0;
@@ -127,18 +136,20 @@ comp_require(Path0, Ctx0, [Module | Rest]) when is_atom(Module) ->
         Module:module_info()
     catch
         error:undef ->
-            {_, Idx} = jxa_annot:get_annot(Path0, jxa_ctx:annots(Ctx0)),
+            Path1 = jxa_path:add(Path0),
+            {_, Idx} = jxa_annot:get(jxa_path:path(Path1),
+                                     jxa_ctx:annots(Ctx0)),
             ?JXA_THROW({invalid_require_clause, {bad_module, Module}, Idx})
     end,
     Ctx1 = jxa_ctx:add_require(Module, Ctx0),
-    comp_require(Path0, Ctx1, Rest);
-comp_require(Path0, Ctx0, [[Module, as, ModuleAlias] | Rest])
+    comp_require(jxa_path:incr(Path0), Ctx1, Rest);
+comp_require(Path0, Ctx0, [[Module, [quote, as], ModuleAlias] | Rest])
   when is_atom(Module), is_atom(ModuleAlias) ->
     Ctx1 = jxa_ctx:add_alias(ModuleAlias, Module,
                              jxa_ctx:add_require(Module, Ctx0)),
-        comp_require(Path0, Ctx1, Rest);
+        comp_require(jxa_path:incr(Path0), Ctx1, Rest);
 comp_require(Path0, Ctx0, _Invalid) ->
-    {_, Idx} = jxa_annot:get_annot(Path0, jxa_ctx:annots(Ctx0)),
+    {_, Idx} = jxa_annot:get(jxa_path:add_path(Path0), jxa_ctx:annots(Ctx0)),
     ?JXA_THROW({invalid_require_clause, Idx}).
 
 %% Attribute Clauses
@@ -153,14 +164,15 @@ comp_require(Path0, Ctx0, _Invalid) ->
 %%
 %%     (attr <key> <value>)
 %%
--spec comp_attr(jxa_annot:path(), jxa_ctx:context(), term()) ->
+-spec comp_attr(jxa_path:state(), jxa_ctx:context(), term()) ->
                        jxa_ctx:context().
 comp_attr(Path0, Ctx0, [Key, Value]) ->
-    jxa_ctx:add_attr({jxa_literal:comp(jxa_annot:add(1, Path0), Ctx0, Key),
-                      jxa_literal:comp(jxa_annot:add(2, Path0), Ctx0, Value)},
+    jxa_ctx:add_attr({jxa_literal:comp(jxa_path:add(Path0), Ctx0, Key),
+                      jxa_literal:comp(jxa_path:add(jxa_path:incr(Path0)),
+                                       Ctx0, Value)},
                      Ctx0);
 comp_attr(Path0, Ctx0, _) ->
-    {_, Idx} = jxa_annot:get_annot(Path0, jxa_ctx:annots(Ctx0)),
+    {_, Idx} = jxa_annot:get(jxa_path:add_path(Path0), jxa_ctx:annots(Ctx0)),
     ?JXA_THROW({invalid_require_clause, Idx}).
 
 %% Use Clauses
@@ -192,7 +204,7 @@ comp_attr(Path0, Ctx0, _) ->
 %%                  :as str)])
 %%
 %% This would be perfectly valid and could use occur in any order at all.
--spec comp_use(jxa_annot:index(), jxa_ctx:context(), term(),
+-spec comp_use(jxa_parser:index(), jxa_ctx:context(), term(),
               {ModuleName::atom(),
                Imports::[{FunName::atom(), Arity::non_neg_integer()}]}) ->
                       jxa_ctx:context().
@@ -211,7 +223,7 @@ comp_use(Idx, Ctx0, [ModuleName | Rest], _Acc)
              Rest, {undefined, []}).
 
 
--spec handle_use_clauses(jxa_annot:index(), jxa_ctx:content(),
+-spec handle_use_clauses(jxa_parser:index(), jxa_ctx:content(),
                          [term()], {ModuleName::atom(),
                                     Exports::[{AliasFun::atom(),
                                                Arity::non_neg_integer(),
@@ -219,10 +231,10 @@ comp_use(Idx, Ctx0, [ModuleName | Rest], _Acc)
                                 jxa_ctx:context().
 handle_use_clauses(_Idx, Ctx0, [], Acc) ->
     populate_use_context(Acc, Ctx0);
-handle_use_clauses(Idx, Ctx0, [as, AliasName | Rest], Acc = {ModuleName, _}) ->
+handle_use_clauses(Idx, Ctx0, [[quote, as], AliasName | Rest], Acc = {ModuleName, _}) ->
     Ctx1 = jxa_ctx:add_alias(AliasName, ModuleName, Ctx0),
     handle_use_clauses(Idx, Ctx1, Rest, Acc);
-handle_use_clauses(Idx, Ctx0, [only, TargetFuns | Rest],
+handle_use_clauses(Idx, Ctx0, [[quote, only], TargetFuns | Rest],
                    {ModuleName, Exports0})
   when is_atom(ModuleName), is_list(TargetFuns) ->
     Specs = gather_fun_arity_pairs(Idx, TargetFuns, []),
@@ -238,7 +250,7 @@ handle_use_clauses(Idx, Ctx0, [only, TargetFuns | Rest],
                                    end
                            end, [], Specs),
     handle_use_clauses(Idx, Ctx0, Rest, {ModuleName, Exports1});
-handle_use_clauses(Idx, Ctx0, [exclude, TargetFuns | Rest],
+handle_use_clauses(Idx, Ctx0, [[quote, exclude], TargetFuns | Rest],
                    {ModuleName, Exports0})
   when is_atom(ModuleName), is_list(TargetFuns) ->
     Specs = gather_fun_arity_pairs(Idx, TargetFuns, []),
@@ -252,7 +264,7 @@ handle_use_clauses(Idx, Ctx0, [exclude, TargetFuns | Rest],
                                    end
                            end, [], Exports0),
     handle_use_clauses(Idx, Ctx0, Rest, {ModuleName, Exports1});
-handle_use_clauses(Idx, Ctx0, [rename, TargetFuns | Rest],
+handle_use_clauses(Idx, Ctx0, [[quote, rename], TargetFuns | Rest],
                    {ModuleName, Exports0})
   when is_atom(ModuleName), is_list(TargetFuns) ->
     Specs = gather_fun_alias_pairs(Idx, TargetFuns, []),
@@ -292,7 +304,7 @@ populate_use_context({ModuleName, Imports}, Ctx0) ->
 %%
 %%     [{substr, 3}, str-substring]
 %%
--spec gather_fun_alias_pairs(jxa_annot:index(),
+-spec gather_fun_alias_pairs(jxa_parser:index(),
                              [atom() | non_neg_integer()],
                              [{{FunName::atom(), Arity::non_neg_integer()},
                                Alias::atom()}]) ->
@@ -310,7 +322,7 @@ gather_fun_alias_pairs(Idx, _, _) ->
 %% Similar to gather_fun_alias_pairs gather_fun_arity_pairs parses fun refs
 %% in the form of fun_name/3 that get parsed into ['fun_name', '/', 3] into
 %% nice tuples of the furm {fun_name, 3}.
--spec gather_fun_arity_pairs(jxa_annot:index(),
+-spec gather_fun_arity_pairs(jxa_parser:index(),
                              [atom() | non_neg_integer()],
                              [{FunName::atom(), Arity::non_neg_integer()}]) ->
                                     [{FunName::atom(),
