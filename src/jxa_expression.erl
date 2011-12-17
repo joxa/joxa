@@ -25,6 +25,8 @@ comp(Path0, Ctx0, Arg) when is_atom(Arg) ->
             ?JXA_THROW({undefined_variable, Idx})
     end;
 
+comp(Path0, Ctx0, [do | Args]) ->
+    mk_do(Path0, Ctx0, Args);
 comp(Path0, Ctx0, [values | Args0]) ->
     {_, Ctx2, Args1} =
         lists:foldl(fun(Val, {Path1, Ctx1, Acc}) ->
@@ -151,3 +153,18 @@ gen_args(Path0, Ctx0, Args0) ->
                             ?JXA_THROW({invalid_arg, Line, Char})
                     end, {Path0, Ctx0, []}, Args0),
     {Ctx2, lists:reverse(Args1)}.
+
+mk_do(Path0, Ctx0, [Arg1, Arg2]) ->
+    {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0), jxa_ctx:annots(Ctx0)),
+    {Ctx1, Cerl0} = comp(jxa_path:incr(Path0), Ctx0, Arg1),
+    {Ctx2, Cerl1} = comp(jxa_path:incr(Path0), Ctx1, Arg2),
+    {Ctx2, cerl:ann_c_do([Line], Cerl0, Cerl1)};
+mk_do(Path0, Ctx0, [Arg1]) ->
+    {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0), jxa_ctx:annots(Ctx0)),
+    {Ctx1, Cerl0} = comp(jxa_path:incr(Path0), Ctx0, Arg1),
+    {Ctx1, cerl:ann_c_do([Line], cerl:c_nil(), Cerl0)};
+mk_do(Path0, Ctx0, [Arg1 | Rest]) ->
+    {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0), jxa_ctx:annots(Ctx0)),
+    {Ctx1, Cerl0} = comp(jxa_path:incr(Path0), Ctx0, Arg1),
+    {Ctx2, Cerl1} = mk_do(jxa_path:incr(Path0), Ctx1, Rest),
+    {Ctx2, cerl:ann_c_do([Line], Cerl0, Cerl1)}.
