@@ -54,7 +54,7 @@ comp(Path0, Ctx0, [cons, Arg1, Arg2]) ->
     {Ctx2, cerl:ann_c_cons(Line, Cerl1, Cerl2)};
 comp(Path0, Ctx0, [quote, Args]) ->
     Path1 = jxa_path:add(Path0),
-    Literal = jxa_literal:to_literal(jxa_path:incr(Path1), Ctx0, Args),
+    Literal = jxa_literal:comp(Path1, Ctx0, Args),
     {Ctx0, Literal};
 comp(Path0, Ctx0, [list | Args]) ->
     Path1 = jxa_path:incr(Path0),
