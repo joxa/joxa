@@ -2,6 +2,7 @@
 -module(jxa_literal).
 
 -export([comp/3]).
+-include_lib("joxa/include/joxa.hrl").
 
 %%=============================================================================
 %% Types
@@ -29,7 +30,7 @@ comp(Path0, Ctx0, Float) when is_float(Float) ->
                                        jxa_ctx:annots(Ctx0)),
     cerl:ann_c_float([Line], float);
 comp(Path0, Ctx0, Element) when is_list(Element) ->
-    {Type, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
+    {Type, Idx = {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
                                       jxa_ctx:annots(Ctx0)),
     case Type of
         list ->
@@ -37,7 +38,9 @@ comp(Path0, Ctx0, Element) when is_list(Element) ->
         vector ->
             comp_vector(Path0, Line, Ctx0, Element);
         string ->
-            comp_string(Path0, Line, Ctx0, Element)
+            comp_string(Path0, Line, Ctx0, Element);
+        _ ->
+           ?JXA_THROW({invalid_literal, Idx})
     end.
 
 %%=============================================================================
