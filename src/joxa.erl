@@ -29,14 +29,16 @@ comp(FileName) ->
 comp(ModuleName, BinaryData) when is_binary(BinaryData) ->
     {Annots, Ast0} = jxa_parser:parse(BinaryData),
     Ctx0 = jxa_ctx:new(Annots, ModuleName, -1),
-    {_, Ctx2, Binary} =
+    {_, Ctx3, Binary} =
         lists:foldl(fun(DefAst, {Path, Ctx1, _Binary}) ->
                             {Ctx2, Binary1} = comp_forms(jxa_path:add(Path),
                                                          Ctx1, DefAst),
-                            {jxa_path:incr(Path), Ctx2, Binary1}
+                            {module, ModuleName} =
+                                code:load_binary(ModuleName, "", Binary1),
+                            {jxa_path:incr(Path), jxa_ctx:update(Ctx2),
+                             Binary1}
                     end, {jxa_path:new(), Ctx0, <<>>}, Ast0),
-    {module, ModuleName} = code:load_binary(ModuleName, "", Binary),
-    {Ctx2, Binary}.
+    {Ctx3, Binary}.
 
 -spec format_exception(ExceptionBody::term()) -> IoList::[term()].
 format_exception({file_access, enoent, FileName}) ->
@@ -81,7 +83,7 @@ compile_context(Ctx0) ->
     ModuleName = cerl:ann_c_atom([Line],
                                  jxa_ctx:module_name(Ctx1)),
    Exports = [cerl:ann_c_fname([ELine], Fun, Arity) ||
-                 {Fun, Arity, ELine} <- jxa_ctx:exports(Ctx1)],
+                 {Fun, Arity, ELine} <- sets:to_list(jxa_ctx:exports(Ctx1))],
     Attrs = jxa_ctx:attrs(Ctx1),
     Defs = [Value || {_, Value} <-
                 ec_dictionary:to_list(jxa_ctx:definitions(Ctx1))],
