@@ -30,7 +30,8 @@
          push_scope/1,
          add_variable_to_scope/2,
          add_variables_to_scope/2,
-         pop_scope/1]).
+         pop_scope/1,
+         update/1]).
 
 -export_type([context/0,
               attr/0,
@@ -42,7 +43,7 @@
 
 -record(context, {module_name :: atom(),
                   annots :: jxa_annot:annotations(),
-                  exports :: [export()],
+                  exports :: set(),
                   attrs :: [attr()],
                   alias :: alias(),
                   require :: require(),
@@ -83,7 +84,7 @@
 new(Annots) ->
     #context{module_name=undefined,
              attrs=[],
-             exports=[],
+             exports=sets:new(),
              annots=Annots,
              scopes=[],
              definitions=ec_dictionary:new(ec_dict),
@@ -95,16 +96,18 @@ new(Annots) ->
                   module(), non_neg_integer()) -> context().
 new(Annots, ModuleName, Line)
   when is_atom(ModuleName), is_integer(Line) ->
-    #context{module_name=ModuleName,
-             line=Line,
-             annots=Annots,
-             exports=[],
+    %% We always require the local module
+    Ctx0 = #context{module_name=ModuleName,
+                    line=Line,
+                    annots=Annots,
+                    exports=sets:new(),
              attrs=[],
-             scopes=[],
-             definitions=ec_dictionary:new(ec_dict),
-             alias=ec_dictionary:new(ec_dict),
-             require=ec_dictionary:new(ec_dict),
-             use=ec_dictionary:new(ec_dict)}.
+                    scopes=[],
+                    definitions=ec_dictionary:new(ec_dict),
+                    alias=ec_dictionary:new(ec_dict),
+                    require=ec_dictionary:new(ec_dict),
+                    use=ec_dictionary:new(ec_dict)},
+    update(Ctx0).
 
 %% create a new context with default values for aliased modules, required
 %% modules use 'used' or imported modules.
@@ -138,7 +141,7 @@ new(Annots, Aliases, Requires, Uses) ->
                        end, Req0, Requires),
     #context{module_name=undefined,
              annots=Annots,
-             exports=[],
+             exports=sets:new(),
              attrs=[],
              scopes=[],
              definitions=ec_dictionary:new(ec_dict),
@@ -163,8 +166,9 @@ module_name(#context{module_name=ModuleName}) ->
     ModuleName.
 
 -spec module_name(module(), context()) -> context().
-module_name(Module, Ctx0) ->
-    Ctx0#context{module_name=Module}.
+module_name(ModuleName, Ctx0) ->
+    Ctx1 = Ctx0#context{module_name=ModuleName},
+    update(Ctx1).
 
 exports(#context{exports=Exports}) ->
     Exports.
@@ -174,7 +178,7 @@ exports(#context{exports=Exports}) ->
                  context()) ->
                         context().
 add_export(Line, FunName, Arity, Ctx0=#context{exports=Exports}) ->
-    Ctx0#context{exports=[{FunName, Arity, Line} | Exports]}.
+    Ctx0#context{exports=sets:add_element({FunName, Arity, Line}, Exports)}.
 
 -spec attrs(context()) -> [attr()].
 attrs(#context{attrs=Attrs}) ->
@@ -324,3 +328,12 @@ add_variables_to_scope(Names, Ctx0=#context{scopes=[Current0 | Scopes]}) ->
 
 pop_scope(Ctx0=#context{scopes=[_|Scopes]}) ->
     Ctx0#context{scopes=Scopes}.
+
+update(Ctx0=#context{module_name=ModuleName, require=Req}) ->
+    try
+        Exports = ModuleName:module_info(exports),
+        Ctx0#context{require=ec_dictionary:add(ModuleName, Exports, Req)}
+    catch
+        _:undef ->
+            Ctx0
+    end.
