@@ -43,21 +43,29 @@
 %% Types
 %%=============================================================================
 -type type_desc() :: char |
-                    string |
-                    list |
-                    vector |
-                    float |
-                    integer.
+                     string |
+                     list |
+                     vector |
+                     call |
+                     quote |
+                     float |
+                     integer.
 
 -type raw_type() :: char() | string() | list() |
                     float() | integer().
 
--type intermediate_ast() :: {char, char(), non_neg_integer()} |
-                            {string, string(), non_neg_integer()} |
-                            {list, [intermediate_ast()], non_neg_integer()} |
-                            {vector, [intermediate_ast()], non_neg_integer()} |
-                            {float, float(), non_neg_integer()} |
-                            {integer, integer(), non_neg_integer()}.
+-type intermediate_ast() :: {char, char(), index()} |
+                            {string, string(), index()} |
+                            {quote, intermediate_ast(), index()} |
+                            {list, [intermediate_ast()], index()} |
+                            {vector, [intermediate_ast()], index()} |
+                            {call,
+                             {atom(), atom(), non_neg_integer()} |
+                             {atom(), non_neg_integer()} |
+                             {atom(), atom()}, index()} |
+
+                            {float, float(), index()} |
+                            {integer, integer(), index()}.
 
 -type ast() :: [ast()] |
                tuple(ast()) |
