@@ -114,11 +114,9 @@ do_parse(Path0, Annots0, Ast, Input, Idx0) ->
                            {jxa_annot:annotations(), raw_type()}.
 transform_ast(_, _, fail) ->
    erlang:throw(fail);
-transform_ast(Path0, Annotations, {Type, Ident, Idx})
-  when Type == ident ->
-    AIdent = list_to_atom(Ident),
-    {jxa_annot:add(jxa_path:path(Path0), {Type, Idx}, Annotations),
-     AIdent};
+transform_ast(Path0, Annotations, {ident, Ident, Idx}) ->
+    {jxa_annot:add(jxa_path:path(Path0), {ident, Idx}, Annotations),
+     Ident};
 transform_ast(Path0, Annotations, {char, Char, Idx}) ->
     {jxa_annot:add(jxa_path:path(Path0), {char, Idx}, Annotations), Char};
 transform_ast(Path0, Annotations, {string, List, Idx}) ->
@@ -353,7 +351,7 @@ ident(Input, Index) ->
 
       fun(Node, Idx) ->
               Result =
-                  binary_to_list(iolist_to_binary(Node)),
+                  list_to_atom(binary_to_list(iolist_to_binary(Node))),
               {ident, Result, Idx}
       end).
 
