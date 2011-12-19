@@ -22,8 +22,8 @@ given([a,module,that,has,a,function,that,contains,'\'let\''], _State, _) ->
                             (bad-boy 'super-dooper)]
                            (do
                               ; as is this
-                              (print \"~i ~p ~s ~p~n\"
-                                 (list foo bar baz bad-boy ))
+                              (print \"~i ~p ~s ~p ~p~n\"
+                                 (list foo bar baz bad-boy (1 . 2)))
                               [foo bar baz bad-boy z a b c a1])))">>,
 
     {ok, Source}.

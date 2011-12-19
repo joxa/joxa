@@ -46,7 +46,7 @@ comp(Path0, Ctx0, [values | Args0]) ->
     {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
                                    jxa_ctx:annots(Ctx0)),
     {Ctx2, cerl:ann_c_values([Line], lists:reverse(Args1))};
-comp(Path0, Ctx0, [Arg1, '. ', Arg2]) ->
+comp(Path0, Ctx0, [Arg1, '.', Arg2]) ->
     {Ctx1, Cerl1} = comp(Path0,
                          Ctx0, Arg1),
     {Ctx2, Cerl2} = comp(jxa_path:incr(2, Path0),
