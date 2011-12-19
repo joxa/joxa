@@ -18,7 +18,7 @@ do_function_body(Path0, Ctx0, Args, Expression) ->
 comp(Path0, Ctx0, Arg) when is_atom(Arg) ->
     {_, Idx = {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
                                          jxa_ctx:annots(Ctx0)),
-    case jxa_ctx:resolve_variable(Arg, -1, Ctx0) of
+    case jxa_ctx:resolve_reference(Arg, -1, Ctx0) of
         variable ->
             {Ctx0, cerl:ann_c_var([Line], Arg)};
         _ ->
@@ -85,7 +85,7 @@ comp(Path0, Ctx0, Form = [Val | Args]) ->
                               jxa_ctx:annots(Ctx0)),
             {Ctx1, ArgList} = eval_args(jxa_path:incr(Path0),
                                         Ctx0, Args),
-            case jxa_ctx:resolve_variable(Val, PossibleArity, Ctx0) of
+            case jxa_ctx:resolve_reference(Val, PossibleArity, Ctx0) of
                 variable ->
                     {Ctx1, cerl:ann_c_apply([BaseLine],
                                             cerl:ann_c_var([CallLine],

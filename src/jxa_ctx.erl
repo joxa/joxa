@@ -26,7 +26,7 @@
          definitions/1,
          add_exported_definition/5,
          add_definition/5,
-         resolve_variable/3,
+         resolve_reference/3,
          push_scope/1,
          add_variable_to_scope/2,
          add_variables_to_scope/2,
@@ -88,7 +88,7 @@ new(Annots) ->
              use=ec_dictionary:new(ec_dict)}.
 
 -spec new(jxa_annot:annotations(),
-                  module(), non_neg_integer()) -> context().
+          module(), non_neg_integer()) -> context().
 new(Annots, ModuleName, Line)
   when is_atom(ModuleName), is_integer(Line) ->
     %% We always require the local module
@@ -96,7 +96,7 @@ new(Annots, ModuleName, Line)
                     line=Line,
                     annots=Annots,
                     exports=sets:new(),
-             attrs=[],
+                    attrs=[],
                     scopes=[],
                     definitions=ec_dictionary:new(ec_dict),
                     alias=ec_dictionary:new(ec_dict),
@@ -125,9 +125,9 @@ new(Annots, ModuleName, Line)
 %% This is a property list of key value pairs. The key is a atom that represents
 %% a function. The value is the module that contains the function.
 -spec new(jxa_annot:annotations(),
-                  [{module(), module()}],
-                  [module()], [{use_key(), use_value()}]) ->
-                         context().
+          [{module(), module()}],
+          [module()], [{use_key(), use_value()}]) ->
+                 context().
 new(Annots, Aliases, Requires, Uses) ->
     Req0 = ec_dictionary:new(ec_dict),
     Req2 = lists:foldl(fun(ModuleName, Req1) ->
@@ -251,18 +251,18 @@ add_definition(Line, Name, Vars, Body, Ctx0=#context{definitions=Defs}) ->
                                                {CerlName, CerlBody}, Defs)}.
 
 
-resolve_variable(Ref={_, Arity}, Arity, Ctx) ->
+resolve_reference(Ref={_, Arity}, Arity, Ctx) ->
     search_for_defined_used_function(Ref, Arity, Ctx);
-resolve_variable({Module, Function}, Arity, Ctx)
+resolve_reference({Module, Function}, Arity, Ctx)
   when is_atom(Function), is_atom(Module) ->
     search_for_remote_function(Module, Function, Arity, Ctx);
-resolve_variable({Fun, Arity0}, Arity1, _Ctx) ->
+resolve_reference({Fun, Arity0}, Arity1, _Ctx) ->
     {error, {mismatched_arity, Fun, Arity0, Arity1}};
-resolve_variable({Module, Function, Arity}, Arity, Ctx) ->
+resolve_reference({Module, Function, Arity}, Arity, Ctx) ->
     search_for_remote_function(Module, Function, Arity, Ctx);
-resolve_variable({Module, Function, Arity0}, Arity1, _Ctx) ->
+resolve_reference({Module, Function, Arity0}, Arity1, _Ctx) ->
     {error, {mismatched_arity, Module, Function, Arity0, Arity1}};
-resolve_variable(Name, PossibleArity, Ctx = #context{scopes=Scopes})
+resolve_reference(Name, PossibleArity, Ctx = #context{scopes=Scopes})
   when is_atom(Name) ->
     case lists:any(fun(Scope) ->
                            sets:is_element(Name, Scope)
@@ -309,7 +309,7 @@ add_variable_to_scope(Name, Ctx0=#context{scopes=[Current | Scopes]}) ->
     Ctx0#context{scopes=[sets:add_element(Name, Current) | Scopes]}.
 
 add_variables_to_scope(Names, Ctx0=#context{scopes=[Current0 | Scopes]}) ->
-   Current2 =
+    Current2 =
         lists:foldl(fun(Name, Current1) ->
                             sets:add_element(Name, Current1)
                     end, Current0, Names),
