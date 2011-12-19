@@ -77,7 +77,7 @@ comp(Path0, Ctx0, Form = [Val | Args]) ->
             {Ctx0, cerl:ann_c_string([Line], Form)};
         {vector, {_, _}} ->
             convert_vector(Path0, Ctx0, Form);
-        {Type, {BaseLine, _}} when Type == list; Type == vector ->
+        {Type, Idx={BaseLine, _}} when Type == list; Type == vector ->
             PossibleArity = erlang:length(Args),
             Path1 = jxa_path:add(Path0),
             {_, {CallLine, _}} =
@@ -92,11 +92,11 @@ comp(Path0, Ctx0, Form = [Val | Args]) ->
                                                            Val,
                                                            PossibleArity),
                                             ArgList)};
-                apply ->
+                {apply, Name, Arity} ->
                     {Ctx1, cerl:ann_c_apply([BaseLine],
                                             cerl:ann_c_fname([CallLine],
-                                                             Val,
-                                                             PossibleArity),
+                                                             Name,
+                                                             Arity),
                                             ArgList)};
                 {remote, Module, Function} ->
                     {Ctx1, cerl:ann_c_call([BaseLine],
@@ -105,6 +105,10 @@ comp(Path0, Ctx0, Form = [Val | Args]) ->
                                            cerl:ann_c_atom([CallLine],
                                                            Function),
                                            ArgList)};
+                {error, Error1 = {mismatched_arity, _, _, _}} ->
+                    ?JXA_THROW({Error1, Idx});
+                {error, Error2 = {mismatched_arity, _, _, _, _}} ->
+                    ?JXA_THROW({Error2, Idx});
                 invalid ->
                     %% The last thing it might be is a function call. So we
                     %% are going to try to compile it. It might work

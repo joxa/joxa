@@ -128,6 +128,9 @@ transform_ast(Path0, Annotations, {float, Float, Idx}) ->
 transform_ast(Path0, Annotations, {integer, Integer, Idx}) ->
     {jxa_annot:add(jxa_path:path(Path0),
                    {integer, Idx}, Annotations), Integer};
+transform_ast(Path0, Annotations, {call, MFA, Idx}) ->
+    {jxa_annot:add(jxa_path:path(Path0), {call, Idx}, Annotations),
+     MFA};
 transform_ast(Path0, Annotations0, {quote, Quote, Idx}) ->
     {Annotations1, Quoted} =
         transform_ast(jxa_path:add(Path0), Annotations0, Quote),
@@ -331,6 +334,31 @@ ignorable(Input, Index) ->
               []
       end).
 
+fun_reference(Input, Index) ->
+    p(Input, Index, fun_reference,
+      p_choose([p_seq([fun ident/2,
+                       p_string("/"),
+                       fun ident/2,
+                       p_string("/"),
+                       fun integer/2]),
+                p_seq([fun ident/2,
+                       p_string("/"),
+                       fun integer/2]),
+                p_seq([fun ident/2,
+                       p_string("/"),
+                       fun ident/2])]),
+      fun([{ident, Module, _}, _,
+           {ident, Function, _}, _,
+           {integer, Arity, _}], Idx) ->
+              {call, {Module, Function, Arity}, Idx};
+         ([{ident, Function, _}, _,
+           {integer, Arity, _}], Idx) ->
+              {call, {Function, Arity}, Idx};
+         ([{ident, Module, _}, _,
+           {ident, Function, _}], Idx) ->
+              {call, {Module, Function}, Idx}
+      end).
+
 -spec symbol(binary(), index()) -> intermediate_ast().
 symbol(Input, Index) ->
     p(Input, Index, symbol,
@@ -370,9 +398,10 @@ value(Input, Index) ->
     p(Input, Index, value,
       fun(I,D) ->
               (p_seq([fun ignorable/2,
-                      p_choose([fun quote/2,
-                                fun list/2,
+                      p_choose([fun list/2,
                                 fun vector/2,
+                                fun quote/2,
+                                fun fun_reference/2,
                                 fun float/2,
                                 fun integer/2,
                                 fun char/2,

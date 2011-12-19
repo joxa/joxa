@@ -14,7 +14,7 @@ given([a,module,that,has,a,function,that,contains,'\'let\''], _State, _) ->
 
                 (defn+ do-test []
                       (let [(foo 1)
-                            (z (erlang:phash2 22))
+                            (z (erlang/phash2 22))
                             [(a b c) (values 1 2 3)]
                             [a1 (internal-test)]
                             (bar '(1 2 3 4 5)) ; This is a comment test
@@ -23,7 +23,7 @@ given([a,module,that,has,a,function,that,contains,'\'let\''], _State, _) ->
                            (do
                               ; as is this
                               (print \"~i ~p ~s ~p~n\"
-                                 (list foo bar baz bad-boy))
+                                 (list foo bar baz bad-boy ))
                               [foo bar baz bad-boy z a b c a1])))">>,
 
     {ok, Source}.

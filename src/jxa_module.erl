@@ -299,7 +299,7 @@ populate_use_context({ModuleName, Imports}, Ctx0) ->
 %%
 %%     [substr/3 str-substring]
 %%
-%% that is parsed into this [substr, '/', 3, 'sub-string'] into a something more
+%% that is parsed into this [{substr, 3}, 'sub-string'] into a something more
 %% usable in erlang ie
 %%
 %%     [{substr, 3}, str-substring]
@@ -311,24 +311,23 @@ populate_use_context({ModuleName, Imports}, Ctx0) ->
                                     [{{FunName::atom(),
                                        Arity::non_neg_integer()},
                                       Alias::atom()}].
-gather_fun_alias_pairs(Idx, [[Fun, '/', Arity, Alias] | Rest], Acc)
-  when is_atom(Fun), is_integer(Arity), is_atom(Alias) ->
-    gather_fun_alias_pairs(Idx,  Rest, [{{Fun, Arity}, Alias} | Acc]);
+gather_fun_alias_pairs(Idx, [[FunArity = {_, _}, Alias] | Rest], Acc)
+  when is_atom(Alias) ->
+    gather_fun_alias_pairs(Idx,  Rest, [{FunArity, Alias} | Acc]);
 gather_fun_alias_pairs(_Idx, [], Acc) ->
     Acc;
 gather_fun_alias_pairs(Idx, _, _) ->
     ?JXA_THROW({invalid_use, invalid_fun_spec, Idx}).
 
 %% Similar to gather_fun_alias_pairs gather_fun_arity_pairs parses fun refs
-%% in the form of fun_name/3 that get parsed into ['fun_name', '/', 3] into
-%% nice tuples of the furm {fun_name, 3}.
+%% in the form of fun_name/3 that get parsed into {'fun_name', 3}.
 -spec gather_fun_arity_pairs(jxa_parser:index(),
                              [atom() | non_neg_integer()],
                              [{FunName::atom(), Arity::non_neg_integer()}]) ->
                                     [{FunName::atom(),
                                       Arity::non_neg_integer()}].
-gather_fun_arity_pairs(Idx, [Fun, '/', Arity | Rest], Acc) ->
-    gather_fun_arity_pairs(Idx,  Rest, [{Fun, Arity} | Acc]);
+gather_fun_arity_pairs(Idx, [FunArity = {_, _} | Rest], Acc) ->
+    gather_fun_arity_pairs(Idx,  Rest, [FunArity | Acc]);
 gather_fun_arity_pairs(_Idx, [], Acc) ->
     Acc;
 gather_fun_arity_pairs(Idx, _, _Acc) ->

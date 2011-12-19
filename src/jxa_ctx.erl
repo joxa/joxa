@@ -52,11 +52,6 @@
                   definitions :: definition(),
                   line :: non_neg_integer()}).
 
--define(FUN_SPLIT_PATTERN,
-        {re_pattern,0,0,
-         <<69,82,67,80,57,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,58,0,0,0,48,0,0,0,
-           0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,93,0,5,27,58,84,0,5,0>>}).
-
 %%=============================================================================
 %% Types
 %%=============================================================================
@@ -256,6 +251,17 @@ add_definition(Line, Name, Vars, Body, Ctx0=#context{definitions=Defs}) ->
                                                {CerlName, CerlBody}, Defs)}.
 
 
+resolve_variable(Ref={_, Arity}, Arity, Ctx) ->
+    search_for_defined_used_function(Ref, Arity, Ctx);
+resolve_variable({Module, Function}, Arity, Ctx)
+  when is_atom(Function), is_atom(Module) ->
+    search_for_remote_function(Module, Function, Arity, Ctx);
+resolve_variable({Fun, Arity0}, Arity1, _Ctx) ->
+    {error, {mismatched_arity, Fun, Arity0, Arity1}};
+resolve_variable({Module, Function, Arity}, Arity, Ctx) ->
+    search_for_remote_function(Module, Function, Arity, Ctx);
+resolve_variable({Module, Function, Arity0}, Arity1, _Ctx) ->
+    {error, {mismatched_arity, Module, Function, Arity0, Arity1}};
 resolve_variable(Name, PossibleArity, Ctx = #context{scopes=Scopes})
   when is_atom(Name) ->
     case lists:any(fun(Scope) ->
@@ -264,33 +270,16 @@ resolve_variable(Name, PossibleArity, Ctx = #context{scopes=Scopes})
         true ->
             variable;
         false ->
-            resolve_function_name(Name, PossibleArity, Ctx)
-    end.
-
-resolve_function_name(Name, PossibleArity, Ctx) ->
-    StringName = erlang:atom_to_list(Name),
-    case re:split(StringName, ?FUN_SPLIT_PATTERN) of
-        [_] ->
-            %% It must be in the define list already
-            search_for_defined_used_function(Name, PossibleArity, Ctx);
-        [Module, Function] ->
-            %% Check the requires and and make sure that that function and
-            %% Arity exist already.
-            search_for_remote_function(Module, Function, PossibleArity, Ctx);
-        _ ->
-            %% Invalid
-            invalid
+            search_for_defined_used_function(Name, PossibleArity, Ctx)
     end.
 
 search_for_remote_function(Module, Function, PossibleArity,
                            #context{require=Requires}) ->
-    AModule = list_to_atom(binary_to_list(Module)),
-    AFunction = list_to_atom(binary_to_list(Function)),
     try
-        Exports = ec_dictionary:get(AModule, Requires),
-        case lists:member({AFunction, PossibleArity}, Exports) of
+        Exports = ec_dictionary:get(Module, Requires),
+        case lists:member({Function, PossibleArity}, Exports) of
             true ->
-                {remote, AModule, AFunction};
+                {remote, Module, Function};
             false ->
                 invalid
         end
@@ -303,7 +292,7 @@ search_for_defined_used_function(Name, PossibleArity,
                                  #context{definitions=Defs, use=Uses}) ->
     case ec_dictionary:has_key({Name, PossibleArity}, Defs) of
         true ->
-            apply;
+            {apply, Name, PossibleArity};
         false ->
             case ec_dictionary:get({Name, PossibleArity}, undefined, Uses) of
                 {FunName, ModuleName} ->
