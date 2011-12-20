@@ -17,7 +17,8 @@ given([a,module,that,has,an,anonymous,function], _State, _) ->
                                 {:hello arg1 arg2}))
                             (y (x 1 2))
                             ]
-                           (== y (x 1 2))))">>,
+                           (do (== y (x 1 2))
+                               (apply internal-test/0))))">>,
 
     {ok, Source}.
 

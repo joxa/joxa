@@ -36,6 +36,8 @@ comp(Path0, Ctx0, {F, A}) when is_integer(A) ->
                 false ->
                     ?JXA_THROW({invalid_reference, {F, A}, Idx})
             end;
+        {apply, Name, A} ->
+            {Ctx0, cerl:ann_c_fname([Line], Name, A)};
         _ ->
             ?JXA_THROW({undefined_reference, {F, A}, Idx})
     end;
@@ -68,6 +70,16 @@ comp(Path0, Ctx0, [Arg1, '.', Arg2]) ->
     {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
                                    jxa_ctx:annots(Ctx2)),
     {Ctx2, cerl:ann_c_cons(Line, Cerl1, Cerl2)};
+comp(Path0, Ctx0, [apply, Target | Args]) ->
+    {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
+                                   jxa_ctx:annots(Ctx0)),
+    {Ctx1, CerlTarget} = comp(jxa_path:incr(Path0),
+                              Ctx0, Target),
+    {Ctx2, CerlArgList} =  eval_args(jxa_path:incr(2, Path0),
+                                     Ctx1, Args),
+    {Ctx2, cerl:ann_c_apply([Line],
+                            CerlTarget,
+                            CerlArgList)};
 comp(Path0, Ctx0, [cons, Arg1, Arg2]) ->
     {Ctx1, Cerl1} = comp(jxa_path:incr(Path0),
                          Ctx0, Arg1),
