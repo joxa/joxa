@@ -680,35 +680,35 @@ string_test() ->
                        value(<<"\"Hello\t World\"">>, index()))).
 
 ident_test() ->
-    ?memo(?assertMatch({{ident, "/", {1, _}}, <<>>, _},
+    ?memo(?assertMatch({{ident, '/', {1, _}}, <<>>, _},
                        value(<<"/">>, index()))),
-    ?memo(?assertMatch({{ident, "true", {1, _}}, <<>>, _}, value(<<"true">>, index()))),
-    ?memo(?assertMatch({{ident, "false", {1, _}},  <<>>, _},value(<<"false">>, index()))),
-    ?memo(?assertMatch({{quote, {ident, "keyword", _}, {1, _}}, <<>>, _},
+    ?memo(?assertMatch({{ident, 'true', {1, _}}, <<>>, _}, value(<<"true">>, index()))),
+    ?memo(?assertMatch({{ident, 'false', {1, _}},  <<>>, _},value(<<"false">>, index()))),
+    ?memo(?assertMatch({{quote, {ident, 'keyword', _}, {1, _}}, <<>>, _},
                        value(<<":keyword">>, index()))),
-    ?memo(?assertMatch({{ident, "*foo*", {1, _}}, <<>>, _}, value(<<"*foo*">>, index()))),
-    ?memo(?assertMatch({{ident, "foo-bar", {1, _}}, <<>>, _}, value(<<"foo-bar">>, index()))),
-    ?memo(?assertMatch({{ident, "null", {1, _}}, <<>>, _}, value(<<"null">>, index()))),
-    ?memo(?assertMatch({{ident, "Hello?", {1, _}}, <<>>, _}, value(<<"Hello?">>, index()))),
-    ?memo(?assertMatch({{ident, "boo88", {1, _}}, <<>>, _}, value(<<"boo88">>, index()))),
-    ?memo(?assertMatch({{ident, "bock:", {1, _}}, <<>>, _}, value(<<"bock:">>, index()))),
-    ?memo(?assertMatch({{ident, "bock{", {1, _}}, <<>>, _}, value(<<"bock{">>, index()))),
-    ?memo(?assertMatch({{ident, "bock", {1, _}}, <<"[">>, _}, value(<<"bock[">>, index()))),
-    ?memo(?assertMatch({{ident, "bock", {1, _}}, <<"(ee">>, _}, value(<<"bock(ee">>, index()))).
+    ?memo(?assertMatch({{ident, '*foo*', {1, _}}, <<>>, _}, value(<<"*foo*">>, index()))),
+    ?memo(?assertMatch({{ident, 'foo-bar', {1, _}}, <<>>, _}, value(<<"foo-bar">>, index()))),
+    ?memo(?assertMatch({{ident, 'null', {1, _}}, <<>>, _}, value(<<"null">>, index()))),
+    ?memo(?assertMatch({{ident, 'Hello?', {1, _}}, <<>>, _}, value(<<"Hello?">>, index()))),
+    ?memo(?assertMatch({{ident, 'boo88', {1, _}}, <<>>, _}, value(<<"boo88">>, index()))),
+    ?memo(?assertMatch({{ident, 'bock:', {1, _}}, <<>>, _}, value(<<"bock:">>, index()))),
+    ?memo(?assertMatch({{ident, 'bock', {1, _}}, <<"{">>, _}, value(<<"bock{">>, index()))),
+    ?memo(?assertMatch({{ident, 'bock', {1, _}}, <<"[">>, _}, value(<<"bock[">>, index()))),
+    ?memo(?assertMatch({{ident, 'bock', {1, _}}, <<"(ee">>, _}, value(<<"bock(ee">>, index()))).
 
 parse_test() ->
-    Value = list_to_binary("(io:format \n \"~p\" \n '(\n(foo \n bar \n baz 33)))"),
+    Value = list_to_binary("(io/format \n \"~p\" \n '(\n(foo \n bar \n baz 33)))"),
     {Annots, Result} =  parse(Value),
-    ?assertMatch(['io:format', "~p",
-                  [quote, [[foo, bar, baz, 33]]]], Result),
+    ?assertMatch([[{'__fun__', 'io', 'format'}, "~p",
+                   [quote, [[foo, bar, baz, 33]]]]], Result),
 
-    ?assertMatch({ident, {1, 2}},
-                 jxa_annot:get([1], Annots)),
+    ?assertMatch({call, {1, 2}},
+                 jxa_annot:get([1,1], Annots)),
     ?assertMatch({string, {2, 2}},
-                 jxa_annot:get([2], Annots)),
+                 jxa_annot:get([2,1], Annots)),
     ?assertMatch({quote, {3, 2}},
-                 jxa_annot:get([3], Annots)),
+                  jxa_annot:get([3, 1], Annots)),
     ?assertMatch({ident, {4, 2}},
-                 jxa_annot:get([1, 1, 1, 3], Annots)).
+                 jxa_annot:get([1, 1, 2, 3, 1], Annots)).
 
 -endif.
