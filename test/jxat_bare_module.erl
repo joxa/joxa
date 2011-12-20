@@ -5,7 +5,8 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,bare,module], _State, _) ->
-    Module = <<"(module my-module)">>,
+    Module = <<"(module my-module ; Simple module test
+                 )">>,
     {ok, Module}.
 
 'when'([joxa,is,called,on,this,module], State, _) ->

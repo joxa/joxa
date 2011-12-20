@@ -233,14 +233,14 @@ vector(Input, Index) ->
     p(Input, Index, vector,
       fun(I,D) ->
               (p_choose([p_seq([p_string(<<"[">>),
-                                p_optional(fun 'space'/2),
+                                fun ignorable/2,
                                 fun value/2,
-                                p_zero_or_more(p_seq([fun space/2,
+                                p_zero_or_more(p_seq([fun ignorable/2,
                                                       fun value/2])),
-                                p_optional(fun space/2),
+                                fun ignorable/2,
                                 p_string(<<"]">>)]),
                          p_seq([p_string(<<"[">>),
-                                p_optional(fun 'space'/2),
+                                fun ignorable/2,
                                 p_string(<<"]">>)])]))(I,D)
       end,
       fun([_, _, H, T, _, _], Idx) ->
@@ -254,14 +254,14 @@ list(Input, Index) ->
     p(Input, Index, list,
       fun(I,D) ->
               (p_choose([p_seq([p_string(<<"(">>),
-                                p_optional(fun 'space'/2),
+                                fun ignorable/2,
                                 fun value/2,
-                                p_zero_or_more(p_seq([fun space/2,
+                                p_zero_or_more(p_seq([fun ignorable/2,
                                                       fun value/2])),
-                                p_optional(fun space/2),
+                                fun ignorable/2,
                                 p_string(<<")">>)]),
                          p_seq([p_string(<<"(">>),
-                                p_optional(fun 'space'/2),
+                                fun ignorable/2,
                                 p_string(<<")">>)])]))(I,D)
       end,
       fun([_, _, H, T, _, _], Idx) ->
@@ -310,7 +310,28 @@ string(Input, Index) ->
 -spec space(binary(), index()) -> intermediate_ast().
 space(Input, Index) ->
     p(Input, Index, space,
-      p_zero_or_more(p_charclass(<<"[ \t\n\s\r]">>))).
+      p_charclass(<<"[ \t\n\s\r]">>)).
+
+-spec eol(binary(), index()) -> intermediate_ast().
+eol(Input, Index) ->
+    p(Input, Index, eol,
+      p_charclass(<<"[\n\r]">>)).
+
+-spec comment(binary(), index()) -> intermediate_ast().
+comment(Input, Index) ->
+    p(Input, Index, comment,
+      p_seq([p_string(";"),
+             p_zero_or_more(p_charclass(<<"[^\n\r]">>)),
+             fun eol/2])).
+
+-spec ignorable(binary(), index()) -> intermediate_ast().
+ignorable(Input, Index) ->
+    p(Input, Index, ignorable,
+      p_optional(p_zero_or_more(p_choose([fun space/2,
+                                          fun comment/2]))),
+      fun(_, _Idx) ->
+              []
+      end).
 
 -spec symbol(binary(), index()) -> intermediate_ast().
 symbol(Input, Index) ->
@@ -325,8 +346,10 @@ symbol(Input, Index) ->
 ident(Input, Index) ->
     p(Input, Index, ident,
       p_choose([p_string("/"),
-                p_one_or_more(p_and([p_not(p_charclass(<<"[ /\t\n\s\r\\(\\)\\[\\]\"]">>)),
-                                     p_anything()]))]),
+                p_one_or_more(
+                  p_and([p_not(
+                           p_charclass(<<"[ ;/\t\n\s\r\\(\\)\\[\\]\"]">>)),
+                         p_anything()]))]),
 
       fun(Node, Idx) ->
               Result =
@@ -348,7 +371,7 @@ quote(Input, Index) ->
 value(Input, Index) ->
     p(Input, Index, value,
       fun(I,D) ->
-              (p_seq([p_optional(fun space/2),
+              (p_seq([fun ignorable/2,
                       p_choose([fun quote/2,
                                 fun list/2,
                                 fun vector/2,
@@ -358,7 +381,7 @@ value(Input, Index) ->
                                 fun string/2,
                                 fun symbol/2,
                                 fun ident/2]),
-                      p_optional(fun space/2)]))(I,D) end,
+                      fun ignorable/2]))(I,D) end,
       fun(Node, _Idx) ->
               lists:nth(2, Node)
       end).
