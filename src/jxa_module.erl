@@ -311,12 +311,12 @@ populate_use_context({ModuleName, Imports}, Ctx0) ->
                                     [{{FunName::atom(),
                                        Arity::non_neg_integer()},
                                       Alias::atom()}].
-gather_fun_alias_pairs(Idx, [[FunArity = {_, _}, Alias] | Rest], Acc)
+gather_fun_alias_pairs(Idx, [[{'__fun__', Fun, Arity}, Alias] | Rest], Acc)
   when is_atom(Alias) ->
-    gather_fun_alias_pairs(Idx,  Rest, [{FunArity, Alias} | Acc]);
+    gather_fun_alias_pairs(Idx,  Rest, [{{Fun, Arity}, Alias} | Acc]);
 gather_fun_alias_pairs(_Idx, [], Acc) ->
     Acc;
-gather_fun_alias_pairs(Idx, _, _) ->
+gather_fun_alias_pairs(Idx, _Detail, _) ->
     ?JXA_THROW({invalid_use, invalid_fun_spec, Idx}).
 
 %% Similar to gather_fun_alias_pairs gather_fun_arity_pairs parses fun refs
@@ -326,11 +326,11 @@ gather_fun_alias_pairs(Idx, _, _) ->
                              [{FunName::atom(), Arity::non_neg_integer()}]) ->
                                     [{FunName::atom(),
                                       Arity::non_neg_integer()}].
-gather_fun_arity_pairs(Idx, [FunArity = {_, _} | Rest], Acc) ->
-    gather_fun_arity_pairs(Idx,  Rest, [FunArity | Acc]);
+gather_fun_arity_pairs(Idx, [{'__fun__', Fun, Arity} | Rest], Acc) ->
+    gather_fun_arity_pairs(Idx,  Rest, [{Fun, Arity} | Acc]);
 gather_fun_arity_pairs(_Idx, [], Acc) ->
     Acc;
-gather_fun_arity_pairs(Idx, _, _Acc) ->
+gather_fun_arity_pairs(Idx, _Detail, _Acc) ->
     ?JXA_THROW({invalid_use, invalid_fun_spec, Idx}).
 
 -spec get_exports(ModuleName::atom(), jxa_parser:index()) ->

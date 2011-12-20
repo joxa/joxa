@@ -24,7 +24,7 @@ comp(Path0, Ctx0, Arg) when is_atom(Arg) ->
         _ ->
             ?JXA_THROW({undefined_reference, Arg, Idx})
     end;
-comp(Path0, Ctx0, {F, A}) when is_integer(A) ->
+comp(Path0, Ctx0, {'__fun__', F, A}) when is_integer(A) ->
     {_, Idx = {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
                                          jxa_ctx:annots(Ctx0)),
     case jxa_ctx:resolve_reference(F, A, Ctx0) of
@@ -53,6 +53,8 @@ comp(Path0, Ctx0, Arg) when is_float(Arg) ->
     {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
                                    jxa_ctx:annots(Ctx0)),
     {Ctx0, cerl:ann_c_float([Line], Arg)};
+comp(Path0, Ctx0, Arg) when is_tuple(Arg) ->
+    mk_tuple(Path0, Ctx0, tuple_to_list(Arg));
 comp(Path0, Ctx0, Form = ['let' | _]) ->
     jxa_let:comp(Path0, Ctx0, Form);
 comp(Path0, Ctx0, [do | Args]) ->
@@ -70,27 +72,49 @@ comp(Path0, Ctx0, [Arg1, '.', Arg2]) ->
     {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
                                    jxa_ctx:annots(Ctx2)),
     {Ctx2, cerl:ann_c_cons(Line, Cerl1, Cerl2)};
-comp(Path0, Ctx0, [apply, Target | Args]) ->
+comp(Path0, Ctx0, [apply, {'__fun__', Module, Function, _A} | Args]) ->
     {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
                                    jxa_ctx:annots(Ctx0)),
-    {Ctx1, CerlTarget} = comp(jxa_path:incr(Path0),
+    {Ctx1, ArgList} =  eval_args(jxa_path:incr(2, Path0),
+                                 Ctx0, Args),
+    {Ctx1, cerl:ann_c_call([Line],
+                           cerl:ann_c_atom([Line],
+                                           Module),
+                           cerl:ann_c_atom([Line],
+                                           Function),
+                           ArgList)};
+comp(Path0, Ctx0, [apply, Target | Args]) ->
+    {_, Idx={Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
+                                   jxa_ctx:annots(Ctx0)),
+    {Ctx1, CerlTarget} = comp(jxa_path:add(jxa_path:incr(Path0)),
                               Ctx0, Target),
     {Ctx2, CerlArgList} =  eval_args(jxa_path:incr(2, Path0),
                                      Ctx1, Args),
-    {Ctx2, cerl:ann_c_apply([Line],
-                            CerlTarget,
-                            CerlArgList)};
+    case cerl:is_c_fname(CerlTarget) of
+        true ->
+            case cerl:fname_arity(CerlTarget) == erlang:length(CerlArgList) of
+                true ->
+                    {Ctx2, cerl:ann_c_apply([Line],
+                                            CerlTarget,
+                                            CerlArgList)};
+                false ->
+                    ?JXA_THROW({invalid_arity, Idx})
+            end;
+        false ->
+            {Ctx2, cerl:ann_c_apply([Line],
+                                    CerlTarget,
+                                    CerlArgList)}
+    end;
 comp(Path0, Ctx0, [cons, Arg1, Arg2]) ->
-    {Ctx1, Cerl1} = comp(jxa_path:incr(Path0),
-                         Ctx0, Arg1),
+            {Ctx1, Cerl1} = comp(jxa_path:incr(Path0),
+                                 Ctx0, Arg1),
     {Ctx2, Cerl2} = comp(jxa_path:incr(2, Path0),
                          Ctx1, Arg2),
     {ident, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
                                        jxa_ctx:annots(Ctx2)),
     {Ctx2, cerl:ann_c_cons(Line, Cerl1, Cerl2)};
 comp(Path0, Ctx0, [quote, Args]) ->
-    Path1 = jxa_path:add(Path0),
-    Literal = jxa_literal:comp(Path1, Ctx0, Args),
+    Literal = jxa_literal:comp(jxa_path:incr(Path0), Ctx0, Args),
     {Ctx0, Literal};
 comp(Path0, Ctx0, [list | Args]) ->
     Path1 = jxa_path:incr(Path0),
@@ -103,16 +127,12 @@ comp(Path0, Ctx0, [fn, Args, Expression]) ->
                                    jxa_ctx:annots(Ctx1)),
     CerlFun = cerl:ann_c_fun([Line], ArgList, Body),
     {Ctx1, CerlFun};
-comp(Path0, Ctx0, [vector | Args]) ->
-    convert_vector(Path0, Ctx0, Args);
+comp(Path0, Ctx0, [tuple | Args]) ->
+    mk_tuple(Path0, Ctx0, Args);
 comp(Path0, Ctx0, Form = [Val | Args]) ->
     case jxa_annot:get(jxa_path:path(Path0), jxa_ctx:annots(Ctx0)) of
         {string, {Line, _}} ->
             {Ctx0, cerl:ann_c_string([Line], Form)};
-        {vector, {_, _}} ->
-            convert_vector(Path0, Ctx0, Form);
-        {literal_list, {_, _}} ->
-            convert_list(Path0, Ctx0, Form);
         {Type, Idx={BaseLine, _}} when Type == list; Type == vector ->
             PossibleArity = erlang:length(Args),
             Path1 = jxa_path:add(Path0),
@@ -154,7 +174,7 @@ comp(Path0, Ctx0, _Form) ->
     {_, Idx} = jxa_annot:get(jxa_path:path(Path0), jxa_ctx:annots(Ctx0)),
     ?JXA_THROW({invalid_form, Idx}).
 
-convert_vector(Path0, Ctx0, Args) ->
+mk_tuple(Path0, Ctx0, Args) ->
     {_, Ctx3, Body} =
         lists:foldl(fun(Arg, {Path2, Ctx1, Acc}) ->
                             {Ctx2, Element} =

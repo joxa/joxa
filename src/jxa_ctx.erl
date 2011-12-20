@@ -255,16 +255,16 @@ add_definition(Line, Name, Vars, Body, Ctx0=#context{definitions=Defs}) ->
                                                {CerlName, CerlBody}, Defs)}.
 
 
-resolve_reference(Ref={_, Arity}, Arity, Ctx) ->
+resolve_reference(Ref={'__fun__', _, Arity}, Arity, Ctx) ->
     search_for_defined_used_function(Ref, Arity, Ctx);
-resolve_reference({Module, Function}, Arity, Ctx)
+resolve_reference({'__fun__', Module, Function}, Arity, Ctx)
   when is_atom(Function), is_atom(Module) ->
     search_for_remote_function(Module, Function, Arity, Ctx);
-resolve_reference({Fun, Arity0}, Arity1, _Ctx) ->
+resolve_reference({'__fun__', Fun, Arity0}, Arity1, _Ctx) ->
     {error, {mismatched_arity, Fun, Arity0, Arity1}};
-resolve_reference({Module, Function, Arity}, Arity, Ctx) ->
+resolve_reference({'__fun__', Module, Function, Arity}, Arity, Ctx) ->
     search_for_remote_function(Module, Function, Arity, Ctx);
-resolve_reference({Module, Function, Arity0}, Arity1, _Ctx) ->
+resolve_reference({'__fun__', Module, Function, Arity0}, Arity1, _Ctx) ->
     {error, {mismatched_arity, Module, Function, Arity0, Arity1}};
 resolve_reference(Name, PossibleArity, Ctx = #context{scopes=Scopes})
   when is_atom(Name) ->

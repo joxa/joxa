@@ -7,23 +7,23 @@
 given([a,module,that,has,a,function,that,contains,'\'let\''], _State, _) ->
    Source = <<"(module jxat-let-support-test
                     (require erlang)
-                    (use [io :only [format/2] :rename [[format/2 print]]]))
+                    (use (io :only (format/2) :rename ((format/2 print)))))
 
-                (defn internal-test []
+                (defn internal-test ()
                       [1 2 3 4 5 6 7 8])
 
-                (defn+ do-test []
-                      (let [(foo 1)
+                (defn+ do-test ()
+                      (let ((foo 1)
                             (z (erlang/phash2 22))
-                            [(a b c) (values 1 2 3)]
-                            [a1 (internal-test)]
+                            ((a b c) (values 1 2 3))
+                            (a1 (internal-test))
                             (bar [1 2 3 4 5]) ; This is a comment test
                             (baz \"Hello World\")
-                            (bad-boy 'super-dooper)]
+                            (bad-boy 'super-dooper))
                            (do
                               ; as is this
                               (print \"~i ~p ~s ~p ~p~n\"
-                                 (list foo bar baz bad-boy (1 . 2)))
+                                 [foo bar baz bad-boy (1 . 2)])
                               {foo bar baz bad-boy z a b c a1})))">>,
 
     {ok, Source}.

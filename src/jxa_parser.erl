@@ -46,7 +46,7 @@
                      string |
                      list |
                      literal_list |
-                     vector |
+                     tuple |
                      call |
                      quote |
                      float |
@@ -60,7 +60,7 @@
                             {quote, intermediate_ast(), index()} |
                             {list, [intermediate_ast()], index()} |
                             {literal_list, [intermediate_ast()], index()} |
-                            {vector, [intermediate_ast()], index()} |
+                            {tuple, [intermediate_ast()], index()} |
                             {call,
                              {atom(), atom(), non_neg_integer()} |
                              {atom(), non_neg_integer()} |
@@ -143,9 +143,12 @@ transform_ast(Path0, Annotations, {call, MFA, Idx}) ->
      MFA};
 transform_ast(Path0, Annotations0, {quote, Quote, Idx}) ->
     {Annotations1, Quoted} =
-        transform_ast(jxa_path:add(Path0), Annotations0, Quote),
+        transform_ast(jxa_path:add(jxa_path:incr(Path0)),
+                      Annotations0, Quote),
+    Annotations2 = jxa_annot:add(jxa_path:add(Path0), {ident, Idx},
+                                 Annotations1),
     {jxa_annot:add(jxa_path:path(Path0),
-                   {quote, Idx}, Annotations1), [quote, Quoted]};
+                   {quote, Idx}, Annotations2), [quote, Quoted]};
 transform_ast(Path0, Annotations0, {literal_list, List, Idx}) ->
     {_, Annotations3, TransformList} =
         lists:foldl(fun(El, {Path1, Annotations1, Elements}) ->
@@ -154,11 +157,14 @@ transform_ast(Path0, Annotations0, {literal_list, List, Idx}) ->
                                               Annotations1, El),
                             Path2 = jxa_path:incr(Path1),
                             {Path2, Annotations2, [Transformed | Elements]}
-                    end, {Path0, Annotations0, []}, List),
-    {jxa_annot:add(jxa_path:path(Path0), {literal_list, Idx}, Annotations3),
-     lists:reverse(TransformList)};
-transform_ast(Path0, Annotations0, {Type, List, Idx})
-  when Type == vector; Type == list ->
+                    end, {jxa_path:incr(Path0), Annotations0, []}, List),
+    %% We need to put in the annotation for the programatically inserted
+    %% 'list' argument
+    Annotations4 = jxa_annot:add(jxa_path:add_path(Path0), {ident, Idx},
+                                 Annotations3),
+    {jxa_annot:add(jxa_path:path(Path0), {literal_list, Idx}, Annotations4),
+     [list | lists:reverse(TransformList)]};
+transform_ast(Path0, Annotations0, {tuple, List, Idx}) ->
     {_, Annotations3, TransformList} =
         lists:foldl(fun(El, {Path1, Annotations1, Elements}) ->
                             {Annotations2, Transformed} =
@@ -167,7 +173,18 @@ transform_ast(Path0, Annotations0, {Type, List, Idx})
                             Path2 = jxa_path:incr(Path1),
                             {Path2, Annotations2, [Transformed | Elements]}
                     end, {Path0, Annotations0, []}, List),
-    {jxa_annot:add(jxa_path:path(Path0), {Type, Idx}, Annotations3),
+    {jxa_annot:add(jxa_path:path(Path0), {tuple, Idx}, Annotations3),
+     list_to_tuple(lists:reverse(TransformList))};
+transform_ast(Path0, Annotations0, {list, List, Idx}) ->
+    {_, Annotations3, TransformList} =
+        lists:foldl(fun(El, {Path1, Annotations1, Elements}) ->
+                            {Annotations2, Transformed} =
+                                transform_ast(jxa_path:add(Path1),
+                                              Annotations1, El),
+                            Path2 = jxa_path:incr(Path1),
+                            {Path2, Annotations2, [Transformed | Elements]}
+                    end, {Path0, Annotations0, []}, List),
+    {jxa_annot:add(jxa_path:path(Path0), {list, Idx}, Annotations3),
      lists:reverse(TransformList)}.
 
 -spec intermediate_parse(string(), index()) -> intermediate_ast() | fail.
@@ -250,9 +267,9 @@ digit(Input, Index) ->
               (p_charclass(<<"[0-9]">>))(I,D)
       end).
 
--spec vector(binary(), index()) -> intermediate_ast().
-vector(Input, Index) ->
-    p(Input, Index, vector,
+-spec tuple(binary(), index()) -> intermediate_ast().
+tuple(Input, Index) ->
+    p(Input, Index, tuple,
       p_choose([p_seq([p_string(<<"{">>),
                        fun ignorable/2,
                        fun value/2,
@@ -264,9 +281,9 @@ vector(Input, Index) ->
                        fun ignorable/2,
                        p_string(<<"}">>)])]),
       fun([_, _, H, T, _, _], Idx) ->
-              {vector, lists:flatten([H, T]), Idx};
+              {tuple, lists:flatten([H, T]), Idx};
          ([_, _, _], Idx) ->
-              {vector, [], Idx}
+              {tuple, [], Idx}
       end).
 
 -spec list(binary(), index()) -> intermediate_ast().
@@ -381,13 +398,13 @@ fun_reference(Input, Index) ->
       fun([{ident, Module, _}, _,
            {ident, Function, _}, _,
            {integer, Arity, _}], Idx) ->
-              {call, {Module, Function, Arity}, Idx};
+              {call, {'__fun__', Module, Function, Arity}, Idx};
          ([{ident, Function, _}, _,
            {integer, Arity, _}], Idx) ->
-              {call, {Function, Arity}, Idx};
+              {call, {'__fun__', Function, Arity}, Idx};
          ([{ident, Module, _}, _,
            {ident, Function, _}], Idx) ->
-              {call, {Module, Function}, Idx}
+              {call, {'__fun__', Module, Function}, Idx}
       end).
 
 -spec symbol(binary(), index()) -> intermediate_ast().
@@ -430,7 +447,7 @@ value(Input, Index) ->
       fun(I,D) ->
               (p_seq([fun ignorable/2,
                       p_choose([fun list/2,
-                                fun vector/2,
+                                fun tuple/2,
                                 fun quote/2,
                                 fun fun_reference/2,
                                 fun float/2,

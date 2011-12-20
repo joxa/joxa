@@ -7,17 +7,17 @@ given([a,featureful,module], _State, _) ->
     Source = <<"(module jxat-featureful
               (use string code)
               (attr sfoo 123)
-              (use [lists :only [member/2 append/2]
-                          :rename [[member/2 mbr]]])
-              (use [file :as f
-                         :exclude [delete/1]
-                         :rename [[change_group/2 chgrp]
-                                  [change_mode/2 chmod]]])
+              (use (lists :only (member/2 append/2)
+                          :rename ((member/2 mbr))))
+              (use (file :as f
+                         :exclude (delete/1)
+                         :rename ((change_group/2 chgrp)
+                                  (change_mode/2 chmod))))
               (attr super_duper \"Hello World\")
-              (require [proplists :as props])
+              (require (proplists :as props))
               (require erlang code)
-              (use [filename :exclude [flatten/1 append/2 join/2
-                                       absname/1 absname_join/2]]))">>,
+              (use (filename :exclude (flatten/1 append/2 join/2
+                                       absname/1 absname_join/2))))">>,
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], State, _) ->

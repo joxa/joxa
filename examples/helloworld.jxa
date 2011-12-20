@@ -1,6 +1,6 @@
 (module helloworld
-        (use [io :only [format/2] :rename ([format/2 print])]))
+        (use (io :only (format/2) :rename ((format/2 print)))))
 
-(defn+ hello-world [arg]
-  (print "~p" (list arg)))
+(defn+ hello-world (arg)
+  (print "~p" [arg]))
 

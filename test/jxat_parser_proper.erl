@@ -23,7 +23,7 @@ to_string({float, F, _}) ->
     erlang:float_to_list(F);
 to_string({string, S, _}) ->
     "\"" ++ S ++ "\"";
-to_string({vector, Items, _}) ->
+to_string({tuple, Items, _}) ->
     lists:flatten(["{", lists:map(fun(Item) ->
                                           [" ", to_string(Item), " "]
                                   end, Items), "}"]);
@@ -53,7 +53,7 @@ compare({string, S, _}, {string, S, _}) ->
     true;
 compare({quote, Value1, _}, {quote, Value2, _}) ->
     compare(Value1, Value2);
-compare({vector, V1, _}, {vector, V2, _}) ->
+compare({tuple, V1, _}, {tuple, V2, _}) ->
     lists:all(fun({I1, I2}) ->
                       compare(I1, I2)
               end, lists:zip(V1, V2));
@@ -149,10 +149,10 @@ jxa_float() ->
 jxa_string() ->
     {string, internal_string(), 0}.
 
-jxa_vector(0) ->
-    {vector, [], 0};
-jxa_vector(Size) ->
-    {vector, resize(Size, list(value(Size div 4))), 0}.
+jxa_tuple(0) ->
+    {tuple, [], 0};
+jxa_tuple(Size) ->
+    {tuple, resize(Size, list(value(Size div 4))), 0}.
 
 jxa_list(0) ->
     {list, [], 0};
@@ -171,7 +171,7 @@ jxa_quote(Size) ->
 
 value(Size) ->
     union([jxa_quote(Size),
-           jxa_vector(Size),
+           jxa_tuple(Size),
            jxa_list(Size),
            jxa_literal_list(Size),
            jxa_float(),
