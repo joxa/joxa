@@ -8,7 +8,7 @@ given([a,module,that,has,a,function,that,calls,
     Source = <<"(module helloworld
                  (use [io :only [format/2] :rename ([format/2 print])]))
                (defn+ hello-world [arg]
-                 (print \"~p\" (list arg)))">>,
+                 (print \"~p\" [arg]))">>,
     {ok, Source}.
 
 

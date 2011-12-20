@@ -99,6 +99,8 @@ comp(Path0, Ctx0, Form = [Val | Args]) ->
             {Ctx0, cerl:ann_c_string([Line], Form)};
         {vector, {_, _}} ->
             convert_vector(Path0, Ctx0, Form);
+        {literal_list, {_, _}} ->
+            convert_list(Path0, Ctx0, Form);
         {Type, Idx={BaseLine, _}} when Type == list; Type == vector ->
             PossibleArity = erlang:length(Args),
             Path1 = jxa_path:add(Path0),

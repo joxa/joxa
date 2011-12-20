@@ -45,6 +45,7 @@
 -type type_desc() :: char |
                      string |
                      list |
+                     literal_list |
                      vector |
                      call |
                      quote |
@@ -58,6 +59,7 @@
                             {string, string(), index()} |
                             {quote, intermediate_ast(), index()} |
                             {list, [intermediate_ast()], index()} |
+                            {literal_list, [intermediate_ast()], index()} |
                             {vector, [intermediate_ast()], index()} |
                             {call,
                              {atom(), atom(), non_neg_integer()} |
@@ -144,9 +146,20 @@ transform_ast(Path0, Annotations0, {quote, Quote, Idx}) ->
         transform_ast(jxa_path:add(Path0), Annotations0, Quote),
     {jxa_annot:add(jxa_path:path(Path0),
                    {quote, Idx}, Annotations1), [quote, Quoted]};
+transform_ast(Path0, Annotations0, {literal_list, List, Idx}) ->
+    {_, Annotations3, TransformList} =
+        lists:foldl(fun(El, {Path1, Annotations1, Elements}) ->
+                            {Annotations2, Transformed} =
+                                transform_ast(jxa_path:add(Path1),
+                                              Annotations1, El),
+                            Path2 = jxa_path:incr(Path1),
+                            {Path2, Annotations2, [Transformed | Elements]}
+                    end, {Path0, Annotations0, []}, List),
+    {jxa_annot:add(jxa_path:path(Path0), {literal_list, Idx}, Annotations3),
+     lists:reverse(TransformList)};
 transform_ast(Path0, Annotations0, {Type, List, Idx})
   when Type == vector; Type == list ->
-       {_, Annotations3, TransformList} =
+    {_, Annotations3, TransformList} =
         lists:foldl(fun(El, {Path1, Annotations1, Elements}) ->
                             {Annotations2, Transformed} =
                                 transform_ast(jxa_path:add(Path1),
@@ -240,18 +253,16 @@ digit(Input, Index) ->
 -spec vector(binary(), index()) -> intermediate_ast().
 vector(Input, Index) ->
     p(Input, Index, vector,
-      fun(I,D) ->
-              (p_choose([p_seq([p_string(<<"[">>),
+      p_choose([p_seq([p_string(<<"{">>),
+                       fun ignorable/2,
+                       fun value/2,
+                       p_zero_or_more(p_seq([fun ignorable/2,
+                                             fun value/2])),
                                 fun ignorable/2,
-                                fun value/2,
-                                p_zero_or_more(p_seq([fun ignorable/2,
-                                                      fun value/2])),
-                                fun ignorable/2,
-                                p_string(<<"]">>)]),
-                         p_seq([p_string(<<"[">>),
-                                fun ignorable/2,
-                                p_string(<<"]">>)])]))(I,D)
-      end,
+                       p_string(<<"}">>)]),
+                p_seq([p_string(<<"{">>),
+                       fun ignorable/2,
+                       p_string(<<"}">>)])]),
       fun([_, _, H, T, _, _], Idx) ->
               {vector, lists:flatten([H, T]), Idx};
          ([_, _, _], Idx) ->
@@ -261,20 +272,32 @@ vector(Input, Index) ->
 -spec list(binary(), index()) -> intermediate_ast().
 list(Input, Index) ->
     p(Input, Index, list,
-      fun(I,D) ->
-              (p_choose([p_seq([p_string(<<"(">>),
-                                fun ignorable/2,
-                                fun value/2,
-                                p_zero_or_more(p_seq([fun ignorable/2,
-                                                      fun value/2])),
-                                fun ignorable/2,
-                                p_string(<<")">>)]),
-                         p_seq([p_string(<<"(">>),
-                                fun ignorable/2,
-                                p_string(<<")">>)])]))(I,D)
-      end,
-      fun([_, _, H, T, _, _], Idx) ->
+      p_choose([p_seq([p_string(<<"(">>),
+                       fun ignorable/2,
+                       fun value/2,
+                       p_zero_or_more(p_seq([fun ignorable/2,
+                                             fun value/2])),
+                       fun ignorable/2,
+                       p_string(<<")">>)]),
+                p_seq([p_string(<<"(">>),
+                       fun ignorable/2,
+                       p_string(<<")">>)]),
+                p_seq([p_string(<<"[">>),
+                       fun ignorable/2,
+                       fun value/2,
+                       p_zero_or_more(p_seq([fun ignorable/2,
+                                             fun value/2])),
+                       fun ignorable/2,
+                       p_string(<<"]">>)]),
+                p_seq([p_string(<<"[">>),
+                       fun ignorable/2,
+                       p_string(<<"]">>)])]),
+      fun([<<"(">>, _, H, T, _, _], Idx) ->
               {list, lists:flatten([H, T]), Idx};
+         ([<<"[">>, _, H, T, _, _], Idx) ->
+              {literal_list, lists:flatten([H, T]), Idx};
+         ([<<"[">>, _, _], Idx) ->
+              {literal_list, [], Idx};
          ([_, _, _], Idx) ->
               {list, [], Idx}
       end).
@@ -382,7 +405,7 @@ ident(Input, Index) ->
       p_choose([p_string("/"),
                 p_one_or_more(
                   p_and([p_not(
-                           p_charclass(<<"[ ;/\t\n\s\r\\(\\)\\[\\]\"]">>)),
+                           p_charclass(<<"[ ;{}/\t\n\s\r\\(\\)\\[\\]\"]">>)),
                          p_anything()]))]),
 
       fun(Node, Idx) ->
