@@ -5,9 +5,7 @@
 -include_lib("proper/include/proper.hrl").
 
 to_string({ident, Ident, _}) ->
-    Ident;
-to_string({symbol, Ident, _}) ->
-    ":" ++ Ident;
+    atom_to_list(Ident);
 to_string({quote, Value, _}) ->
    "'" ++ to_string(Value);
 to_string({fun_ref, {Module, Fun, Arity}, _}) ->
@@ -26,20 +24,22 @@ to_string({float, F, _}) ->
 to_string({string, S, _}) ->
     "\"" ++ S ++ "\"";
 to_string({vector, Items, _}) ->
-    lists:flatten(["[", lists:map(fun(Item) ->
+    lists:flatten(["{", lists:map(fun(Item) ->
                                           [" ", to_string(Item), " "]
-                                  end, Items), "]"]);
+                                  end, Items), "}"]);
 to_string({list, Items, _}) ->
     lists:flatten(["(", lists:map(fun(Item) ->
                                           [" ", to_string(Item), " "]
-                                  end, Items), ")"]).
+                                  end, Items), ")"]);
+to_string({literal_list, Items, _}) ->
+    lists:flatten(["[", lists:map(fun(Item) ->
+                                          [" ", to_string(Item), " "]
+                                  end, Items), "]"]).
 
 to_binary(AST) ->
    erlang:list_to_binary(to_string(AST)).
 
 compare({ident, Ident, _}, {ident, Ident, _}) ->
-    true;
-compare({symbol, Ident, _}, {symbol, Ident, _}) ->
     true;
 compare({char, Char, _}, {char, Char, _}) ->
     true;
@@ -54,6 +54,10 @@ compare({string, S, _}, {string, S, _}) ->
 compare({quote, Value1, _}, {quote, Value2, _}) ->
     compare(Value1, Value2);
 compare({vector, V1, _}, {vector, V2, _}) ->
+    lists:all(fun({I1, I2}) ->
+                      compare(I1, I2)
+              end, lists:zip(V1, V2));
+compare({literal_list, V1, _}, {literal_list, V2, _}) ->
     lists:all(fun({I1, I2}) ->
                       compare(I1, I2)
               end, lists:zip(V1, V2));
@@ -90,16 +94,17 @@ ident_initial() ->
     union([33,
            integer(35, 38),
            integer(42, 46),
-           integer(59, 90),
+           integer(60, 90),
            integer(94, 95),
-           integer(97, 125)]).
+           integer(97, 122),
+           integer(126, 127)]).
 
 ident_character() ->
     union([33,
            integer(35, 38),
            integer(42, 46),
-           integer(59, 90),
-           integer(94, 125)]).
+           integer(60, 90),
+           integer(94, 122)]).
 
 ident_string() ->
     ?LET({S1, S2},
@@ -107,19 +112,24 @@ ident_string() ->
           list([ident_character()])},
          [S1 | erlang:binary_to_list(unicode:characters_to_binary(S2))]).
 
+ident_atom() ->
+    ?LET(S, ident_string(),
+         list_to_atom(S)).
+
 defvar_style_ident() ->
     ?LET(S, ident_string(),
-         "*" ++ S ++ "*").
+         list_to_atom("*" ++ S ++ "*")).
+
 split_ident() ->
     ?LET({S1, S2}, {ident_string(), ident_string()},
-         S1 ++ "-" ++ S2).
+         list_to_atom(S1 ++ "-" ++ S2)).
 
 normal_ident() ->
-    ident_string().
+    ident_atom().
 
 symbol() ->
    ?LET(I, normal_ident(),
-        {symbol, I, 0}).
+        {quote, {ident, I, 0}, 0}).
 
 ident() ->
     {ident, union([normal_ident(),
@@ -149,6 +159,11 @@ jxa_list(0) ->
 jxa_list(Size) ->
     {list, resize(Size, list(value(Size div 4))), 0}.
 
+jxa_literal_list(0) ->
+    {list, [], 0};
+jxa_literal_list(Size) ->
+    {literal_list, resize(Size, list(value(Size div 4))), 0}.
+
 jxa_quote(0) ->
     {list, [], 0};
 jxa_quote(Size) ->
@@ -158,6 +173,7 @@ value(Size) ->
     union([jxa_quote(Size),
            jxa_vector(Size),
            jxa_list(Size),
+           jxa_literal_list(Size),
            jxa_float(),
            jxa_int(),
            jxa_string(),
@@ -166,4 +182,6 @@ value(Size) ->
            ident()]).
 
 expression() ->
-    value(10).
+    ?SIZED(N,
+           value(N)).
+
