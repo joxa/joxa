@@ -19,33 +19,51 @@ comp(Path1, Ctx0, _) ->
 %% Private API
 %%=============================================================================
 compile_bindings(Path0, Path1, Ctx0, [[Var, Expr]], Body) ->
-    {Ctx1, CerlExpr} =
-        jxa_expression:comp(jxa_path:add(jxa_path:incr(jxa_path:add(Path1))),
-                            Ctx0, Expr),
-    Ctx2 = jxa_ctx:push_scope(Ctx1),
-    {Ctx3, CerlVar} = comp_vars(jxa_path:add(Path1), Ctx2, Var),
-    {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path1),
-                                    jxa_ctx:annots(Ctx3)),
-    {Ctx4, CerlBody} =
-        jxa_expression:comp(jxa_path:add(Path0), Ctx3,
-                            Body),
-    {jxa_ctx:pop_scope(Ctx4), cerl:ann_c_let([Line], CerlVar, CerlExpr,
-                                             CerlBody)};
+    compile_binding(Path0, Path1, Ctx0, Var, Expr,
+                    fun(Path0a, _Path1a, Ctx1) ->
+                            jxa_expression:comp(jxa_path:add(Path0a), Ctx1,
+                                                Body)
+
+                    end);
 compile_bindings(Path0, Path1, Ctx0, [[Var, Expr] | Rest], Body) ->
+    compile_binding(Path0, Path1, Ctx0, Var, Expr,
+                    fun(Path0a, Path1a, Ctx1) ->
+                            compile_bindings(Path0a,
+                                             jxa_path:incr(Path1a),
+                                             Ctx1, Rest, Body)
+                    end).
+compile_binding(Path0, Path1, Ctx0, Var, Expr=[fn, Args, _],
+                Continuation) when not is_list(Var) ->
+    %% For letrecs the variable has to be available in the scope so
+    %% the function can call as needed
+    Arity = erlang:length(Args),
+    Ctx1 = jxa_ctx:add_variable_to_scope(Var, Arity,
+                                         jxa_ctx:push_scope(Ctx0)),
+    {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
+                                   jxa_ctx:annots(Ctx0)),
+    CerlVar = cerl:ann_c_fname([Line], Var, Arity),
+    {Ctx3, CerlExpr} =
+        jxa_expression:comp(jxa_path:add(jxa_path:incr(jxa_path:add(Path1))),
+                            Ctx1, Expr),
+
+    {Ctx4, CerlBody} =
+        Continuation(Path0, Path1, Ctx3),
+    {jxa_ctx:pop_scope(Ctx4),
+     cerl:ann_c_letrec([Line], [{CerlVar, CerlExpr}],
+                       CerlBody)};
+compile_binding(Path0, Path1, Ctx0, Var, Expr, Continuation) ->
     {Ctx1, CerlExpr} =
         jxa_expression:comp(jxa_path:add(jxa_path:incr(jxa_path:add(Path1))),
                             Ctx0, Expr),
     Ctx2 = jxa_ctx:push_scope(Ctx1),
     {Ctx3, CerlVar} = comp_vars(jxa_path:add(Path1), Ctx2, Var),
     {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path1),
-                                    jxa_ctx:annots(Ctx3)),
-    {Ctx4, CerlBody} = compile_bindings(Path0,
-                                        jxa_path:incr(Path1),
-                                        Ctx3, Rest, Body),
+                                   jxa_ctx:annots(Ctx3)),
+    {Ctx4, CerlBody} =
+        Continuation(Path0, Path1, Ctx3),
 
     {jxa_ctx:pop_scope(Ctx4), cerl:ann_c_let([Line], CerlVar, CerlExpr,
                                              CerlBody)}.
-
 
 comp_vars(Path0, Ctx0, Var) when is_atom(Var) ->
     Ctx1 = jxa_ctx:add_variable_to_scope(Var, Ctx0),

@@ -29,6 +29,7 @@
          resolve_reference/3,
          push_scope/1,
          add_variable_to_scope/2,
+         add_variable_to_scope/3,
          add_variables_to_scope/2,
          pop_scope/1,
          update/1]).
@@ -48,7 +49,7 @@
                   alias :: alias(),
                   require :: require(),
                   use :: use(),
-                  scopes :: [set()],
+                  scopes :: [scope()],
                   definitions :: definition(),
                   line :: non_neg_integer()}).
 
@@ -69,6 +70,8 @@
                                                 cerl:c_fun()}).
 -type export() :: {Fun::atom(), Arity::non_neg_integer(),
                    Line::non_neg_integer()}.
+-type scope() :: ec_dictionary:dictionary(atom(), cerl:var()).
+
 %%=============================================================================
 %% Public API
 %%=============================================================================
@@ -85,7 +88,8 @@ new(Annots) ->
              definitions=ec_dictionary:new(ec_dict),
              alias=ec_dictionary:new(ec_dict),
              require=ec_dictionary:new(ec_dict),
-             use=ec_dictionary:new(ec_dict)}.
+             use=ec_dictionary:new(ec_dict)
+            }.
 
 -spec new(jxa_annot:annotations(),
           module(), non_neg_integer()) -> context().
@@ -264,14 +268,23 @@ resolve_reference({Module, Function, Arity0}, Arity1, _Ctx) ->
     {error, {mismatched_arity, Module, Function, Arity0, Arity1}};
 resolve_reference(Name, PossibleArity, Ctx = #context{scopes=Scopes})
   when is_atom(Name) ->
-    case lists:any(fun(Scope) ->
-                           sets:is_element(Name, Scope)
-                   end, Scopes) of
-        true ->
-            variable;
-        false ->
+    case ec_lists:search(fun(Scope) ->
+                                 try
+                                     {ok,
+                                      ec_dictionary:get(Name, Scope)}
+                                 catch
+                                     _:not_found ->
+                                         not_found
+                                 end
+                         end, Scopes) of
+        {ok, Var, _} ->
+            {variable, Var};
+        not_found ->
             search_for_defined_used_function(Name, PossibleArity, Ctx)
-    end.
+    end;
+resolve_reference(_, _, _) ->
+    not_a_reference.
+
 
 search_for_remote_function(Module, Function, PossibleArity,
                            #context{require=Requires}) ->
@@ -281,11 +294,11 @@ search_for_remote_function(Module, Function, PossibleArity,
             true ->
                 {remote, Module, Function};
             false ->
-                invalid
+                not_a_reference
         end
     catch
         _:not_found ->
-            invalid
+            not_a_reference
     end.
 
 search_for_defined_used_function(Name, PossibleArity,
@@ -298,22 +311,28 @@ search_for_defined_used_function(Name, PossibleArity,
                 {FunName, ModuleName} ->
                     {remote, ModuleName, FunName};
                 undefined ->
-                    invalid
+                    not_a_reference
             end
     end.
 
 push_scope(Ctx0 = #context{scopes=Scopes}) ->
-    Ctx0#context{scopes=[sets:new() | Scopes]}.
+    Ctx0#context{scopes=[ec_dictionary:new(ec_dict) | Scopes]}.
+
+add_variable_to_scope(Name, Arity,
+                      Ctx0=#context{scopes=[Current | Scopes]}) ->
+    Body = cerl:c_fname(Name, Arity),
+    Ctx0#context{scopes=[ec_dictionary:add(Name, Body, Current) | Scopes]}.
 
 add_variable_to_scope(Name, Ctx0=#context{scopes=[Current | Scopes]}) ->
-    Ctx0#context{scopes=[sets:add_element(Name, Current) | Scopes]}.
+    Body = cerl:c_var(Name),
+    Ctx0#context{scopes=[ec_dictionary:add(Name, Body, Current) | Scopes]}.
 
-add_variables_to_scope(Names, Ctx0=#context{scopes=[Current0 | Scopes]}) ->
-    Current2 =
-        lists:foldl(fun(Name, Current1) ->
-                            sets:add_element(Name, Current1)
-                    end, Current0, Names),
-    Ctx0#context{scopes=[Current2 | Scopes]}.
+add_variables_to_scope(Names, Ctx0) ->
+    lists:foldl(fun({Name, Arity}, Ctx1) ->
+                        add_variable_to_scope(Name, Arity, Ctx1);
+                   (Name, Ctx1) ->
+                        add_variable_to_scope(Name, Ctx1)
+                end, Ctx0, Names).
 
 pop_scope(Ctx0=#context{scopes=[_|Scopes]}) ->
     Ctx0#context{scopes=Scopes}.

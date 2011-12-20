@@ -8,10 +8,10 @@
 %% Public API
 %%=============================================================================
 do_function_body(Path0, Ctx0, Args, Expression) ->
-    {Ctx1, ArgList} = gen_args(Path0, Ctx0, Args),
+    {Ctx1, ArgList} = gen_args(jxa_path:add(Path0), Ctx0, Args),
     Ctx2 = jxa_ctx:add_variables_to_scope(Args, jxa_ctx:push_scope(Ctx1)),
 
-    {Ctx3, Body} = comp(jxa_path:add(jxa_path:incr(2, Path0)),
+    {Ctx3, Body} = comp(jxa_path:add(jxa_path:incr(Path0)),
                         Ctx2, Expression),
     {jxa_ctx:pop_scope(Ctx3), ArgList, Body}.
 
@@ -19,12 +19,26 @@ comp(Path0, Ctx0, Arg) when is_atom(Arg) ->
     {_, Idx = {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
                                          jxa_ctx:annots(Ctx0)),
     case jxa_ctx:resolve_reference(Arg, -1, Ctx0) of
-        variable ->
-            {Ctx0, cerl:ann_c_var([Line], Arg)};
+        {variable, Var} ->
+            {Ctx0, cerl:set_ann(Var, [Line])};
         _ ->
-            ?JXA_THROW({undefined_reference, Idx})
+            ?JXA_THROW({undefined_reference, Arg, Idx})
     end;
-
+comp(Path0, Ctx0, {F, A}) when is_integer(A) ->
+    {_, Idx = {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
+                                         jxa_ctx:annots(Ctx0)),
+    case jxa_ctx:resolve_reference(F, A, Ctx0) of
+        {variable, Var} ->
+            case cerl:is_c_fname(Var) andalso
+                cerl:fname_arity(Var) == A of
+                true ->
+                    {Ctx0, cerl:set_ann(Var, [Line])};
+                false ->
+                    ?JXA_THROW({invalid_reference, {F, A}, Idx})
+            end;
+        _ ->
+            ?JXA_THROW({undefined_reference, {F, A}, Idx})
+    end;
 comp(Path0, Ctx0, Arg) when is_atom(Arg) ->
     {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
                                    jxa_ctx:annots(Ctx0)),
@@ -69,6 +83,14 @@ comp(Path0, Ctx0, [quote, Args]) ->
 comp(Path0, Ctx0, [list | Args]) ->
     Path1 = jxa_path:incr(Path0),
     convert_list(Path1, Ctx0, Args);
+comp(Path0, Ctx0, [fn, Args, Expression]) ->
+    {Ctx1, ArgList, Body} =
+        do_function_body(jxa_path:incr(Path0), Ctx0,
+                         Args, Expression),
+    {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
+                                   jxa_ctx:annots(Ctx1)),
+    CerlFun = cerl:ann_c_fun([Line], ArgList, Body),
+    {Ctx1, CerlFun};
 comp(Path0, Ctx0, [vector | Args]) ->
     convert_vector(Path0, Ctx0, Args);
 comp(Path0, Ctx0, Form = [Val | Args]) ->
@@ -85,12 +107,10 @@ comp(Path0, Ctx0, Form = [Val | Args]) ->
                               jxa_ctx:annots(Ctx0)),
             {Ctx1, ArgList} = eval_args(jxa_path:incr(Path0),
                                         Ctx0, Args),
-            case jxa_ctx:resolve_reference(Val, PossibleArity, Ctx0) of
-                variable ->
+            case jxa_ctx:resolve_reference(Val, PossibleArity, Ctx1) of
+                {variable, Var} ->
                     {Ctx1, cerl:ann_c_apply([BaseLine],
-                                            cerl:ann_c_var([CallLine],
-                                                           Val,
-                                                           PossibleArity),
+                                            cerl:set_ann(Var, [BaseLine]),
                                             ArgList)};
                 {apply, Name, Arity} ->
                     {Ctx1, cerl:ann_c_apply([BaseLine],
@@ -109,7 +129,7 @@ comp(Path0, Ctx0, Form = [Val | Args]) ->
                     ?JXA_THROW({Error1, Idx});
                 {error, Error2 = {mismatched_arity, _, _, _, _}} ->
                     ?JXA_THROW({Error2, Idx});
-                invalid ->
+                not_a_reference ->
                     %% The last thing it might be is a function call. So we
                     %% are going to try to compile it. It might work
                     {Ctx1, Cerl} = comp(Path1, Ctx1, Val),
@@ -158,10 +178,10 @@ gen_args(Path0, Ctx0, Args0) ->
     {_, Ctx2, Args1} =
         lists:foldl(fun(Arg, {Path1, Ctx1, Acc})
                           when is_atom(Arg) ->
-                            Path2 = jxa_path:incr(Path1),
                             {_, {Line, _}} =
-                                jxa_annot:get(jxa_path:add_path(Path2),
+                                jxa_annot:get(jxa_path:add_path(Path1),
                                               jxa_ctx:annots(Ctx1)),
+                            Path2 = jxa_path:incr(Path1),
                             {Path2, Ctx1, [cerl:ann_c_var([Line], Arg) | Acc]};
                        (_Arg, {Path1, Ctx1, _}) ->
                             Path2 = jxa_path:incr(Path1),
