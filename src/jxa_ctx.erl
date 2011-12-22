@@ -287,15 +287,24 @@ resolve_reference(_, _, _) ->
 
 
 search_for_remote_function(Module, Function, PossibleArity,
-                           #context{require=Requires}) ->
+                           Ctx0 = #context{require=Requires}) ->
     try
         Exports = ec_dictionary:get(Module, Requires),
         case lists:member({Function, PossibleArity}, Exports) of
             true ->
                 {remote, Module, Function};
             false ->
-                not_a_reference
+                check_aliases(Module, Function, PossibleArity, Ctx0)
         end
+    catch
+        _:not_found ->
+            not_a_reference
+    end.
+
+check_aliases(Module, Function, PossibleArity, Ctx0 = #context{alias=Alias}) ->
+    try
+        AliasedModule = ec_dictionary:get(Module, Alias),
+        search_for_remote_function(AliasedModule, Function, PossibleArity, Ctx0)
     catch
         _:not_found ->
             not_a_reference
