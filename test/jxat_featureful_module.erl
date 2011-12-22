@@ -21,7 +21,7 @@ given([a,featureful,module], _State, _) ->
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], State, _) ->
-    Result = joxa:comp('jxat-featureful', State),
+    Result = jxa_compile:comp('jxat-featureful', State),
     {ok, Result}.
 
 then([a,beam,binary,is,produced], State={_, Binary}, _) ->
