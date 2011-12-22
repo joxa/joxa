@@ -59,10 +59,6 @@ comp(Path0, Ctx0, Ref = {'__fun__', _, _, A}) when is_integer(A) ->
         _ ->
             ?JXA_THROW({undefined_reference, Ref, Idx})
     end;
-comp(Path0, Ctx0, Arg) when is_atom(Arg) ->
-    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
-                                   jxa_ctx:annots(Ctx0)),
-    {Ctx0, cerl:ann_c_atom([Line], Arg)};
 comp(Path0, Ctx0, Arg) when is_integer(Arg) ->
     {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
                                    jxa_ctx:annots(Ctx0)),
