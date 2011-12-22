@@ -145,6 +145,15 @@ comp_require(Path0, Ctx0, [Module | Rest]) when is_atom(Module) ->
     comp_require(jxa_path:incr(Path0), Ctx1, Rest);
 comp_require(Path0, Ctx0, [[Module, [quote, as], ModuleAlias] | Rest])
   when is_atom(Module), is_atom(ModuleAlias) ->
+    try
+        Module:module_info()
+    catch
+        error:undef ->
+            Path1 = jxa_path:add(Path0),
+            {_, Idx} = jxa_annot:get(jxa_path:path(Path1),
+                                     jxa_ctx:annots(Ctx0)),
+            ?JXA_THROW({invalid_require_clause, {bad_module, Module}, Idx})
+    end,
     Ctx1 = jxa_ctx:add_alias(ModuleAlias, Module,
                              jxa_ctx:add_require(Module, Ctx0)),
         comp_require(jxa_path:incr(Path0), Ctx1, Rest);
@@ -213,9 +222,16 @@ comp_use(_Idx, Ctx0, [], {ModuleName, Exports}) ->
     populate_use_context({ModuleName, Exports}, Ctx0);
 comp_use(Idx, Ctx0, [[ModuleName | ClauseBody] | Rest], _Acc)
   when is_atom(ModuleName) ->
+    try
+        ModuleName:module_info()
+    catch
+        error:undef ->
+            ?JXA_THROW({invalid_require_clause, {bad_module, ModuleName}, Idx})
+    end,
+    Ctx1 = jxa_ctx:add_require(ModuleName, Ctx0),
     Exports = get_exports(ModuleName, Idx),
-    Ctx1 = handle_use_clauses(Idx, Ctx0, ClauseBody, {ModuleName, Exports}),
-    comp_use(Idx, Ctx1, Rest, {undefined, []});
+    Ctx2 = handle_use_clauses(Idx, Ctx1, ClauseBody, {ModuleName, Exports}),
+    comp_use(Idx, Ctx2, Rest, {undefined, []});
 comp_use(Idx, Ctx0, [ModuleName | Rest], _Acc)
   when is_atom(ModuleName) ->
     Exports = get_exports(ModuleName, Idx),
