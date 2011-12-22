@@ -5,7 +5,7 @@
 
 given([a,module,that,has,an,anonymous,function], _State, _) ->
     Source = <<"(module jxat-anon-fun
-                    (use (erlang :only (==/2))))
+                    (use (erlang :only (==/2 phash2/1))))
 
                 (defn internal-test ()
                       (fn (arg1 arg2)
@@ -15,11 +15,13 @@ given([a,module,that,has,an,anonymous,function], _State, _) ->
                       (let ((z (internal-test))
                             (x (fn (arg1 arg2)
                                 {:hello arg1 arg2}))
+                            (a erlang/phash2/1)
                             (y (x 1 2)))
                            (do (== y (x 1 2))
                                (apply internal-test/0)
                                 (apply x 1 2)
-                                (apply erlang/phash2/1 22))))">>,
+                                (apply a 22)
+                                (a 22))))">>,
 
     {ok, Source}.
 
