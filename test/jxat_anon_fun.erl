@@ -26,7 +26,7 @@ given([a,module,that,has,an,anonymous,function], _State, _) ->
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = joxa:comp('jxat-anon-fun', Source),
+    Result = jxa_compile:comp('jxat-anon-fun', Source),
     {ok, Result}.
 then([a,beam,binary,is,produced], State = {_, Binary}, _) ->
     ?assertMatch(true, is_binary(Binary)),

@@ -71,6 +71,13 @@ comp(Path0, Ctx0, Arg) when is_tuple(Arg) ->
     mk_tuple(Path0, Ctx0, tuple_to_list(Arg));
 comp(Path0, Ctx0, Form = ['let' | _]) ->
     jxa_let:comp(Path0, Ctx0, Form);
+comp(Path0, Ctx0, ['case', Expr | Clauses]) ->
+    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
+                                   jxa_ctx:annots(Ctx0)),
+    {Ctx1, CerlExpr} = comp(jxa_path:add(jxa_path:incr(Path0)), Ctx0, Expr),
+    {Ctx2, CerlClauses} =
+        jxa_clause:comp(jxa_path:incr(2, Path0), Ctx1, Clauses),
+    {Ctx2, cerl:ann_c_case([Line], CerlExpr, CerlClauses)};
 comp(Path0, Ctx0, [do | Args]) ->
     mk_do(jxa_path:incr(Path0), Ctx0, Args);
 comp(Path0, Ctx0, [values | Args0]) ->
