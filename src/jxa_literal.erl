@@ -29,16 +29,18 @@ comp(Path0, Ctx0, Float) when is_float(Float) ->
     {float, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
                                        jxa_ctx:annots(Ctx0)),
     cerl:ann_c_float([Line], float);
+comp(Path0, Ctx0, Element) when is_tuple(Element) ->
+    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
+                                   jxa_ctx:annots(Ctx0)),
+    mk_tuple(Path0, Line, Ctx0, tuple_to_list(Element));
 comp(Path0, Ctx0, Element) when is_list(Element) ->
     {Type, Idx = {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
                                       jxa_ctx:annots(Ctx0)),
     case Type of
         list ->
-            comp_list(Path0, Line, Ctx0, Element);
-        vector ->
-            comp_vector(Path0, Line, Ctx0, Element);
+            mk_list(Path0, Line, Ctx0, Element);
         string ->
-            comp_string(Path0, Line, Ctx0, Element);
+            mk_string(Path0, Line, Ctx0, Element);
         _ ->
            ?JXA_THROW({invalid_literal, Idx})
     end.
@@ -46,19 +48,19 @@ comp(Path0, Ctx0, Element) when is_list(Element) ->
 %%=============================================================================
 %% Internal Functions
 %%=============================================================================
--spec comp_list(jxa_path:state(), non_neg_integer(),
+-spec mk_list(jxa_path:state(), non_neg_integer(),
                 jxa_ctx:context(), list()) ->
                        cerl:cerl().
-comp_list(_Path0, _Line, _Ctx0, []) ->
+mk_list(_Path0, _Line, _Ctx0, []) ->
     cerl:c_nil();
-comp_list(Path0, Line, Ctx0, [H | T]) ->
+mk_list(Path0, Line, Ctx0, [H | T]) ->
     cerl:ann_c_cons([Line], comp(jxa_path:add(Path0), Ctx0, H),
-                    comp_list(jxa_path:incr(Path0), Line, Ctx0, T)).
+                    mk_list(jxa_path:incr(Path0), Line, Ctx0, T)).
 
--spec comp_vector(jxa_path:state(), non_neg_integer(),
-                  jxa_ctx:context(), list()) ->
-                         cerl:cerl().
-comp_vector(Path0, Line, Ctx0, Elements0) ->
+-spec mk_tuple(jxa_path:state(), non_neg_integer(),
+               jxa_ctx:context(), list()) ->
+                      cerl:cerl().
+mk_tuple(Path0, Line, Ctx0, Elements0) ->
     {_, Elements1} =
         lists:foldl(fun(Element, {Path1, Acc0}) ->
                             Acc1 = [comp(jxa_path:add(Path1), Ctx0, Element)
@@ -69,8 +71,8 @@ comp_vector(Path0, Line, Ctx0, Elements0) ->
     cerl:ann_c_tuple([Line],
                      Elements1).
 
--spec comp_string(jxa_path:state(), non_neg_integer(),
+-spec mk_string(jxa_path:state(), non_neg_integer(),
                   jxa_ctx:context(), list()) ->
                          cerl:cerl().
-comp_string(_Path0, Line, _Ctx0, String) ->
+mk_string(_Path0, Line, _Ctx0, String) ->
     cerl:ann_c_string([Line], String).
