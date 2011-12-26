@@ -1,4 +1,4 @@
-(module jxat-anon-fun
+(module example.anonymous-funs
         (use (erlang :only (==/2))))
 
 (defn internal-test ()

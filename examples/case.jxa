@@ -1,0 +1,29 @@
+(module example.case
+        (use (erlang :only (==/2 phash2/1 and/2))))
+
+(defn internal-test (arg1 arg2)
+                      (case {arg1 arg2}
+                            ({:foo :bar}
+                                   (phash2 :bar))
+                            ((= four (= three :z))
+                             (erlang/is_atom three)
+                             (phash2 four))
+                            (_z
+                             :ok)))
+
+(defn internal-test2 (arg1 arg2 arg3)
+  (case [arg1 arg2 arg3]
+        ([one two three]
+              (and (and (erlang/is_atom one)
+                        (erlang/is_integer two))
+                   (erlang/is_list three))
+              (phash2 one))
+        ([{a a 33} a 4]
+             (phash2 a))
+        ([:foo :bar _]
+               (phash2 :bar))))
+
+(defn+ do-test (arg1 arg2 arg3)
+  (let ((z (internal-test arg1 arg2))
+        (x (internal-test2 arg1 arg2 arg3)))
+    {z x}))

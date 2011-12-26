@@ -1,4 +1,4 @@
-(module helloworld
+(module example.helloworld
         (use (io :only (format/2) :rename ((format/2 print)))))
 
 (defn+ hello-world (arg)
