@@ -150,6 +150,8 @@ comp(Path0, Ctx0, [fn, Args, Expression]) ->
     {Ctx1, CerlFun};
 comp(Path0, Ctx0, [tuple | Args]) ->
     mk_tuple(Path0, Ctx0, Args);
+comp(Path0, Ctx0, Form = ['try' | _]) ->
+    jxa_try:comp(Path0, Ctx0, Form);
 comp(Path0, Ctx0, Form = [Val | Args]) ->
     case jxa_annot:get(jxa_path:path(Path0), jxa_ctx:annots(Ctx0)) of
         {string, {Line, _}} ->

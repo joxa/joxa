@@ -11,12 +11,10 @@ from_file(Path) ->
     to_core(binary_to_list(Contents)).
 
 to_core(StringExpr) ->
-    io:format("~p~n", [re:split(StringExpr, "\\.")]),
     Forms0 =
         lists:foldl(fun(<<"\n">>, Acc) ->
                             Acc;
                        (El, Acc) ->
-                            io:format("-->~s<--.~n", [binary_to_list(El)]),
                             {ok, Tokens, _} = erl_scan:string(binary_to_list(El)
                                                               ++ "."),
                             [Tokens | Acc]

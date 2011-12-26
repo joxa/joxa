@@ -1,7 +1,7 @@
 %% -*- mode: Erlang; fill-column: 80; comment-column: 76; -*-
 -module(jxa_clause).
 
--export([comp/3]).
+-export([comp/3, comp_pattern/3, mk_guards/2]).
 -include_lib("joxa/include/joxa.hrl").
 
 -define(UNDERSCORED, {re_pattern,0,0,
@@ -14,90 +14,6 @@
 %%=============================================================================
 comp(Path0, Ctx0, Clauses) ->
     comp(Path0, Ctx0, Clauses, []).
-
-
-%%=============================================================================
-%% Private API
-%%=============================================================================
-comp(Path0, Ctx0, [], _Acc) ->
-    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
-                                   jxa_ctx:annots(Ctx0)),
-    ?JXA_THROW({no_clauses_provided, Line});
-comp(Path0, Ctx0, [Clause = [Pattern | _Rest]], Acc) when is_atom(Pattern) ->
-    %% When there is one clause left in the list of clauses (the last clause) If
-    %% it is not a catchall we want to make a catchall. Simplistically at the
-    %% moment we look for a single variable name that is unbound that starts
-    %% with an '_'
-    {Ctx1, ActualClause} =
-        compile_clause_body(jxa_path:add(Path0), Ctx0, Clause),
-    {Ctx1, lists:reverse([ActualClause | Acc])};
-comp(Path0, Ctx0, [Clause], Acc) ->
-    {Ctx1, Clauses, SpecialTerminator} =
-        do_clause_terminator(Path0, Ctx0, Clause),
-     {Ctx1, lists:reverse([Clauses | Acc]) ++ SpecialTerminator};
-comp(Path0, Ctx0, [Clause | Rest], Acc) ->
-    {Ctx1, Clauses} = compile_clause_body(jxa_path:add(Path0),
-                                          Ctx0,
-                                          Clause),
-    comp(jxa_path:incr(Path0), Ctx1, Rest, [Clauses | Acc]).
-
-
-do_clause_terminator(Path0, Ctx0, Clause) ->
-    {Ctx1, ActualClause} =
-        compile_clause_body(jxa_path:add(Path0), Ctx0,
-                            Clause),
-    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
-                                   jxa_ctx:annots(Ctx1)),
-    Var = joxa:gensym(),
-    Annots = [Line, compiler_generated],
-    {Ctx1,
-     ActualClause,
-     [cerl:ann_c_clause(Annots,
-                        [cerl:ann_c_var(Annots, Var)],
-                        cerl:ann_c_primop(Annots,
-                                          cerl:ann_c_atom(Annots, 'match_fail'),
-                                          [cerl:ann_c_tuple(Annots,
-                                                            [cerl:ann_c_atom(Annots, case_clause),
-                                                             cerl:ann_c_var(Annots, Var)])]))]}.
-
-
-
-compile_clause_body(Path0, Ctx0, [Pattern, Guards, Body]) ->
-    Ctx1 = jxa_ctx:push_scope(Ctx0),
-    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
-                                   jxa_ctx:annots(Ctx1)),
-    {{Ctx2, PatternGuards}, CerlPattern} =
-        comp_pattern(jxa_path:add(Path0), {Ctx1, []}, Pattern),
-    {_, {GuardLine, _}} =
-        jxa_annot:get(jxa_path:add_path(jxa_path:incr(Path0)),
-                      jxa_ctx:annots(Ctx2)),
-    {Ctx3, CerlGuard} =
-        jxa_expression:comp(jxa_path:add(jxa_path:incr(Path0)),
-                            Ctx2, Guards),
-    CompleteGuards = mk_guards(GuardLine,
-                               [CerlGuard | PatternGuards]),
-
-    {Ctx4, CerlBody} =
-        jxa_expression:comp(jxa_path:add(jxa_path:incr(2, Path0)),
-                            Ctx3, Body),
-    {jxa_ctx:pop_scope(Ctx4),
-     cerl:ann_c_clause([Line], [CerlPattern], CompleteGuards,
-                       CerlBody)};
-compile_clause_body(Path0, Ctx0, [Pattern, Body]) ->
-    Ctx1 = jxa_ctx:push_scope(Ctx0),
-    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
-                                   jxa_ctx:annots(Ctx1)),
-    {{Ctx2, PatternGuards}, CerlPattern} =
-        comp_pattern(jxa_path:add(Path0), {Ctx1, []}, Pattern),
-    {Ctx3, CerlBody} =
-        jxa_expression:comp(jxa_path:add(jxa_path:incr(Path0)),
-                                           Ctx2, Body),
-    CompleteGuards = mk_guards(Line, PatternGuards),
-
-    {jxa_ctx:pop_scope(Ctx3),
-     cerl:ann_c_clause([Line], [CerlPattern],
-                       CompleteGuards,
-                       CerlBody)}.
 
 comp_pattern(Path0, {Ctx0, Guards0}, Arg) when is_atom(Arg) ->
     {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
@@ -204,7 +120,88 @@ mk_guards(GuardLine, [Pattern | Rest]) ->
                                     'and'),
                     [Pattern, mk_guards(GuardLine, Rest)]).
 
+%%=============================================================================
+%% Private API
+%%=============================================================================
+comp(Path0, Ctx0, [], _Acc) ->
+    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
+                                   jxa_ctx:annots(Ctx0)),
+    ?JXA_THROW({no_clauses_provided, Line});
+comp(Path0, Ctx0, [Clause = [Pattern | _Rest]], Acc) when is_atom(Pattern) ->
+    %% When there is one clause left in the list of clauses (the last clause) If
+    %% it is not a catchall we want to make a catchall. Simplistically at the
+    %% moment we look for a single variable name that is unbound that starts
+    %% with an '_'
+    {Ctx1, ActualClause} =
+        compile_clause_body(jxa_path:add(Path0), Ctx0, Clause),
+    {Ctx1, lists:reverse([ActualClause | Acc])};
+comp(Path0, Ctx0, [Clause], Acc) ->
+    {Ctx1, Clauses, SpecialTerminator} =
+        do_clause_terminator(Path0, Ctx0, Clause),
+     {Ctx1, lists:reverse([Clauses | Acc]) ++ SpecialTerminator};
+comp(Path0, Ctx0, [Clause | Rest], Acc) ->
+    {Ctx1, Clauses} = compile_clause_body(jxa_path:add(Path0),
+                                          Ctx0,
+                                          Clause),
+    comp(jxa_path:incr(Path0), Ctx1, Rest, [Clauses | Acc]).
 
+
+do_clause_terminator(Path0, Ctx0, Clause) ->
+    {Ctx1, ActualClause} =
+        compile_clause_body(jxa_path:add(Path0), Ctx0,
+                            Clause),
+    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
+                                   jxa_ctx:annots(Ctx1)),
+    Var = joxa:gensym(),
+    Annots = [Line, compiler_generated],
+    {Ctx1,
+     ActualClause,
+     [cerl:ann_c_clause(Annots,
+                        [cerl:ann_c_var(Annots, Var)],
+                        cerl:ann_c_primop(Annots,
+                                          cerl:ann_c_atom(Annots, 'match_fail'),
+                                          [cerl:ann_c_tuple(Annots,
+                                                            [cerl:ann_c_atom(Annots, case_clause),
+                                                             cerl:ann_c_var(Annots, Var)])]))]}.
+
+
+
+compile_clause_body(Path0, Ctx0, [Pattern, Guards, Body]) ->
+    Ctx1 = jxa_ctx:push_scope(Ctx0),
+    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
+                                   jxa_ctx:annots(Ctx1)),
+    {{Ctx2, PatternGuards}, CerlPattern} =
+        comp_pattern(jxa_path:add(Path0), {Ctx1, []}, Pattern),
+    {_, {GuardLine, _}} =
+        jxa_annot:get(jxa_path:add_path(jxa_path:incr(Path0)),
+                      jxa_ctx:annots(Ctx2)),
+    {Ctx3, CerlGuard} =
+        jxa_expression:comp(jxa_path:add(jxa_path:incr(Path0)),
+                            Ctx2, Guards),
+    CompleteGuards = mk_guards(GuardLine,
+                               [CerlGuard | PatternGuards]),
+
+    {Ctx4, CerlBody} =
+        jxa_expression:comp(jxa_path:add(jxa_path:incr(2, Path0)),
+                            Ctx3, Body),
+    {jxa_ctx:pop_scope(Ctx4),
+     cerl:ann_c_clause([Line], [CerlPattern], CompleteGuards,
+                       CerlBody)};
+compile_clause_body(Path0, Ctx0, [Pattern, Body]) ->
+    Ctx1 = jxa_ctx:push_scope(Ctx0),
+    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
+                                   jxa_ctx:annots(Ctx1)),
+    {{Ctx2, PatternGuards}, CerlPattern} =
+        comp_pattern(jxa_path:add(Path0), {Ctx1, []}, Pattern),
+    {Ctx3, CerlBody} =
+        jxa_expression:comp(jxa_path:add(jxa_path:incr(Path0)),
+                                           Ctx2, Body),
+    CompleteGuards = mk_guards(Line, PatternGuards),
+
+    {jxa_ctx:pop_scope(Ctx3),
+     cerl:ann_c_clause([Line], [CerlPattern],
+                       CompleteGuards,
+                       CerlBody)}.
 
 mk_tuple(Path0, Acc0, Args) ->
     {_, Acc3={Ctx0, _}, Body} =
