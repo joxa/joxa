@@ -13,16 +13,16 @@
 %%=============================================================================
 -spec comp(string() | binary()) -> {jxa_ctx:ctx(), binary()}.
 comp(FileName) ->
-   case file:read_file(FileName) of
-       {ok, Binary} ->
-           ModuleName = extract_module_name(FileName),
-           Result = {_, Binary} = comp(ModuleName, Binary),
-           {module, ModuleName} =
-               code:load_binary(ModuleName, FileName, Binary),
-           Result;
-       {error, Reason} ->
-           ?JXA_THROW({file_access, Reason, FileName})
-   end.
+    case file:read_file(FileName) of
+        {ok, Binary} ->
+            ModuleName = extract_module_name(FileName),
+            Result = {_, Binary} = comp(ModuleName, Binary),
+            {module, ModuleName} =
+                code:load_binary(ModuleName, FileName, Binary),
+            Result;
+        {error, Reason} ->
+            ?JXA_THROW({file_access, Reason, FileName})
+    end.
 
 -spec comp(ModuleName::atom(), Body::binary()) ->
                   {jxa_ctx:context(), binary()}.
@@ -48,7 +48,7 @@ format_exception({file_access, eacces, FileName}) ->
                   [FileName]);
 format_exception({file_access, eisdir, FileName}) ->
     io_lib:format("The named file is a directory: ~s",
-                      [FileName]);
+                  [FileName]);
 format_exception({file_access, enomem, FileName}) ->
     io_lib:format("There is not enough memory for the contents of the file: ~s",
                   [FileName]);
@@ -82,13 +82,13 @@ compile_context(Ctx0) ->
     Line = jxa_ctx:line(Ctx1),
     ModuleName = cerl:ann_c_atom([Line],
                                  jxa_ctx:module_name(Ctx1)),
-   Exports = [cerl:ann_c_fname([ELine], Fun, Arity) ||
-                 {Fun, Arity, ELine} <- sets:to_list(jxa_ctx:exports(Ctx1))],
-    Attrs = jxa_ctx:attrs(Ctx1),
+    Exports = [cerl:ann_c_fname([ELine], Fun, Arity) ||
+                  {Fun, Arity, ELine} <- sets:to_list(jxa_ctx:exports(Ctx1))],
+    Attrs0 = jxa_ctx:attrs(Ctx1),
     Defs = [Value || {_, Value} <-
-                ec_dictionary:to_list(jxa_ctx:definitions(Ctx1))],
+                         ec_dictionary:to_list(jxa_ctx:definitions(Ctx1))],
     {Ctx1, erl_comp(cerl:ann_c_module([Line], ModuleName,
-                                      Exports, Attrs, Defs))}.
+                                      Exports, Attrs0, Defs))}.
 
 -spec compile_module_info(jxa_ctx:context()) -> jxa_ctx:context().
 compile_module_info(Ctx0) ->
