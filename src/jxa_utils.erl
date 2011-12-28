@@ -12,13 +12,14 @@ from_file(Path) ->
 
 to_core(StringExpr) ->
     Forms0 =
-        lists:foldl(fun(<<"\n">>, Acc) ->
+        lists:foldl(fun(<<"\n\n">>, Acc) ->
                             Acc;
                        (El, Acc) ->
-                            {ok, Tokens, _} = erl_scan:string(binary_to_list(El)
-                                                              ++ "."),
+                            {ok, Tokens, _} =
+                                erl_scan:string(binary_to_list(El)
+                                                ++ "."),
                             [Tokens | Acc]
-                    end, [], re:split(StringExpr, "\\.")),
+                    end, [], re:split(StringExpr, "\\.\n")),
     %% No need to reverse. This will rereverse for us
     NForms =
         lists:foldl(fun(Form, Forms) ->
