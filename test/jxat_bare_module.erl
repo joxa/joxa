@@ -10,13 +10,13 @@ given([a,bare,module], _State, _) ->
     {ok, Module}.
 
 'when'([joxa,is,called,on,this,module], State, _) ->
-    Result = jxa_compile:comp('my-module', State),
+    Result = jxa_compile:comp(State),
     {ok, Result}.
 
 then([a,beam,binary,is,produced], State={_Ctx, Binary}, _) ->
     ?assertMatch(true, is_binary(Binary)),
     ?assertMatch([{module_info,0},{module_info,1}],
-                 'my-module':module_info(exports)),
+                 lists:sort('my-module':module_info(exports))),
     ?assertMatch([],
                  'my-module':module_info(imports)),
 

@@ -25,7 +25,7 @@ given([a,module,that,catches,an,exception], _State, _) ->
 
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = jxa_compile:comp('jxat-throws-test', Source),
+    Result = jxa_compile:comp(Source),
     {ok, Result}.
 
 then([a,beam,binary,is,produced], State = {_, Binary},  _) ->

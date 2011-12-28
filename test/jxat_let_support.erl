@@ -29,7 +29,7 @@ given([a,module,that,has,a,function,that,contains,'\'let\''], _State, _) ->
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = jxa_compile:comp('jxat-let-support-test', Source),
+    Result = jxa_compile:comp(Source),
     {ok, Result}.
 
 
@@ -37,8 +37,10 @@ then([a,beam,binary,is,produced], State={_, Binary}, _) ->
     ?assertMatch(true, is_binary(Binary)),
     {ok, State};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
-    ?assertMatch([{module_info,0},{module_info,1},{'do-test',0}],
-                 'jxat-let-support-test':module_info(exports)),
+    ?assertMatch([{'do-test',0},
+                  {module_info,0},
+                  {module_info,1}],
+                 lists:sort('jxat-let-support-test':module_info(exports))),
     ?assertMatch({1,[1,2,3,4,5], "Hello World",
                   'super-dooper',73439361,3,2,1,[1,2,3,4,5,6,7,8]},
                  'jxat-let-support-test':'do-test'()),

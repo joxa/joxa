@@ -36,17 +36,17 @@ given([a,module,that,has,a,'case',statement], _State, _) ->
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = jxa_compile:comp('jxat-case-test', Source),
+    Result = jxa_compile:comp(Source),
     {ok, Result}.
 
 then([a,beam,binary,is,produced], State={_, Binary}, _) ->
       ?assertMatch(true, is_binary(Binary)),
     {ok, State};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
-    ?assertMatch([{module_info,0},
-                  {module_info,1},
-                  {'do-test',3}],
-                 'jxat-case-test':module_info(exports)),
+    ?assertMatch([{'do-test',3},
+                  {module_info,0},
+                  {module_info,1}],
+                 lists:sort('jxat-case-test':module_info(exports))),
     ?assertMatch({26754, 26754}, 'jxat-case-test':'do-test'(foo, bar, 4)),
     ?assertMatch({ok, 73439361}, 'jxat-case-test':'do-test'({22, 22, 33}, 22, 4)),
     ?assertMatch({ok, 4557629}, 'jxat-case-test':'do-test'(an_atom, 22, [1, 2, 3])),

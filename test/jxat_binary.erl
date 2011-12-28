@@ -31,7 +31,7 @@ given([a,module,that,has,a,binary,representatino], _State, _) ->
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = jxa_compile:comp('jxat-binary-test', Source),
+    Result = jxa_compile:comp(Source),
     {ok, Result}.
 
 then([a,beam,binary,is,produced], State={_, Binary}, _) ->

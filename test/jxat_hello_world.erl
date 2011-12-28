@@ -13,12 +13,14 @@ given([a,module,that,has,a,function,that,calls,
 
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-  {ok, jxa_compile:comp('helloworld', Source)}.
+  {ok, jxa_compile:comp(Source)}.
 
 then([a,beam,binary,is,produced], State={_, Binary}, _) ->
     ?assertMatch(true, is_binary(Binary)),
-    ?assertMatch([{module_info,0},{'hello-world',1},{module_info,1}],
-                 helloworld:module_info(exports)),
+    ?assertMatch([{'hello-world',1},
+                  {module_info,0},
+                  {module_info,1}],
+                 lists:sort(helloworld:module_info(exports))),
     {ok, State};
 then([the,described,function,can,be,called,'and',works,correctly],
      State, _) ->

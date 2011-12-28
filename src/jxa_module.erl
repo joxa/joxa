@@ -59,17 +59,18 @@ comp(Path0, Ctx0, [module, ModuleName | Rest])
     Path1 = jxa_path:add(Path0),
     case jxa_annot:get(jxa_path:path(Path1), jxa_ctx:annots(Ctx0)) of
         {ident, {Line, _}} ->
-            {_, Ctx1} =
+            {_, Ctx3} =
                 lists:foldl(
                   fun(Form, {Path2, Ctx1}) ->
                           Ctx2 =
                           comp_body(jxa_path:add(Path2),
                                     jxa_ctx:line(Line,
-                                                 jxa_ctx:module_name(ModuleName,
-                                                                     Ctx1)), Form),
+                                                 Ctx1), Form),
                       {jxa_path:incr(Path2), Ctx2}
-                  end, {jxa_path:incr(2, Path0), Ctx0}, Rest),
-            Ctx1;
+                  end, {jxa_path:incr(2, Path0),
+                        jxa_ctx:module_name(ModuleName,
+                                            Ctx0)}, Rest),
+            Ctx3;
         {_, Idx} ->
             ?JXA_THROW({invalid_module_declaration, Idx});
         _ ->

@@ -1,7 +1,7 @@
 %% -*- mode: Erlang; fill-column: 76; comment-column: 76; -*-
 -module(jxa_compile).
 
--export([comp/1, comp/2, format_exception/1]).
+-export([main/0, main/1, comp/1, format_exception/1]).
 
 -include_lib("joxa/include/joxa.hrl").
 %%=============================================================================
@@ -11,30 +11,42 @@
 %%=============================================================================
 %% Public API
 %%=============================================================================
+main() ->
+    main(init:get_plain_arguments()).
+
+main(Args) ->
+    case getopt:parse(option_spec_list(), Args) of
+        {ok, {Options, [Target]}} ->
+            {Ctx0, Binary} = comp(Target),
+            save_beam(Options, Binary, Ctx0);
+        _ ->
+            usage(option_spec_list()),
+            ?JXA_THROW(invalid_options_passed_in)
+    end.
+
 -spec comp(string() | binary()) -> {jxa_ctx:ctx(), binary()}.
-comp(FileName) ->
+comp(FileName) when is_list(FileName) ->
     case file:read_file(FileName) of
         {ok, Binary} ->
-            ModuleName = extract_module_name(FileName),
-            Result = {_, Binary} = comp(ModuleName, Binary),
+            Result = {Ctx0, ModuleBinary} = comp(Binary),
+            ModuleName = jxa_ctx:module_name(Ctx0),
             {module, ModuleName} =
-                code:load_binary(ModuleName, FileName, Binary),
+                code:load_binary(ModuleName, FileName, ModuleBinary),
             Result;
         {error, Reason} ->
             ?JXA_THROW({file_access, Reason, FileName})
-    end.
-
--spec comp(ModuleName::atom(), Body::binary()) ->
-                  {jxa_ctx:context(), binary()}.
-comp(ModuleName, BinaryData) when is_binary(BinaryData) ->
+    end;
+comp(BinaryData) when is_binary(BinaryData) ->
     {Annots, Ast0} = jxa_parser:parse(BinaryData),
-    Ctx0 = jxa_ctx:new(Annots, ModuleName, -1),
+    Ctx0 = jxa_ctx:new(Annots),
     {_, Ctx3, Binary} =
         lists:foldl(fun(DefAst, {Path, Ctx1, _Binary}) ->
                             {Ctx2, Binary1} = comp_forms(jxa_path:add(Path),
                                                          Ctx1, DefAst),
+                            ModuleName = jxa_ctx:module_name(Ctx2),
                             {module, ModuleName} =
-                                code:load_binary(ModuleName, "", Binary1),
+                                code:load_binary(ModuleName,
+                                                 "", Binary1),
                             {jxa_path:incr(Path), jxa_ctx:update(Ctx2),
                              Binary1}
                     end, {jxa_path:new(), Ctx0, <<>>}, Ast0),
@@ -59,11 +71,23 @@ format_exception({file_access, Reason, FileName}) ->
 %%=============================================================================
 %% Internal Functions
 %%=============================================================================
-%% Extract a module name from a file name
--spec extract_module_name(string()) -> ModuleName::atom().
-extract_module_name(FileName) ->
-    erlang:list_to_atom(filename:rootname(
-                          filename:basename(FileName))).
+save_beam(Options, Binary, Ctx3) ->
+    OutDir = proplists:get_value(outdir, Options, "./"),
+    ModuleName = atom_to_list(jxa_ctx:module_name(Ctx3)),
+    Path = re:split(ModuleName, "\\."),
+    OutPath = filename:join([OutDir | Path]),
+    OutFile = lists:flatten([binary_to_list(OutPath), ".beam"]),
+    ok = filelib:ensure_dir(OutPath),
+    ok = file:write_file(OutFile, Binary).
+
+usage(OptSpecList) ->
+    getopt:usage(OptSpecList, "", "[option1 option2 ...] jxa-file",
+                 []).
+
+-spec option_spec_list() -> list().
+option_spec_list() ->
+    [{outdir, $o, "outdir", string, "the directory to output beam files"}].
+
 
 -spec comp_forms(jxa_path:state(),
                  jxa_ctx:context(),
