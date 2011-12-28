@@ -147,7 +147,7 @@ comp(Path0, Ctx0, [cons, Arg1, Arg2]) ->
                                        jxa_ctx:annots(Ctx2)),
     {Ctx2, cerl:ann_c_cons(Line, Cerl1, Cerl2)};
 comp(Path0, Ctx0, [quote, Args]) ->
-    Literal = jxa_literal:comp(jxa_path:incr(Path0), Ctx0, Args),
+    Literal = jxa_literal:comp(jxa_path:add(jxa_path:incr(Path0)), Ctx0, Args),
     {Ctx0, Literal};
 comp(Path0, Ctx0, [list | Args]) ->
     Path1 = jxa_path:incr(Path0),
@@ -199,15 +199,17 @@ comp(Path0, Ctx0, Form = [Val | Args]) ->
                 {error, Error2 = {mismatched_arity, _, _, _, _}} ->
                     ?JXA_THROW({Error2, Idx});
                 not_a_reference ->
-                    %% The last thing it might be is a function call. So we
-                    %% are going to try to compile it. It might work
-                    {Ctx1, Cerl} = comp(Path1, Ctx1, Val),
-                    {Ctx1, cerl:ann_c_apply([BaseLine], Cerl, ArgList)}
+                    ?JXA_THROW({invalid_reference, Val, PossibleArity, Idx})
             end
     end;
-comp(Path0, Ctx0, _Form) ->
-    {_, Idx} = jxa_annot:get(jxa_path:path(Path0), jxa_ctx:annots(Ctx0)),
-    ?JXA_THROW({invalid_form, Idx}).
+comp(Path0, Ctx0, Form) ->
+    case jxa_annot:get(jxa_path:path(Path0), jxa_ctx:annots(Ctx0)) of
+        {string, {Line, _}} ->
+            {Ctx0, cerl:ann_c_string([Line], Form)};
+        _ ->
+            {_, Idx} = jxa_annot:get(jxa_path:path(Path0), jxa_ctx:annots(Ctx0)),
+            ?JXA_THROW({invalid_form, Idx})
+    end.
 
 mk_tuple(Path0, Ctx0, Args) ->
     {_, Ctx3, Body} =
