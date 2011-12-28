@@ -26,6 +26,7 @@
          definitions/1,
          add_exported_definition/5,
          add_definition/5,
+         add_def_placeholder/3,
          resolve_reference/3,
          push_scope/1,
          add_variable_to_scope/2,
@@ -241,6 +242,13 @@ add_exported_definition(Line, Name, Vars, Body, Ctx0) ->
     Arity = erlang:length(Vars),
     add_definition(Line, Name, Vars, Body,
                    add_export(Line, Name, Arity, Ctx0)).
+
+
+-spec add_def_placeholder(atom(), non_neg_integer(), context()) ->
+                                 context().
+add_def_placeholder(Name, Arity, Ctx0=#context{definitions=Defs}) ->
+    Ctx0#context{definitions=ec_dictionary:add({Name, Arity},
+                                               '__placeholder__', Defs)}.
 
 -spec add_definition(non_neg_integer(),
                      atom(), [cerl:cerl()], cerl:cerl(),
