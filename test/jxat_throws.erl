@@ -32,11 +32,11 @@ then([a,beam,binary,is,produced], State = {_, Binary},  _) ->
       ?assertMatch(true, is_binary(Binary)),
     {ok, State};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
-    ?assertMatch([{'do-test2',0},
-                  {'do-test1',0},
+    ?assertMatch([{'do-test1',0},
+                  {'do-test2',0},
                   {module_info,0},
                   {module_info,1}],
-                 'jxat-throws-test':module_info(exports)),
+                 lists:sort('jxat-throws-test':module_info(exports))),
     ?assertMatch('got-it', 'jxat-throws-test':'do-test1'()),
     ?assertThrow({this,is,a,test},
                  'jxat-throws-test':'do-test2'()),

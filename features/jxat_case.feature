@@ -3,7 +3,7 @@ Feature: Joxa should support complex pattern matching in case clauses
   As an Joxa Developer
   I want to Joxa to be able to compile pattern matching in case clauses
 
-  Scenario: Support anonymous functions
+  Scenario: Support pattern matching with case
     Given a module that has a case statement
     When joxa is called on this module
     Then a beam binary is produced
