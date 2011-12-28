@@ -59,14 +59,28 @@ comp_pattern(Path0, Acc0={Ctx0, _}, ['=', Arg1, Arg2])
     {_, {Arg1Line, _}} = jxa_annot:get(jxa_path:path(jxa_path:incr(Path0)),
                                        jxa_ctx:annots(Ctx0)),
     {{Ctx1, Guards}, CerlPattern} =
-        comp_pattern(jxa_path:incr(2, Path0),
+        comp_pattern(jxa_path:add(jxa_path:incr(2, Path0)),
                      Acc0, Arg2),
     CerlArg1 =
         cerl:ann_c_alias([Line], cerl:ann_c_var([Arg1Line], Arg1),
                          CerlPattern),
     {{jxa_ctx:add_variable_to_scope(Arg1, Ctx1), Guards}, CerlArg1};
+comp_pattern(Path0, Acc0={Ctx0, _}, ['=', Arg1, Arg2])
+  when is_atom(Arg2) ->
+    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
+                                   jxa_ctx:annots(Ctx0)),
+    {_, {Arg2Line, _}} = jxa_annot:get(jxa_path:path(jxa_path:incr(Path0)),
+                                       jxa_ctx:annots(Ctx0)),
+    {Acc1, CerlPattern} =
+        comp_pattern(jxa_path:add(jxa_path:incr(Path0)),
+                     Acc0, Arg1),
+    CerlArg1 =
+        cerl:ann_c_alias([Line], cerl:ann_c_var([Arg2Line], Arg2),
+                         CerlPattern),
+    {Acc1, CerlArg1};
 comp_pattern(Path0, Acc0={Ctx0, _}, [quote, Args]) ->
-    Literal = jxa_literal:comp(jxa_path:incr(Path0), Ctx0, Args),
+    Literal = jxa_literal:comp(jxa_path:add(jxa_path:incr(Path0)),
+                               Ctx0, Args),
     {Acc0, Literal};
 comp_pattern(Path0, Acc0, Expr=[binary | _]) ->
     jxa_binary:comp_pattern(Path0, Acc0, Expr);
@@ -95,20 +109,7 @@ comp_pattern(Path0, Acc0, [list | Args]) ->
 comp_pattern(Path0, Acc0, [tuple | Args]) ->
     mk_tuple(Path0, Acc0, Args);
 comp_pattern(Path0, Ctx0, Arg) when is_tuple(Arg) ->
-    mk_tuple(Path0, Ctx0, tuple_to_list(Arg));
-comp_pattern(Path0, Acc0={Ctx0, _}, ['=', Arg1, Arg2])
-  when is_atom(Arg2) ->
-    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
-                                   jxa_ctx:annots(Ctx0)),
-    {_, {Arg2Line, _}} = jxa_annot:get(jxa_path:path(jxa_path:incr(Path0)),
-                                       jxa_ctx:annots(Ctx0)),
-    {Acc1, CerlPattern} =
-        comp_pattern(jxa_path:incr(Path0),
-                     Acc0, Arg1),
-    CerlArg1 =
-        cerl:ann_c_alias([Line], cerl:ann_c_var([Arg2Line], Arg2),
-                         CerlPattern),
-    {Acc1, CerlArg1}.
+    mk_tuple(Path0, Ctx0, tuple_to_list(Arg)).
 
 mk_guards(GuardLine, []) ->
     cerl:ann_c_atom([GuardLine, compiler_generated], true);
@@ -168,7 +169,7 @@ do_clause_terminator(Path0, Ctx0, Clause) ->
 
 
 
-compile_clause_body(Path0, Ctx0, [Pattern, Guards, Body]) ->
+compile_clause_body(Path0, Ctx0, [Pattern, ['when', Guards], Body]) ->
     Ctx1 = jxa_ctx:push_scope(Ctx0),
     {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
                                    jxa_ctx:annots(Ctx1)),
@@ -178,7 +179,8 @@ compile_clause_body(Path0, Ctx0, [Pattern, Guards, Body]) ->
         jxa_annot:get(jxa_path:add_path(jxa_path:incr(Path0)),
                       jxa_ctx:annots(Ctx2)),
     {Ctx3, CerlGuard} =
-        jxa_expression:comp(jxa_path:add(jxa_path:incr(Path0)),
+        jxa_expression:comp(
+          jxa_path:add(jxa_path:incr(jxa_path:add(jxa_path:incr(Path0)))),
                             Ctx2, Guards),
     CompleteGuards = mk_guards(GuardLine,
                                [CerlGuard | PatternGuards]),
