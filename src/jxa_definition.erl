@@ -21,7 +21,13 @@ comp(Path0, Ctx0, [defn, Name, Args, Expression]) ->
                                    Args, Expression),
     {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
                                    jxa_ctx:annots(Ctx1)),
-    jxa_ctx:add_definition(Line, Name, ArgList, Body, Ctx1).
+    jxa_ctx:add_definition(Line, Name, ArgList, Body, Ctx1);
+comp(Path0, Ctx0, _) ->
+    {_, Idx} = jxa_annot:get(jxa_path:add_path(Path0),
+                             jxa_ctx:annots(Ctx0)),
+    ?JXA_THROW({invalid_definition, Idx}).
+
+
 
 
 
