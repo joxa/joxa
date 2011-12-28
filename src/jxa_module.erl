@@ -183,7 +183,7 @@ comp_attr(Path0, Ctx0, [Key, Value]) ->
                      Ctx0);
 comp_attr(Path0, Ctx0, _) ->
     {_, Idx} = jxa_annot:get(jxa_path:add_path(Path0), jxa_ctx:annots(Ctx0)),
-    ?JXA_THROW({invalid_require_clause, Idx}).
+    ?JXA_THROW({invalid_attr_clause, Idx}).
 
 %% Use Clauses
 %% -----------
@@ -227,7 +227,7 @@ comp_use(Idx, Ctx0, [[ModuleName | ClauseBody] | Rest], _Acc)
         ModuleName:module_info()
     catch
         error:undef ->
-            ?JXA_THROW({invalid_require_clause, {bad_module, ModuleName}, Idx})
+            ?JXA_THROW({invalid_use_clause, {bad_module, ModuleName}, Idx})
     end,
     Ctx1 = jxa_ctx:add_require(ModuleName, Ctx0),
     Exports = get_exports(ModuleName, Idx),
