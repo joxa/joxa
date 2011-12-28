@@ -68,6 +68,8 @@ comp_pattern(Path0, Acc0={Ctx0, _}, ['=', Arg1, Arg2])
 comp_pattern(Path0, Acc0={Ctx0, _}, [quote, Args]) ->
     Literal = jxa_literal:comp(jxa_path:incr(Path0), Ctx0, Args),
     {Acc0, Literal};
+comp_pattern(Path0, Acc0, Expr=[binary | _]) ->
+    jxa_binary:comp_pattern(Path0, Acc0, Expr);
 comp_pattern(Path0, Acc0, [Arg1, '.', Arg2]) ->
     {Acc1, Cerl1} = comp_pattern(Path0,
                          Acc0, Arg1),

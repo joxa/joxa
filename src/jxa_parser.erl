@@ -124,31 +124,9 @@ do_parse(Path0, Annots0, Ast, Input, Idx0) ->
                            {jxa_annot:annotations(), raw_type()}.
 transform_ast(_, _, fail) ->
    erlang:throw(fail);
-transform_ast(Path0, Annotations, {ident, Ident, Idx}) ->
-    {jxa_annot:add(jxa_path:path(Path0), {ident, Idx}, Annotations),
-     Ident};
-transform_ast(Path0, Annotations, {char, Char, Idx}) ->
-    {jxa_annot:add(jxa_path:path(Path0), {char, Idx}, Annotations), Char};
-transform_ast(Path0, Annotations, {string, List, Idx}) ->
-    {jxa_annot:add(jxa_path:path(Path0), {string, Idx},
-                   Annotations), List};
-transform_ast(Path0, Annotations, {float, Float, Idx}) ->
-    {jxa_annot:add(jxa_path:path(Path0), {float, Idx},
-                   Annotations), Float};
-transform_ast(Path0, Annotations, {integer, Integer, Idx}) ->
-    {jxa_annot:add(jxa_path:path(Path0),
-                   {integer, Idx}, Annotations), Integer};
 transform_ast(Path0, Annotations, {call, MFA, Idx}) ->
     {jxa_annot:add(jxa_path:path(Path0), {call, Idx}, Annotations),
      MFA};
-transform_ast(Path0, Annotations0, {quote, Quote, Idx}) ->
-    {Annotations1, Quoted} =
-        transform_ast(jxa_path:add(jxa_path:incr(Path0)),
-                      Annotations0, Quote),
-    Annotations2 = jxa_annot:add(jxa_path:add(Path0), {ident, Idx},
-                                 Annotations1),
-    {jxa_annot:add(jxa_path:path(Path0),
-                   {quote, Idx}, Annotations2), [quote, Quoted]};
 transform_ast(Path0, Annotations0, {literal_list, List, Idx}) ->
     {_, Annotations3, TransformList} =
         lists:foldl(fun(El, {Path1, Annotations1, Elements}) ->
@@ -164,6 +142,22 @@ transform_ast(Path0, Annotations0, {literal_list, List, Idx}) ->
                                  Annotations3),
     {jxa_annot:add(jxa_path:path(Path0), {literal_list, Idx}, Annotations4),
      [list | lists:reverse(TransformList)]};
+
+transform_ast(Path0, Annotations0, {binary, List, Idx}) ->
+    {_, Annotations3, TransformList} =
+        lists:foldl(fun(El, {Path1, Annotations1, Elements}) ->
+                            {Annotations2, Transformed} =
+                                transform_ast(jxa_path:add(Path1),
+                                              Annotations1, El),
+                            Path2 = jxa_path:incr(Path1),
+                            {Path2, Annotations2, [Transformed | Elements]}
+                    end, {jxa_path:incr(Path0), Annotations0, []}, List),
+    %% We need to put in the annotation for the programatically inserted
+    %% 'list' argument
+    Annotations4 = jxa_annot:add(jxa_path:add_path(Path0), {ident, Idx},
+                                 Annotations3),
+    {jxa_annot:add(jxa_path:path(Path0), {literal_list, Idx}, Annotations4),
+     [binary | lists:reverse(TransformList)]};
 transform_ast(Path0, Annotations0, {tuple, List, Idx}) ->
     {_, Annotations3, TransformList} =
         lists:foldl(fun(El, {Path1, Annotations1, Elements}) ->
@@ -185,7 +179,19 @@ transform_ast(Path0, Annotations0, {list, List, Idx}) ->
                             {Path2, Annotations2, [Transformed | Elements]}
                     end, {Path0, Annotations0, []}, List),
     {jxa_annot:add(jxa_path:path(Path0), {list, Idx}, Annotations3),
-     lists:reverse(TransformList)}.
+     lists:reverse(TransformList)};
+transform_ast(Path0, Annotations0, {Type, Val={_, _, _}, Idx}) ->
+     {Annotations1, PVal} =
+        transform_ast(jxa_path:add(jxa_path:incr(Path0)),
+                      Annotations0, Val),
+    Annotations2 = jxa_annot:add(jxa_path:add(Path0), {ident, Idx},
+                                 Annotations1),
+    {jxa_annot:add(jxa_path:path(Path0),
+                   {Type, Idx}, Annotations2), [Type, PVal]};
+
+transform_ast(Path0, Annotations, {Type, Val, Idx}) ->
+    {jxa_annot:add(jxa_path:path(Path0), {Type, Idx}, Annotations),
+     Val}.
 
 -spec intermediate_parse(string(), index()) -> intermediate_ast() | fail.
 intermediate_parse(Input, Index) when is_binary(Input) ->
@@ -229,7 +235,7 @@ char(Input, Index) ->
       p_seq([p_string(<<"\\">>),
              p_anything()]),
       fun([_, Char], Idx) ->
-              {char, Char, Idx}
+              {char, hd(binary_to_list(Char)), Idx}
       end).
 
 -spec int_part(binary(), index()) -> intermediate_ast().
@@ -265,6 +271,27 @@ digit(Input, Index) ->
     p(Input, Index, digit,
       fun(I,D) ->
               (p_charclass(<<"[0-9]">>))(I,D)
+      end).
+
+-spec binary(binary(), index()) -> intermediate_ast().
+binary(Input, Index) ->
+    p(Input, Index, binary,
+      p_seq([p_string(<<"<<">>),
+             fun ignorable/2,
+             p_choose([fun integer/2,
+                       fun char/2,
+                       fun ident/2,
+                       fun list/2]),
+             p_zero_or_more(p_seq([fun ignorable/2,
+                                   p_choose([fun integer/2,
+                                             fun char/2,
+                                             fun ident/2,
+                                             fun list/2])])),
+             fun ignorable/2,
+             p_string(<<">>">>)]),
+
+      fun([_, _, H, T, _, _], Idx) ->
+              {binary, lists:flatten([H, T]), Idx}
       end).
 
 -spec tuple(binary(), index()) -> intermediate_ast().
@@ -422,7 +449,7 @@ ident(Input, Index) ->
       p_choose([p_string("/"),
                 p_one_or_more(
                   p_and([p_not(
-                           p_charclass(<<"[ ;{}/\t\n\s\r\\(\\)\\[\\]\"]">>)),
+                           p_charclass(<<"[ ;><{}/\t\n\s\r\\(\\)\\[\\]\"]">>)),
                          p_anything()]))]),
 
       fun(Node, Idx) ->
@@ -448,6 +475,7 @@ value(Input, Index) ->
               (p_seq([fun ignorable/2,
                       p_choose([fun list/2,
                                 fun tuple/2,
+                                fun binary/2,
                                 fun quote/2,
                                 fun fun_reference/2,
                                 fun float/2,

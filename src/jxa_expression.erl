@@ -1,7 +1,7 @@
 %% -*- mode: Erlang; fill-column: 80; comment-column: 76; -*-
 -module(jxa_expression).
 
--export([do_function_body/4, comp/3]).
+-export([do_function_body/4, comp/3, eval_args/3]).
 -include_lib("joxa/include/joxa.hrl").
 
 %%=============================================================================
@@ -14,6 +14,16 @@ do_function_body(Path0, Ctx0, Args, Expression) ->
     {Ctx3, Body} = comp(jxa_path:add(jxa_path:incr(Path0)),
                         Ctx2, Expression),
     {jxa_ctx:pop_scope(Ctx3), ArgList, Body}.
+
+eval_args(Path0, Ctx0, Args0) ->
+    {_, Ctx3, Args1} =
+        lists:foldl(fun(Arg, {Path1, Ctx1, Acc}) ->
+                            {Ctx2, Cerl} =
+                                comp(jxa_path:add(Path1), Ctx1, Arg),
+                            Path2 = jxa_path:incr(Path1),
+                            {Path2, Ctx2, [Cerl | Acc]}
+                    end, {Path0, Ctx0, []}, Args0),
+    {Ctx3, lists:reverse(Args1)}.
 
 comp(Path0, Ctx0, Arg) when is_atom(Arg) ->
     {_, Idx = {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
@@ -85,6 +95,8 @@ comp(Path0, Ctx0, [values | Args0]) ->
     {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
                                    jxa_ctx:annots(Ctx0)),
     {Ctx2, cerl:ann_c_values([Line], lists:reverse(Args1))};
+comp(Path0, Ctx0, Expr = [binary | _]) ->
+    jxa_binary:comp(Path0, Ctx0, Expr);
 comp(Path0, Ctx0, [Arg1, '.', Arg2]) ->
     {Ctx1, Cerl1} = comp(Path0,
                          Ctx0, Arg1),
@@ -221,16 +233,6 @@ convert_list(Path0, Ctx0, [H | T]) ->
                        jxa_ctx:annots(Ctx2)),
     {Ctx2, cerl:ann_c_cons([Line], CerlH, CerlT)}.
 
-eval_args(Path0, Ctx0, Args0) ->
-    {_, Ctx3, Args1} =
-        lists:foldl(fun(Arg, {Path1, Ctx1, Acc}) ->
-                            {Ctx2, Cerl} =
-                                comp(jxa_path:add(Path1), Ctx1, Arg),
-                            Path2 = jxa_path:incr(Path1),
-                            {Path2, Ctx2, [Cerl | Acc]}
-                    end, {Path0, Ctx0, []}, Args0),
-    {Ctx3, lists:reverse(Args1)}.
-
 gen_args(Path0, Ctx0, Args0) ->
     {_, Ctx2, Args1} =
         lists:foldl(fun(Arg, {Path1, Ctx1, Acc})
@@ -266,4 +268,5 @@ mk_do(Path0, Ctx0, [Arg1 | Rest]) ->
     {Ctx1, Cerl0} = comp(jxa_path:add(Path0), Ctx0, Arg1),
     {Ctx2, Cerl1} = mk_do(jxa_path:incr(Path0), Ctx1, Rest),
     {Ctx2, cerl:ann_c_seq([Line], Cerl0, Cerl1)}.
+
 
