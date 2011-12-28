@@ -6,6 +6,7 @@
    {modules, [joxa_app,
               joxa_sup]},
    {registered,[joxa_sup]},
-   {applications, [kernel, stdlib, compiler, erlware_commons]},
+   {applications, [kernel, stdlib, compiler, erlware_commons,
+                   getopt]},
    {mod, {joxa_app,[]}},
    {start_phases, []}]}.
