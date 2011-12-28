@@ -12,16 +12,16 @@ given([a,module,that,has,a,'case',statement], _State, _) ->
                          ({:foo :bar}
                            (phash2 :bar))
                          ((= four (= three :z))
-                            (erlang/is_atom three)
+                            (when (erlang/is_atom three))
                            (phash2 four))
                          (_z
                             :ok)))
                 (defn internal-test2 (arg1 arg2 arg3)
                        (case [arg1 arg2 arg3]
                           ([one two three]
-                              (and (and (erlang/is_atom one)
+                              (when (and (and (erlang/is_atom one)
                                         (erlang/is_integer two))
-                                   (erlang/is_list three))
+                                   (erlang/is_list three)))
                             (phash2 one))
                           ([{a a 33} a 4]
                               (phash2 a))

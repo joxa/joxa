@@ -81,6 +81,32 @@ comp_clause(Path0, Ctx0, [Type, Pattern, Body]) ->
                         cerl:ann_c_var([compiler_generated], '_')],
                        jxa_clause:mk_guards(Line, PatternGuards),
                        CerlBody)};
+comp_clause(Path0, Ctx0, [Type, Pattern, ['when', Guards], Body]) ->
+    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
+                                   jxa_ctx:annots(Ctx0)),
+    Ctx1 = jxa_ctx:push_scope(Ctx0),
+    {{Ctx2, TypeGuards}, CerlType} =
+        jxa_clause:comp_pattern(jxa_path:add(Path0), {Ctx1, []}, Type),
+    {{Ctx3, PatternGuards}, CerlPattern} =
+        jxa_clause:comp_pattern(jxa_path:add(jxa_path:incr(Path0)),
+                                {Ctx2, TypeGuards},
+                                Pattern),
+    {Ctx4, CerlGuard} =
+        jxa_expression:comp(
+          jxa_path:add(jxa_path:incr(
+                         jxa_path:add(jxa_path:incr(Path0)))),
+                            Ctx3, Guards),
+
+    {Ctx5, CerlBody} =
+        jxa_expression:comp(jxa_path:add(jxa_path:incr(2, Path0)),
+                            Ctx4, Body),
+    {jxa_ctx:pop_scope(Ctx5),
+     cerl:ann_c_clause([Line, compiler_generated],
+                       [CerlType, CerlPattern,
+                        cerl:ann_c_var([compiler_generated], '_')],
+                       jxa_clause:mk_guards(Line, [CerlGuard, PatternGuards]),
+                       CerlBody)};
+
 comp_clause(Path0, Ctx0, _) ->
     {_, Idx} = jxa_annot:get(jxa_path:path(Path0),
                                    jxa_ctx:annots(Ctx0)),
