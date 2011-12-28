@@ -5,7 +5,7 @@
 
 -include_lib("joxa/include/joxa.hrl").
 %%=============================================================================
-%% Types
+%% Types:
 %%=============================================================================
 
 %%=============================================================================
@@ -17,25 +17,37 @@ main() ->
 main(Args) ->
     case getopt:parse(option_spec_list(), Args) of
         {ok, {Options, [Target]}} ->
-            {Ctx0, Binary} = comp(Target),
+            {Ctx0, Binary} = bootstrap_comp(filename:absname(Target)),
             save_beam(Options, Binary, Ctx0);
         _ ->
             usage(option_spec_list()),
             ?JXA_THROW(invalid_options_passed_in)
     end.
 
--spec comp(string() | binary()) -> {jxa_ctx:ctx(), binary()}.
-comp(FileName) when is_list(FileName) ->
+-spec bootstrap_comp(string() | binary()) -> {jxa_ctx:ctx(), binary()}.
+bootstrap_comp(FileName) when is_list(FileName) ->
     case file:read_file(FileName) of
         {ok, Binary} ->
-            Result = {Ctx0, ModuleBinary} = comp(Binary),
+            Result = {Ctx0, ModuleBinary} = bootstrap_comp(Binary),
             ModuleName = jxa_ctx:module_name(Ctx0),
             {module, ModuleName} =
-                code:load_binary(ModuleName, FileName, ModuleBinary),
+                code:load_binary(ModuleName, "", ModuleBinary),
             Result;
         {error, Reason} ->
             ?JXA_THROW({file_access, Reason, FileName})
     end;
+bootstrap_comp(BinaryData) when is_binary(BinaryData) ->
+    {Annots, Ast0} = jxa_parser:parse(BinaryData),
+    Ctx0 = jxa_ctx:new(Annots),
+    {_, Ctx3, Binary} =
+        lists:foldl(fun(DefAst, {Path, Ctx1, _Binary}) ->
+                            {Ctx2, Binary1} = comp_forms(jxa_path:add(Path),
+                                                         Ctx1, DefAst),
+                            {jxa_path:incr(Path), jxa_ctx:update(Ctx2),
+                             Binary1}
+                    end, {jxa_path:new(), Ctx0, <<>>}, Ast0),
+    {Ctx3, Binary}.
+
 comp(BinaryData) when is_binary(BinaryData) ->
     {Annots, Ast0} = jxa_parser:parse(BinaryData),
     Ctx0 = jxa_ctx:new(Annots),
@@ -51,7 +63,6 @@ comp(BinaryData) when is_binary(BinaryData) ->
                              Binary1}
                     end, {jxa_path:new(), Ctx0, <<>>}, Ast0),
     {Ctx3, Binary}.
-
 -spec format_exception(ExceptionBody::term()) -> IoList::[term()].
 format_exception({file_access, enoent, FileName}) ->
     io_lib:format("File does not exist ~s", [FileName]);
