@@ -15,6 +15,14 @@
 comp(Path0, Ctx0, Clauses) ->
     comp(Path0, Ctx0, Clauses, []).
 
+comp_pattern(Path0, {Ctx0, Guards0}, '_') ->
+    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
+                                   jxa_ctx:annots(Ctx0)),
+    Gensym = erlang:list_to_atom("_" ++ erlang:atom_to_list(joxa:gensym())),
+
+    CerlVar = cerl:ann_c_var([Line], Gensym),
+    Ctx1 = jxa_ctx:add_variable_to_scope(Gensym, Ctx0),
+    {{Ctx1, Guards0}, CerlVar};
 comp_pattern(Path0, {Ctx0, Guards0}, Arg) when is_atom(Arg) ->
     {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
                                    jxa_ctx:annots(Ctx0)),
@@ -205,7 +213,12 @@ compile_clause_body(Path0, Ctx0, [Pattern, Body]) ->
     {jxa_ctx:pop_scope(Ctx3),
      cerl:ann_c_clause([Line], [CerlPattern],
                        CompleteGuards,
-                       CerlBody)}.
+                       CerlBody)};
+compile_clause_body(Path0, Ctx0, _) ->
+    {_, Idx} = jxa_annot:get(jxa_path:path(Path0),
+                             jxa_ctx:annots(Ctx0)),
+    ?JXA_THROW({invalid_case_clause, Idx}).
+
 
 mk_tuple(Path0, Acc0, Args) ->
     {_, Acc3={Ctx0, _}, Body} =
