@@ -137,7 +137,7 @@ ident() ->
 
 character() ->
     ?LET(Char, string_character(),
-         {char, list_to_binary([Char]), 0}).
+         {char, Char, 0}).
 
 jxa_int() ->
     {integer, integer(), 0}.
@@ -185,6 +185,8 @@ bitstring_body() ->
              {list, [{ident, 'unsigned', 0},
                      {ident, 'big', 0}], 0}], 0}.
 
+jxa_binary(0) ->
+    {binary, [], 0};
 jxa_binary(Size) ->
     {binary, jxa_bitstring(Size), 0}.
 

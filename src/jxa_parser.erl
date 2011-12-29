@@ -33,7 +33,7 @@
 -export([file/1, parse/1]).
 
 %% for testing purposes
--export([intermediate_parse/1]).
+-export([intermediate_parse/1, p_charclass/1]).
 
 -include_lib("joxa/include/joxa.hrl").
 
@@ -276,22 +276,26 @@ digit(Input, Index) ->
 -spec binary(binary(), index()) -> intermediate_ast().
 binary(Input, Index) ->
     p(Input, Index, binary,
-      p_seq([p_string(<<"<<">>),
-             fun ignorable/2,
-             p_choose([fun integer/2,
-                       fun char/2,
-                       fun ident/2,
-                       fun list/2]),
-             p_zero_or_more(p_seq([fun ignorable/2,
-                                   p_choose([fun integer/2,
-                                             fun char/2,
-                                             fun ident/2,
-                                             fun list/2])])),
-             fun ignorable/2,
-             p_string(<<">>">>)]),
-
+      p_choose([p_seq([p_string(<<"<<">>),
+                       fun ignorable/2,
+                       p_choose([fun integer/2,
+                                 fun char/2,
+                                 fun ident/2,
+                                 fun list/2]),
+                       p_zero_or_more(p_seq([fun ignorable/2,
+                                             p_choose([fun integer/2,
+                                                       fun char/2,
+                                                       fun ident/2,
+                                                       fun list/2])])),
+                       fun ignorable/2,
+                       p_string(<<">>">>)]),
+                p_seq([p_string(<<"<<">>),
+                       fun ignorable/2,
+                       p_string(<<">>">>)])]),
       fun([_, _, H, T, _, _], Idx) ->
-              {binary, lists:flatten([H, T]), Idx}
+              {binary, lists:flatten([H, T]), Idx};
+         ([_, _, _], Idx) ->
+              {binary, [], Idx}
       end).
 
 -spec tuple(binary(), index()) -> intermediate_ast().
