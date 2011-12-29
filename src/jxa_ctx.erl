@@ -26,6 +26,7 @@
          definitions/1,
          add_exported_definition/5,
          add_definition/5,
+         add_inline_definition/5,
          add_def_placeholder/3,
          resolve_reference/3,
          push_scope/1,
@@ -257,6 +258,15 @@ add_def_placeholder(Name, Arity, Ctx0=#context{definitions=Defs}) ->
 add_definition(Line, Name, Vars, Body, Ctx0=#context{definitions=Defs}) ->
     Arity = erlang:length(Vars),
     CerlName = cerl:ann_c_fname([Line],
+                                Name, Arity),
+    CerlBody = cerl:ann_c_fun([Line], Vars, Body),
+    Ctx0#context{definitions=ec_dictionary:add({Name, Arity},
+                                               {CerlName, CerlBody}, Defs)}.
+
+
+add_inline_definition(Line, Name, Vars, Body, Ctx0=#context{definitions=Defs}) ->
+    Arity = erlang:length(Vars),
+    CerlName = cerl:ann_c_fname([Line, inline],
                                 Name, Arity),
     CerlBody = cerl:ann_c_fun([Line], Vars, Body),
     Ctx0#context{definitions=ec_dictionary:add({Name, Arity},
