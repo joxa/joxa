@@ -87,15 +87,15 @@ comp_pattern(Path0, Acc0, Expr=[binary | _]) ->
 comp_pattern(Path0, Acc0, [Arg1, '.', Arg2]) ->
     {Acc1, Cerl1} = comp_pattern(Path0,
                          Acc0, Arg1),
-    {Acc2={Ctx1, _, _}, Cerl2} = comp_pattern(jxa_path:incr(2, Path0),
-                         Acc1, Arg2),
+    {Acc2={Ctx1, _}, Cerl2} = comp_pattern(jxa_path:incr(2, Path0),
+                                           Acc1, Arg2),
     {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
                                    jxa_ctx:annots(Ctx1)),
     {Acc2, cerl:ann_c_cons(Line, Cerl1, Cerl2)};
 comp_pattern(Path0, Acc0, [cons, Arg1, Arg2]) ->
     {Acc1, Cerl1} = comp_pattern(jxa_path:incr(Path0),
                                  Acc0, Arg1),
-    {Acc2={Ctx0, _, _}, Cerl2} = comp(jxa_path:incr(2, Path0),
+    {Acc2={Ctx0, _}, Cerl2} = comp(jxa_path:incr(2, Path0),
                          Acc1, Arg2),
     {ident, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
                                        jxa_ctx:annots(Ctx0)),
