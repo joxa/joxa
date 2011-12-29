@@ -34,31 +34,30 @@ mk_pattern_binary(Path0, Acc0, Args) ->
                                 jxa_annot:get(jxa_path:add_path(Path2),
                                               jxa_ctx:annots(Ctx0)),
                             {{Ctx1, PG}, CerlVar} =
-                                 jxa_clause:comp_pattern(Path2, Acc1, Var),
-                             Desc = resolve_defaults(
-                                      convert(Pairs0,
-                                              #bitstring{var=CerlVar})),
-                             case Desc of
-                                 invalid ->
-                                     ?JXA_THROW({invalid_bistring_spec, Idx});
-                                 _ ->
-                                     ok
-                             end,
+                                jxa_clause:comp_pattern(Path2, Acc1, Var),
+                            Desc = resolve_defaults(
+                                     convert(Pairs0,
+                                             #bitstring{var=CerlVar})),
+                            case Desc of
+                                invalid ->
+                                    ?JXA_THROW({invalid_bistring_spec, Idx});
+                                _ ->
+                                    ok
+                            end,
 
-                             {Ctx2, Size} =
+                            {Ctx2, Size} =
                                 jxa_expression:comp(Path2,
                                                     Ctx1,
                                                     Desc#bitstring.size),
-                             Unit = cerl:ann_c_int([Line],
-                                                   Desc#bitstring.unit),
-                             Type = cerl:ann_c_atom([Line],
-                                                    Desc#bitstring.type),
-                             Flags =
-                                 cerl:ann_make_list([Line],
-                                                    [cerl:ann_c_atom([Line],
-                                                                     Desc#bitstring.signedness),
-                                                     cerl:ann_c_atom([Line],
-                                                                     Desc#bitstring.endianness)]),
+                            Unit =  Desc#bitstring.unit,
+                            Type = cerl:ann_c_atom([Line],
+                                                   Desc#bitstring.type),
+                            Flags =
+                                cerl:ann_make_list([Line],
+                                                   [cerl:ann_c_atom([Line],
+                                                                    Desc#bitstring.signedness),
+                                                    cerl:ann_c_atom([Line],
+                                                                    Desc#bitstring.endianness)]),
 
 
                             {jxa_path:incr(Path1),
@@ -75,30 +74,30 @@ mk_pattern_binary(Path0, Acc0, Args) ->
                                 jxa_annot:get(jxa_path:add_path(Path1),
                                               jxa_ctx:annots(Ctx0)),
                             {{Ctx1, PG}, CerlVar} =
-                                 jxa_clause:comp_pattern(Path1, Acc1,
-                                                         Var),
-                             Desc = resolve_defaults(#bitstring{var=CerlVar}),
-                             case Desc of
-                                 invalid ->
-                                     ?JXA_THROW({invalid_bistring_spec, Idx});
-                                 _ ->
-                                     ok
-                             end,
+                                jxa_clause:comp_pattern(Path1, Acc1,
+                                                        Var),
+                            Desc = resolve_defaults(#bitstring{var=CerlVar}),
+                            case Desc of
+                                invalid ->
+                                    ?JXA_THROW({invalid_bistring_spec, Idx});
+                                _ ->
+                                    ok
+                            end,
 
-                             {Ctx2, Size} =
+                            {Ctx2, Size} =
                                 jxa_expression:comp(Path1,
                                                     Ctx1,
                                                     Desc#bitstring.size),
-                             Unit = cerl:ann_c_int([Line],
-                                                   Desc#bitstring.unit),
-                             Type = cerl:ann_c_atom([Line],
-                                                    Desc#bitstring.type),
-                             Flags =
-                                 cerl:ann_make_list([Line],
-                                                    [cerl:ann_c_atom([Line],
-                                                                     Desc#bitstring.signedness),
-                                                     cerl:ann_c_atom([Line],
-                                                                     Desc#bitstring.endianness)]),
+                            Unit = Desc#bitstring.unit,
+
+                            Type = cerl:ann_c_atom([Line],
+                                                   Desc#bitstring.type),
+                            Flags =
+                                cerl:ann_make_list([Line],
+                                                   [cerl:ann_c_atom([Line],
+                                                                    Desc#bitstring.signedness),
+                                                    cerl:ann_c_atom([Line],
+                                                                    Desc#bitstring.endianness)]),
                             {jxa_path:incr(Path1),
                              {Ctx2, PG},
                              [cerl:ann_c_bitstr([Line],
@@ -126,31 +125,30 @@ mk_binary(Path0, Ctx0, Args) ->
                                 jxa_annot:get(jxa_path:add_path(Path2),
                                               jxa_ctx:annots(Ctx0)),
                             {Ctx2, CerlVar} =
-                                 jxa_expression:comp(Path2, Ctx1, Var),
-                             Desc = resolve_defaults(
-                                      convert(Pairs0,
-                                              #bitstring{var=CerlVar})),
-                             case Desc of
-                                 invalid ->
-                                     ?JXA_THROW({invalid_bistring_spec, Idx});
-                                 _ ->
-                                     ok
-                             end,
+                                jxa_expression:comp(Path2, Ctx1, Var),
+                            Desc = resolve_defaults(
+                                     convert(Pairs0,
+                                             #bitstring{var=CerlVar})),
+                            case Desc of
+                                invalid ->
+                                    ?JXA_THROW({invalid_bistring_spec, Idx});
+                                _ ->
+                                    ok
+                            end,
 
-                             {Ctx3, Size} =
+                            {Ctx3, Size} =
                                 jxa_expression:comp(Path2,
                                                     Ctx2,
                                                     Desc#bitstring.size),
-                             Unit = cerl:ann_c_int([Line],
-                                                   Desc#bitstring.unit),
-                             Type = cerl:ann_c_atom([Line],
-                                                    Desc#bitstring.type),
-                             Flags =
-                                 cerl:ann_make_list([Line],
-                                                    [cerl:ann_c_atom([Line],
-                                                                     Desc#bitstring.signedness),
-                                                     cerl:ann_c_atom([Line],
-                                                                     Desc#bitstring.endianness)]),
+                            Unit = Desc#bitstring.unit,
+                            Type = cerl:ann_c_atom([Line],
+                                                   Desc#bitstring.type),
+                            Flags =
+                                cerl:ann_make_list([Line],
+                                                   [cerl:ann_c_atom([Line],
+                                                                    Desc#bitstring.signedness),
+                                                    cerl:ann_c_atom([Line],
+                                                                    Desc#bitstring.endianness)]),
 
 
                             {jxa_path:incr(Path2),
@@ -162,34 +160,33 @@ mk_binary(Path0, Ctx0, Args) ->
                                                 Type,
                                                 Flags) | Acc]};
                        (Var, {Path1, Ctx1, Acc})
-                            when is_atom(Var) orelse is_integer(Var) ->
+                          when is_atom(Var) orelse is_integer(Var) ->
                             {_, Idx={Line, _}} =
                                 jxa_annot:get(jxa_path:add_path(Path1),
                                               jxa_ctx:annots(Ctx0)),
                             {Ctx2, CerlVar} =
-                                 jxa_expression:comp(Path1, Ctx1, Var),
-                             Desc = resolve_defaults(#bitstring{var=CerlVar}),
-                             case Desc of
-                                 invalid ->
-                                     ?JXA_THROW({invalid_bistring_spec, Idx});
-                                 _ ->
-                                     ok
-                             end,
+                                jxa_expression:comp(Path1, Ctx1, Var),
+                            Desc = resolve_defaults(#bitstring{var=CerlVar}),
+                            case Desc of
+                                invalid ->
+                                    ?JXA_THROW({invalid_bistring_spec, Idx});
+                                _ ->
+                                    ok
+                            end,
 
-                             {Ctx3, Size} =
+                            {Ctx3, Size} =
                                 jxa_expression:comp(Path1,
                                                     Ctx2,
                                                     Desc#bitstring.size),
-                             Unit = cerl:ann_c_int([Line],
-                                                   Desc#bitstring.unit),
-                             Type = cerl:ann_c_atom([Line],
-                                                    Desc#bitstring.type),
-                             Flags =
-                                 cerl:ann_make_list([Line],
-                                                    [cerl:ann_c_atom([Line],
-                                                                     Desc#bitstring.signedness),
-                                                     cerl:ann_c_atom([Line],
-                                                                     Desc#bitstring.endianness)]),
+                            Unit = Desc#bitstring.unit,
+                            Type = cerl:ann_c_atom([Line],
+                                                   Desc#bitstring.type),
+                            Flags =
+                                cerl:ann_make_list([Line],
+                                                   [cerl:ann_c_atom([Line],
+                                                                    Desc#bitstring.signedness),
+                                                    cerl:ann_c_atom([Line],
+                                                                    Desc#bitstring.endianness)]),
 
 
                             {jxa_path:incr(Path1),
@@ -214,36 +211,48 @@ mk_binary(Path0, Ctx0, Args) ->
 resolve_defaults(invalid) ->
     invalid;
 resolve_defaults(Bitstring=#bitstring{size=Size0, unit=Unit0, type=Type}) ->
-   Size1 = case Size0 of
-               undefined ->
-                   case Type of
-                       integer ->
-                           8;
-                       float ->
-                           64;
-                       binary ->
-                           [quote, all];
-                       bitstring ->
-                           1;
-                       bits ->
-                           1
-                   end;
-               Value0 ->
-                   Value0
-           end,
-    Unit1 = case Unit0 of
+    Size1 = case Size0 of
                 undefined ->
                     case Type of
-                        float ->
-                            1;
                         integer ->
-                            1;
+                            8;
+                        float ->
+                            64;
+                        binary ->
+                            [quote, all];
                         bitstring ->
                             1;
                         bits ->
                             1;
+                        utf8 ->
+                            [quote, undefined];
+                        utf16 ->
+                            [quote, undefined];
+                        utf32 ->
+                            [quote, undefined]
+                    end;
+                Value0 ->
+                    Value0
+            end,
+    Unit1 = case Unit0 of
+                undefined ->
+                    case Type of
+                        float ->
+                            cerl:ann_c_int([compiler_generated], 1);
+                        integer ->
+                            cerl:ann_c_int([compiler_generated], 1);
+                        bitstring ->
+                            cerl:ann_c_int([compiler_generated], 1);
+                        bits ->
+                            cerl:ann_c_int([compiler_generated], 1);
                         binary ->
-                            8
+                            cerl:ann_c_int([compiler_generated], 8);
+                        utf8 ->
+                            cerl:ann_c_int([compiler_generated], undefined);
+                        utf16 ->
+                            cerl:ann_c_int([compiler_generated], undefined);
+                        utf32 ->
+                            cerl:ann_c_int([compiler_generated], undefined)
                     end;
                 Value1 ->
                     Value1
@@ -270,6 +279,12 @@ convert([[quote, integer] | Rest], Bitstring) ->
     convert(Rest, Bitstring#bitstring{type=integer});
 convert([[quote, binary] | Rest], Bitstring) ->
     convert(Rest, Bitstring#bitstring{type=binary});
+convert([[quote, utf8] | Rest], Bitstring) ->
+    convert(Rest, Bitstring#bitstring{type=utf8});
+convert([[quote, utf16] | Rest], Bitstring) ->
+    convert(Rest, Bitstring#bitstring{type=utf16});
+convert([[quote, utf32] | Rest], Bitstring) ->
+    convert(Rest, Bitstring#bitstring{type=utf32});
 convert([[quote, float] | Rest], Bitstring) ->
     convert(Rest, Bitstring#bitstring{type=float});
 convert(_, _Bitstring) ->
