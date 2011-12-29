@@ -408,6 +408,7 @@ comment(Input, Index) ->
 ignorable(Input, Index) ->
     p(Input, Index, ignorable,
       p_optional(p_zero_or_more(p_choose([fun space/2,
+                                          p_string(","),
                                           fun comment/2]))),
       fun(_, _Idx) ->
               []
@@ -453,7 +454,7 @@ ident(Input, Index) ->
       p_choose([p_string("/"),
                 p_one_or_more(
                   p_and([p_not(
-                           p_charclass(<<"[ ;><{}/\t\n\s\r\\(\\)\\[\\]\"]">>)),
+                           p_charclass(<<"[ ;~,><{}/\t\n\s\r\\(\\)\\[\\]\"]">>)),
                          p_anything()]))]),
 
       fun(Node, Idx) ->

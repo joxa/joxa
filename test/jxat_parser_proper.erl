@@ -89,25 +89,17 @@ internal_string() ->
     ?LET(S, list([string_character()]),
          erlang:binary_to_list(unicode:characters_to_binary(S))).
 
-ident_initial() ->
-    union([33,
-           integer(35, 38),
-           integer(42, 46),
-           integer(63, 90),
-           integer(94, 95),
-           integer(97, 122),
-           integer(126, 127)]).
-
 ident_character() ->
     union([33,
            integer(35, 38),
-           integer(42, 46),
+           integer(42, 43),
+           integer(45, 46),
            integer(63, 90),
            integer(94, 122)]).
 
 ident_string() ->
     ?LET({S1, S2},
-         {ident_initial(),
+         {ident_character(),
           list([ident_character()])},
          [S1 | erlang:binary_to_list(unicode:characters_to_binary(S2))]).
 
