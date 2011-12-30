@@ -454,7 +454,7 @@ ident(Input, Index) ->
       p_choose([p_string("/"),
                 p_one_or_more(
                   p_and([p_not(
-                           p_charclass(<<"[ ;~,><{}/\t\n\s\r\\(\\)\\[\\]\"]">>)),
+                           p_charclass(<<"[ :;~`'\\\\,><{}/\t\n\s\r\\(\\)\\[\\]\"]">>)),
                          p_anything()]))]),
 
       fun(Node, Idx) ->
@@ -478,17 +478,17 @@ value(Input, Index) ->
     p(Input, Index, value,
       fun(I,D) ->
               (p_seq([fun ignorable/2,
-                      p_choose([fun list/2,
-                                fun tuple/2,
-                                fun binary/2,
-                                fun quote/2,
-                                fun fun_reference/2,
-                                fun float/2,
+                      p_choose([fun float/2,
                                 fun integer/2,
-                                fun char/2,
-                                fun string/2,
+                                fun fun_reference/2,
+                                fun ident/2,
                                 fun symbol/2,
-                                fun ident/2]),
+                                fun list/2,
+                                fun tuple/2,
+                                fun string/2,
+                                fun quote/2,
+                                fun char/2,
+                                fun binary/2]),
                       fun ignorable/2]))(I,D) end,
       fun(Node, _Idx) ->
               lists:nth(2, Node)
@@ -724,7 +724,7 @@ ident_test() ->
     ?memo(?assertMatch({{ident, 'null', {1, _}}, <<>>, _}, value(<<"null">>, index()))),
     ?memo(?assertMatch({{ident, 'Hello?', {1, _}}, <<>>, _}, value(<<"Hello?">>, index()))),
     ?memo(?assertMatch({{ident, 'boo88', {1, _}}, <<>>, _}, value(<<"boo88">>, index()))),
-    ?memo(?assertMatch({{ident, 'bock:', {1, _}}, <<>>, _}, value(<<"bock:">>, index()))),
+    ?memo(?assertMatch({{ident, 'bock', {1, _}}, <<":">>, _}, value(<<"bock:">>, index()))),
     ?memo(?assertMatch({{ident, 'bock', {1, _}}, <<"{">>, _}, value(<<"bock{">>, index()))),
     ?memo(?assertMatch({{ident, 'bock', {1, _}}, <<"[">>, _}, value(<<"bock[">>, index()))),
     ?memo(?assertMatch({{ident, 'bock', {1, _}}, <<"(ee">>, _}, value(<<"bock(ee">>, index()))).

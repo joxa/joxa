@@ -94,8 +94,10 @@ ident_character() ->
            integer(35, 38),
            integer(42, 43),
            integer(45, 46),
+           integer(45, 46),
            integer(63, 90),
-           integer(94, 122)]).
+           integer(94, 95),
+           integer(97, 122)]).
 
 ident_string() ->
     ?LET({S1, S2},
