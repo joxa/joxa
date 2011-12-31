@@ -196,10 +196,7 @@ transform_ast(Path0, Annotations, {Type, Val, Idx}) ->
 -spec intermediate_parse(string(), index()) -> intermediate_ast() | fail.
 intermediate_parse(Input, Index) when is_binary(Input) ->
     setup_memo(),
-    Result = case value(Input, Index) of
-                 {AST, [], _Index} -> AST;
-                 Any -> Any
-             end,
+    Result = value(Input, Index),
     release_memo(),
     Result.
 
@@ -238,6 +235,7 @@ char(Input, Index) ->
               {char, hd(binary_to_list(Char)), Idx}
       end).
 
+%% done
 -spec int_part(binary(), index()) -> intermediate_ast().
 int_part(Input, Index) ->
     p(Input, Index, int_part,
@@ -289,6 +287,7 @@ binary(Input, Index) ->
                                                        fun list/2])])),
                        fun ignorable/2,
                        p_string(<<">>">>)]),
+                fun string/2,
                 p_seq([p_string(<<"<<">>),
                        fun ignorable/2,
                        p_string(<<">>">>)])]),
@@ -402,7 +401,8 @@ comment(Input, Index) ->
     p(Input, Index, comment,
       p_seq([p_string(";"),
              p_zero_or_more(p_charclass(<<"[^\n\r]">>)),
-             fun eol/2])).
+             p_choose([fun eol/2,
+                       p_eof()])])).
 
 -spec ignorable(binary(), index()) -> intermediate_ast().
 ignorable(Input, Index) ->
@@ -650,6 +650,10 @@ p_charclass(Class) ->
                                        binary_to_list(Class)}, Index}}
             end
     end.
+
+p_eof() ->
+  fun(<<>>, Index) -> {eof, <<>>, Index};
+     (_, Index) -> {fail, {expected, eof, Index}} end.
 
 p_advance_index(MatchedInput, Index)
   when is_list(MatchedInput) orelse is_binary(MatchedInput)->
