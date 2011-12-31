@@ -79,13 +79,13 @@ comp_pattern(Path0, Acc0={Ctx0, _}, ['=', Arg1, Arg2])
                                    jxa_ctx:annots(Ctx0)),
     {_, {Arg2Line, _}} = jxa_annot:get(jxa_path:path(jxa_path:incr(Path0)),
                                        jxa_ctx:annots(Ctx0)),
-    {Acc1, CerlPattern} =
+    {{Ctx1, Guards}, CerlPattern} =
         comp_pattern(jxa_path:add(jxa_path:incr(Path0)),
                      Acc0, Arg1),
     CerlArg1 =
         cerl:ann_c_alias([Line], cerl:ann_c_var([Arg2Line], Arg2),
                          CerlPattern),
-    {Acc1, CerlArg1};
+    {{jxa_ctx:add_variable_to_scope(Arg2, Ctx1), Guards}, CerlArg1};
 comp_pattern(Path0, Acc0={Ctx0, _}, [quote, Args]) ->
     Literal = jxa_literal:comp(jxa_path:add(jxa_path:incr(Path0)),
                                Ctx0, Args),
