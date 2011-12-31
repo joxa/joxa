@@ -12,6 +12,10 @@
 %% Public API
 %%=============================================================================
 -spec comp(jxa_path:state(), jxa_ctx:context(), term()) -> cerl:cerl().
+comp(Path0, Ctx0, Arg) when is_binary(Arg) ->
+    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
+                                   jxa_ctx:annots(Ctx0)),
+    {Ctx0, cerl:ann_make_data([Line], {atomic, Arg}, [])};
 comp(Path0, Ctx0, Symbol) when is_atom(Symbol) ->
     {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
                                    jxa_ctx:annots(Ctx0)),

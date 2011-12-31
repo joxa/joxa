@@ -142,7 +142,9 @@ transform_ast(Path0, Annotations0, {literal_list, List, Idx}) ->
                                  Annotations3),
     {jxa_annot:add(jxa_path:path(Path0), {literal_list, Idx}, Annotations4),
      [list | lists:reverse(TransformList)]};
-
+transform_ast(Path0, Annotations0, {binary, {string, String,_}, Idx}) ->
+    {jxa_annot:add(jxa_path:path(Path0), {binary, Idx}, Annotations0),
+     erlang:list_to_binary(String)};
 transform_ast(Path0, Annotations0, {binary, List, Idx}) ->
     {_, Annotations3, TransformList} =
         lists:foldl(fun(El, {Path1, Annotations1, Elements}) ->
@@ -242,6 +244,7 @@ int_part(Input, Index) ->
       p_seq([p_optional(p_string(<<"-">>)),
              p_one_or_more(fun digit/2)])).
 
+%% Done
 -spec frac_part(binary(), index()) -> intermediate_ast().
 frac_part(Input, Index) ->
     p(Input, Index, frac_part,
@@ -287,12 +290,18 @@ binary(Input, Index) ->
                                                        fun list/2])])),
                        fun ignorable/2,
                        p_string(<<">>">>)]),
-                fun string/2,
+                p_seq([p_string(<<"<<">>),
+                       fun ignorable/2,
+                       fun string/2,
+                       fun ignorable/2,
+                       p_string(<<">>">>)]),
                 p_seq([p_string(<<"<<">>),
                        fun ignorable/2,
                        p_string(<<">>">>)])]),
       fun([_, _, H, T, _, _], Idx) ->
               {binary, lists:flatten([H, T]), Idx};
+         ([_, _, String, _, _], Idx) ->
+              {binary, String, Idx};
          ([_, _, _], Idx) ->
               {binary, [], Idx}
       end).

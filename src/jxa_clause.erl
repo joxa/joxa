@@ -15,6 +15,10 @@
 comp(Path0, Ctx0, Clauses) ->
     comp(Path0, Ctx0, Clauses, []).
 
+comp_pattern(Path0, Acc0={Ctx0, _}, Arg) when is_binary(Arg) ->
+    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
+                                   jxa_ctx:annots(Ctx0)),
+    {Acc0, cerl:ann_make_data([Line], {atomic, Arg}, [])};
 comp_pattern(Path0, {Ctx0, Guards0}, '_') ->
     {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
                                    jxa_ctx:annots(Ctx0)),
