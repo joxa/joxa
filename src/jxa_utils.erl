@@ -22,7 +22,9 @@ asm_from_file(Path) ->
 
 to_ast(StringExpr) ->
     Forms0 =
-        lists:foldl(fun(<<"\n\n">>, Acc) ->
+        lists:foldl(fun(<<>>, Acc) ->
+                            Acc;
+                       (<<"\n\n">>, Acc) ->
                             Acc;
                        (El, Acc) ->
                             {ok, Tokens, _} =
