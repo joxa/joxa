@@ -168,7 +168,7 @@ transform_ast(Path0, Annotations0, {binary, List, Idx}) ->
     %% 'list' argument
     Annotations4 = jxa_annot:add(jxa_path:add_path(Path0), ident, Idx,
                                  Annotations3),
-    {jxa_annot:add(jxa_path:path(Path0), literal_list, Idx, Annotations4),
+    {jxa_annot:add(jxa_path:path(Path0), binary, Idx, Annotations4),
      [binary | lists:reverse(TransformList)]};
 transform_ast(Path0, Annotations0, {tuple, List, Idx}) ->
     {_, Annotations3, TransformList} =
