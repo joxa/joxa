@@ -473,14 +473,14 @@ symbol(Input, Index) ->
               {quote, Result, Idx}
       end).
 
+%% done
 -spec ident(binary(), index()) -> intermediate_ast().
 ident(Input, Index) ->
     p(Input, Index, ident,
-      p_choose([p_string("/"),
-                p_one_or_more(
-                  p_and([p_not(
-                           p_charclass(<<"[ :;~`'\\\\,><{}/\t\n\s\r\\(\\)\\[\\]\"]">>)),
-                         p_anything()]))]),
+      p_one_or_more(
+        p_and([p_not(
+                 p_charclass(<<"[ :;~`'\\\\,><{}/\t\n\s\r\\(\\)\\[\\]\"]">>)),
+               p_anything()])),
 
       fun(Node, Idx) ->
               Result =
@@ -742,8 +742,6 @@ string_test() ->
                        value(<<"\"Hello\t World\"">>, index()))).
 
 ident_test() ->
-    ?memo(?assertMatch({{ident, '/', {1, _}}, <<>>, _},
-                       value(<<"/">>, index()))),
     ?memo(?assertMatch({{ident, 'true', {1, _}}, <<>>, _}, value(<<"true">>, index()))),
     ?memo(?assertMatch({{ident, 'false', {1, _}},  <<>>, _},value(<<"false">>, index()))),
     ?memo(?assertMatch({{quote, {ident, 'keyword', _}, {1, _}}, <<>>, _},
