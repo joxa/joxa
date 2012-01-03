@@ -7,9 +7,17 @@
 %%=============================================================================
 %% Public API
 %%=============================================================================
-do_function_body(Path0, Ctx0, Args, Expression) ->
-    {Ctx1, ArgList} = gen_args(jxa_path:add(Path0), Ctx0, Args),
-    Ctx2 = jxa_ctx:add_variables_to_scope(Args, jxa_ctx:push_scope(Ctx1)),
+do_function_body(Path0, Ctx0, Args0, Expression) ->
+    %% Funs can have types at any level. we just ignore them at
+    %% Anything but the top
+    Args1 = lists:map(fun([_, Arg]) ->
+                              Arg;
+                         (Arg) ->
+                              Arg
+                      end, Args0),
+    {Ctx1, ArgList} = gen_args(jxa_path:add(Path0), Ctx0, Args1),
+
+    Ctx2 = jxa_ctx:add_variables_to_scope(Args1, jxa_ctx:push_scope(Ctx1)),
 
     {Ctx3, Body} = comp(jxa_path:add(jxa_path:incr(Path0)),
                         Ctx2, Expression),

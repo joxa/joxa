@@ -49,24 +49,33 @@ get(Path, Annotations) ->
     ec_dictionary:get(Path, Annotations).
 
 get_line(Path, Annotations) ->
-    {_, _, LineAnnotations} = jxa_annot:get(Path, Annotations),
+    {_, _, LineAnnotations} = get_valid_line(Path, Annotations),
     LineAnnotations.
 
 get_line(Path, Extra, Annotations) when is_list(Extra) ->
-    {_, _, LineAnnotations} = jxa_annot:get(Path, Annotations),
+    {_, _, LineAnnotations} = get_valid_line(Path, Annotations),
     Extra ++ LineAnnotations;
 get_line(Path, Extra, Annotations) ->
-    {_, _, LineAnnotations} = jxa_annot:get(Path, Annotations),
+    {_, _, LineAnnotations} = get_valid_line(Path, Annotations),
     [Extra | LineAnnotations].
 
 get_idx(Path, Annotations) ->
-    {_, Idx, _} = jxa_annot:get(Path, Annotations),
+    {_, Idx, _} = get_valid_line(Path, Annotations),
     Idx.
 
 get_type(Path, Annotations) ->
-    {Type, _, _} = ec_dictionary:get(Path, Annotations),
+    {Type, _, _} = get_valid_line(Path, Annotations),
     Type.
 
 %%=============================================================================
 %% Internal Functions
 %%=============================================================================
+get_valid_line([], _Annotations) ->
+    throw(not_found);
+get_valid_line(Path=[_ | Rest], Annotations) ->
+    try
+       ec_dictionary:get(Path, Annotations)
+    catch
+        _:not_found ->
+            get_valid_line(Rest, Annotations)
+    end.

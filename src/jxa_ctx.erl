@@ -33,7 +33,15 @@
          add_variable_to_scope/3,
          add_variables_to_scope/2,
          pop_scope/1,
-         update/1]).
+         update/1,
+         push_type_scope/1,
+         pop_type_scope/1,
+         add_type_variable_to_scope/3,
+         resolve_type_variable/3,
+         types/1,
+         add_type_export/3,
+         type_exports/1,
+         add_type/4]).
 
 -export_type([context/0,
               attr/0,
@@ -46,6 +54,11 @@
 -record(context, {module_name :: atom(),
                   annots :: jxa_annot:annotations(),
                   exports :: set(),
+                  type_exports :: set(),
+                  type_scopes :: [type_scope()],
+                  types :: ec_dictionary:dictionary({atom(),
+                                                     non_neg_integer()},
+                                                    term()),
                   attrs :: [attr()],
                   alias :: alias(),
                   require :: require(),
@@ -72,10 +85,12 @@
 -type export() :: {Fun::atom(), Arity::non_neg_integer(),
                    Line::non_neg_integer()}.
 -type scope() :: ec_dictionary:dictionary(atom(), cerl:var()).
+-type type_scope() :: set().
 
 %%=============================================================================
 %% Public API
 %%=============================================================================
+
 
 %% create a new context to use for compilation of the system to use during
 %% compilation.
@@ -84,9 +99,12 @@ new(Annots) ->
     #context{module_name=undefined,
              attrs=[],
              exports=sets:new(),
+             type_exports=sets:new(),
              annots=Annots,
              scopes=[],
+             type_scopes=[],
              definitions=ec_dictionary:new(ec_dict),
+             types=ec_dictionary:new(ec_dict),
              alias=ec_dictionary:new(ec_dict),
              require=ec_dictionary:new(ec_dict),
              use=ec_dictionary:new(ec_dict)
@@ -101,8 +119,11 @@ new(Annots, ModuleName, Line)
                     line=Line,
                     annots=Annots,
                     exports=sets:new(),
+                    type_exports=sets:new(),
                     attrs=[],
                     scopes=[],
+                    type_scopes=[],
+                    types=ec_dictionary:new(ec_dict),
                     definitions=ec_dictionary:new(ec_dict),
                     alias=ec_dictionary:new(ec_dict),
                     require=ec_dictionary:new(ec_dict),
@@ -142,8 +163,11 @@ new(Annots, Aliases, Requires, Uses) ->
     #context{module_name=undefined,
              annots=Annots,
              exports=sets:new(),
+             type_exports=sets:new(),
              attrs=[],
              scopes=[],
+             type_scopes=[],
+             types=ec_dictionary:new(ec_dict),
              definitions=ec_dictionary:new(ec_dict),
              alias=ec_dictionary:from_list(ec_dict, Aliases),
              require=Req2,
@@ -319,7 +343,8 @@ check_aliases(Module, Function, PossibleArity, Ctx0 = #context{alias=Alias}) ->
     end.
 
 search_for_defined_used_function(Name, PossibleArity,
-                                 #context{definitions=Defs, use=Uses}) ->
+                                 #context{types=Types,
+                                          definitions=Defs, use=Uses}) ->
     case ec_dictionary:has_key({Name, PossibleArity}, Defs) of
         true ->
             {apply, Name, PossibleArity};
@@ -328,7 +353,14 @@ search_for_defined_used_function(Name, PossibleArity,
                 {FunName, ModuleName} ->
                     {remote, ModuleName, FunName};
                 undefined ->
-                    not_a_reference
+                    %% Types serve as a predeclaration where needed
+                    case ec_dictionary:get({Name, PossibleArity},
+                                           undefined, Types) of
+                        undefined ->
+                            not_a_reference;
+                        _ ->
+                            {apply, Name, PossibleArity}
+                    end
             end
     end.
 
@@ -362,3 +394,46 @@ update(Ctx0=#context{module_name=ModuleName, require=Req}) ->
         _:undef ->
             Ctx0
     end.
+
+push_type_scope(Ctx0 = #context{type_scopes=Scopes}) ->
+    Ctx0#context{type_scopes=[sets:new() | Scopes]}.
+
+pop_type_scope(Ctx0=#context{type_scopes=[_|Scopes]}) ->
+    Ctx0#context{type_scopes=Scopes}.
+
+add_type_variable_to_scope(Name, Arity,
+                           Ctx0=#context{type_scopes=[Current | Scopes]}) ->
+    Ctx0#context{type_scopes=[sets:add_element({Name, Arity}, Current) | Scopes]}.
+
+resolve_type_variable(Name, Arity,
+                      #context{type_scopes=TypeScopes,
+                               types=Types}) ->
+    case lists:any(fun(SetScope) ->
+                           sets:is_element({Name, Arity}, SetScope)
+                   end, TypeScopes) of
+        true ->
+            true;
+        false  ->
+            case ec_dictionary:get({Name, Arity}, undefined, Types) of
+                undefined ->
+                    false;
+                _ ->
+                    true
+            end
+    end.
+
+type_exports(#context{type_exports=Exports}) ->
+    Exports.
+
+-spec add_type_export(Fun::atom(), Arity::non_neg_integer(),
+                      context()) ->
+                             context().
+add_type_export(TypeName, Arity, Ctx0=#context{type_exports=Exports}) ->
+    Ctx0#context{type_exports=sets:add_element({TypeName, Arity}, Exports)}.
+
+types(#context{types=Types}) ->
+    Types.
+
+add_type(TypeName, Arity, Body, Ctx0=#context{types=Types}) ->
+    Ctx0#context{types=ec_dictionary:add({TypeName, Arity}, Body, Types)}.
+

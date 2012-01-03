@@ -120,7 +120,7 @@ compile_context(Ctx0) ->
                                  jxa_ctx:module_name(Ctx1)),
     Exports = [cerl:ann_c_fname(EAnnots, Fun, Arity) ||
                   {Fun, Arity, EAnnots} <- sets:to_list(jxa_ctx:exports(Ctx1))],
-    Attrs0 = jxa_ctx:attrs(Ctx1),
+    Attrs0 = jxa_ctx:attrs(Ctx1) ++ compile_types(Ctx1),
     Defs = [Value || {_, Value} <-
                          ec_dictionary:to_list(jxa_ctx:definitions(Ctx1))],
     {Ctx1, erl_comp(cerl:ann_c_module(Annots, ModuleName,
@@ -141,6 +141,16 @@ compile_module_info(Ctx0) ->
     jxa_ctx:add_exported_definition([compiler_generated], module_info,
                                     [VarName],
                                     ArgBody, Ctx1).
+
+compile_types(Ctx0) ->
+    ExportedTypes = sets:to_list(jxa_ctx:type_exports(Ctx0)),
+    AllTypes = ec_dictionary:to_list(jxa_ctx:types(Ctx0)),
+    [{cerl:make_data({atomic, export_type}, []),
+              cerl:make_data({atomic, ExportedTypes}, [])}
+    | [Attr || {_, Attr} <- AllTypes]].
+
+
+
 
 
 -spec erl_comp(cerl:cerl()) -> binary().
