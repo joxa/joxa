@@ -40,23 +40,23 @@ bootstrap_comp(Filename) when is_list(Filename) ->
 bootstrap_comp(Filename, BinaryData) when is_binary(BinaryData) ->
     {Annots, Ast0} = jxa_parser:parse(Filename, BinaryData),
     Ctx0 = jxa_ctx:new(Annots),
-    {_, Ctx3, Binary} =
-        lists:foldl(fun(DefAst, {Path, Ctx1, _Binary}) ->
-                            {Ctx2, Binary1} = comp_forms(jxa_path:add(Path),
-                                                         Ctx1, DefAst),
-                            {jxa_path:incr(Path), jxa_ctx:update(Ctx2),
-                             Binary1}
-                    end, {jxa_path:new(), Ctx0, <<>>}, Ast0),
-    {Ctx3, Binary}.
+    {_, Ctx3} =
+        lists:foldl(fun(DefAst, {Path, Ctx1}) ->
+                            Ctx2 = comp_forms(jxa_path:add(Path),
+                                              Ctx1, DefAst),
+                            {jxa_path:incr(Path), jxa_ctx:update(Ctx2)}
+                    end, {jxa_path:new(), Ctx0}, Ast0),
+    compile_context(Ctx3).
 
 comp(Filename, BinaryData) when is_binary(BinaryData) ->
     {Annots, Ast0} = jxa_parser:parse(Filename, BinaryData),
     Ctx0 = jxa_ctx:new(Annots),
     {_, Ctx3, Binary} =
         lists:foldl(fun(DefAst, {Path, Ctx1, _Binary}) ->
-                            {Ctx2, Binary1} = comp_forms(jxa_path:add(Path),
-                                                         Ctx1, DefAst),
-                            ModuleName = jxa_ctx:module_name(Ctx2),
+                            Ctx2 = comp_forms(jxa_path:add(Path),
+                                              Ctx1, DefAst),
+                            {Ctx3, Binary1} = compile_context(Ctx2),
+                            ModuleName = jxa_ctx:module_name(Ctx3),
                             {module, ModuleName} =
                                 code:load_binary(ModuleName,
                                                  Filename, Binary1),
@@ -64,6 +64,7 @@ comp(Filename, BinaryData) when is_binary(BinaryData) ->
                              Binary1}
                     end, {jxa_path:new(), Ctx0, <<>>}, Ast0),
     {Ctx3, Binary}.
+
 -spec format_exception(ExceptionBody::term()) -> IoList::[term()].
 format_exception({file_access, enoent, FileName}) ->
     io_lib:format("File does not exist ~s", [FileName]);
@@ -106,11 +107,10 @@ option_spec_list() ->
                  [term()]) ->
                         jxa_ctx:context().
 comp_forms(Path0, Ctx0, Module = [module | _]) ->
-    Ctx1 = jxa_module:comp(Path0, Ctx0, Module),
-    compile_context(Ctx1);
+    jxa_module:comp(Path0, Ctx0, Module);
 comp_forms(Path0, Ctx0, Definition) ->
-    Ctx1 = jxa_definition:comp(Path0, Ctx0, Definition),
-    compile_context(Ctx1).
+    jxa_definition:comp(Path0, Ctx0, Definition).
+
 
 -spec compile_context(jxa_ctx:context()) -> jxa_ctx:context().
 compile_context(Ctx0) ->
