@@ -152,9 +152,24 @@ transform_ast(Path0, Annotations0, {literal_list, List, Idx}) ->
      [list | lists:reverse(TransformList)]};
 transform_ast(Path0, Annotations0,
               {binary, {string, String,_}, Idx})->
-    {jxa_annot:add(jxa_path:path(Path0),
-                   binary, Idx, Annotations0),
-     erlang:list_to_binary(String)};
+    %% binary literals in pattern matches do *not* work. So in the interests of
+    %% the least code possible, we translate all binary literals into
+    %% binary/integer calls.
+    {_, Annotations3, TransformList} =
+        lists:foldl(fun(El, {Path1, Annotations1, Elements}) ->
+                            {jxa_path:incr(Path1),
+                             jxa_annot:add(jxa_path:add_path(Path1), integer,
+                                           Idx, Annotations1),
+                             [El | Elements]}
+                    end, {jxa_path:incr(Path0),
+                          Annotations0, []}, String),
+    %% We need to put in the annotation for the programatically inserted
+    %% 'list' argument
+    Annotations4 = jxa_annot:add(jxa_path:add_path(Path0), ident, Idx,
+                                 Annotations3),
+    {jxa_annot:add(jxa_path:path(Path0), binary, Idx, Annotations4),
+     [binary | lists:reverse(TransformList)]};
+
 transform_ast(Path0, Annotations0, {binary, List, Idx}) ->
     {_, Annotations3, TransformList} =
         lists:foldl(fun(El, {Path1, Annotations1, Elements}) ->
