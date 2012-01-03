@@ -133,11 +133,13 @@ compile_module_info(Ctx0) ->
                               cerl:c_atom(get_module_info), [ModuleName]),
     Ctx1 = jxa_ctx:add_exported_definition([compiler_generated], module_info, [],
                                            ArglessBody, Ctx0),
-    VarName = cerl:c_var(mdetail),
+    DetailVar = joxa:gensym(),
+    VarName = cerl:c_var(DetailVar),
     ArgBody = cerl:c_call(cerl:c_atom(erlang),
                           cerl:c_atom(get_module_info),
                           [ModuleName, VarName]),
-    jxa_ctx:add_exported_definition([compiler_generated], module_info, [VarName],
+    jxa_ctx:add_exported_definition([compiler_generated], module_info,
+                                    [VarName],
                                     ArgBody, Ctx1).
 
 
