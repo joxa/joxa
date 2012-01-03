@@ -10,7 +10,7 @@ given([a,bare,module], _State, _) ->
     {ok, Module}.
 
 'when'([joxa,is,called,on,this,module], State, _) ->
-    Result = jxa_compile:comp(State),
+    Result = jxa_compile:comp("", State),
     {ok, Result}.
 
 then([a,beam,binary,is,produced], State={_Ctx, Binary}, _) ->

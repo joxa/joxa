@@ -13,28 +13,29 @@ comp(Path0, Ctx0, ['defn+', Name, Args, Expression])
     {Ctx2, ArgList, Body} =
         jxa_expression:do_function_body(jxa_path:incr(2, Path0), Ctx1,
                                         Args, Expression),
-    {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
-                                   jxa_ctx:annots(Ctx2)),
-    jxa_ctx:add_exported_definition(Line, Name, ArgList, Body, Ctx2);
+    Annots = jxa_annot:get_line(jxa_path:add_path(Path0),
+                                jxa_ctx:annots(Ctx2)),
+    jxa_ctx:add_exported_definition(Annots, Name, ArgList, Body, Ctx2);
 comp(Path0, Ctx0, [defn, Name, Args, Expression]) ->
     Ctx1 = jxa_ctx:add_def_placeholder(Name, erlang:length(Args), Ctx0),
     {Ctx2, ArgList, Body} =
         jxa_expression:do_function_body(jxa_path:incr(2, Path0), Ctx1,
-                                   Args, Expression),
-    {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
-                                   jxa_ctx:annots(Ctx2)),
-    jxa_ctx:add_definition(Line, Name, ArgList, Body, Ctx1);
+                                        Args, Expression),
+    Annots = jxa_annot:get_line(jxa_path:add_path(Path0),
+                                jxa_ctx:annots(Ctx2)),
+    jxa_ctx:add_definition(Annots, Name, ArgList, Body, Ctx1);
 comp(Path0, Ctx0, [definline, Name, Args, Expression]) ->
     Ctx1 = jxa_ctx:add_def_placeholder(Name, erlang:length(Args), Ctx0),
     {Ctx2, ArgList, Body} =
         jxa_expression:do_function_body(jxa_path:incr(2, Path0), Ctx1,
-                                   Args, Expression),
-    {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
-                                   jxa_ctx:annots(Ctx2)),
-    jxa_ctx:add_inline_definition(Line, Name, ArgList, Body, Ctx1);
+                                        Args, Expression),
+    Annots = jxa_annot:get_line(jxa_path:add_path(Path0),
+                                inline,
+                                jxa_ctx:annots(Ctx2)),
+    jxa_ctx:add_definition(Annots, Name, ArgList, Body, Ctx1);
 comp(Path0, Ctx0, _) ->
-    {_, Idx} = jxa_annot:get(jxa_path:add_path(Path0),
-                             jxa_ctx:annots(Ctx0)),
+    Idx = jxa_annot:get_idx(jxa_path:path(Path0),
+                            jxa_ctx:annots(Ctx0)),
     ?JXA_THROW({invalid_definition, Idx}).
 
 

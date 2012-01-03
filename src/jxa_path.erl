@@ -70,7 +70,7 @@
 %% more for documentation then anything else.
 -spec new() -> state().
 new() ->
-   {1, []}.
+    {1, []}.
 
 -spec set(non_neg_integer(), state()) -> state().
 set(Pos, {_, Path}) ->

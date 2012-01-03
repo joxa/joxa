@@ -13,7 +13,7 @@ given([a,module,that,has,a,function,that,calls,
 
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-  {ok, jxa_compile:comp(Source)}.
+  {ok, jxa_compile:comp("", Source)}.
 
 then([a,beam,binary,is,produced], State={_, Binary}, _) ->
     ?assertMatch(true, is_binary(Binary)),

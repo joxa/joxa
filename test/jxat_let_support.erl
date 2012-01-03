@@ -29,7 +29,7 @@ given([a,module,that,has,a,function,that,contains,'\'let\''], _State, _) ->
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = jxa_compile:comp(Source),
+    Result = jxa_compile:comp("", Source),
     {ok, Result}.
 
 

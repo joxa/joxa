@@ -1,7 +1,7 @@
 %% -*- mode: Erlang; fill-column: 76; comment-column: 76; -*-
 -module(jxa_compile).
 
--export([main/0, main/1, comp/1, format_exception/1]).
+-export([main/0, main/1, comp/2, format_exception/1]).
 
 -include_lib("joxa/include/joxa.hrl").
 %%=============================================================================
@@ -24,20 +24,21 @@ main(Args) ->
             ?JXA_THROW(invalid_options_passed_in)
     end.
 
--spec bootstrap_comp(string() | binary()) -> {jxa_ctx:ctx(), binary()}.
-bootstrap_comp(FileName) when is_list(FileName) ->
-    case file:read_file(FileName) of
+-spec bootstrap_comp(string()) -> {jxa_ctx:ctx(), binary()}.
+bootstrap_comp(Filename) when is_list(Filename) ->
+    case file:read_file(Filename) of
         {ok, Binary} ->
-            Result = {Ctx0, ModuleBinary} = bootstrap_comp(Binary),
+            Result = {Ctx0, ModuleBinary} = bootstrap_comp(Filename, Binary),
             ModuleName = jxa_ctx:module_name(Ctx0),
             {module, ModuleName} =
-                code:load_binary(ModuleName, "", ModuleBinary),
+                code:load_binary(ModuleName, Filename, ModuleBinary),
             Result;
         {error, Reason} ->
-            ?JXA_THROW({file_access, Reason, FileName})
-    end;
-bootstrap_comp(BinaryData) when is_binary(BinaryData) ->
-    {Annots, Ast0} = jxa_parser:parse(BinaryData),
+            ?JXA_THROW({file_access, Reason, Filename})
+    end.
+
+bootstrap_comp(Filename, BinaryData) when is_binary(BinaryData) ->
+    {Annots, Ast0} = jxa_parser:parse(Filename, BinaryData),
     Ctx0 = jxa_ctx:new(Annots),
     {_, Ctx3, Binary} =
         lists:foldl(fun(DefAst, {Path, Ctx1, _Binary}) ->
@@ -48,8 +49,8 @@ bootstrap_comp(BinaryData) when is_binary(BinaryData) ->
                     end, {jxa_path:new(), Ctx0, <<>>}, Ast0),
     {Ctx3, Binary}.
 
-comp(BinaryData) when is_binary(BinaryData) ->
-    {Annots, Ast0} = jxa_parser:parse(BinaryData),
+comp(Filename, BinaryData) when is_binary(BinaryData) ->
+    {Annots, Ast0} = jxa_parser:parse(Filename, BinaryData),
     Ctx0 = jxa_ctx:new(Annots),
     {_, Ctx3, Binary} =
         lists:foldl(fun(DefAst, {Path, Ctx1, _Binary}) ->
@@ -58,7 +59,7 @@ comp(BinaryData) when is_binary(BinaryData) ->
                             ModuleName = jxa_ctx:module_name(Ctx2),
                             {module, ModuleName} =
                                 code:load_binary(ModuleName,
-                                                 "", Binary1),
+                                                 Filename, Binary1),
                             {jxa_path:incr(Path), jxa_ctx:update(Ctx2),
                              Binary1}
                     end, {jxa_path:new(), Ctx0, <<>>}, Ast0),
@@ -114,15 +115,15 @@ comp_forms(Path0, Ctx0, Definition) ->
 -spec compile_context(jxa_ctx:context()) -> jxa_ctx:context().
 compile_context(Ctx0) ->
     Ctx1 = compile_module_info(Ctx0),
-    Line = jxa_ctx:line(Ctx1),
-    ModuleName = cerl:ann_c_atom([Line],
+    Annots = jxa_ctx:line(Ctx1),
+    ModuleName = cerl:ann_c_atom(Annots,
                                  jxa_ctx:module_name(Ctx1)),
-    Exports = [cerl:ann_c_fname([ELine], Fun, Arity) ||
-                  {Fun, Arity, ELine} <- sets:to_list(jxa_ctx:exports(Ctx1))],
+    Exports = [cerl:ann_c_fname(EAnnots, Fun, Arity) ||
+                  {Fun, Arity, EAnnots} <- sets:to_list(jxa_ctx:exports(Ctx1))],
     Attrs0 = jxa_ctx:attrs(Ctx1),
     Defs = [Value || {_, Value} <-
                          ec_dictionary:to_list(jxa_ctx:definitions(Ctx1))],
-    {Ctx1, erl_comp(cerl:ann_c_module([Line], ModuleName,
+    {Ctx1, erl_comp(cerl:ann_c_module(Annots, ModuleName,
                                       Exports, Attrs0, Defs))}.
 
 -spec compile_module_info(jxa_ctx:context()) -> jxa_ctx:context().
@@ -130,19 +131,19 @@ compile_module_info(Ctx0) ->
     ModuleName = cerl:c_atom(jxa_ctx:module_name(Ctx0)),
     ArglessBody = cerl:c_call(cerl:c_atom(erlang),
                               cerl:c_atom(get_module_info), [ModuleName]),
-    Ctx1 = jxa_ctx:add_exported_definition(0, module_info, [],
+    Ctx1 = jxa_ctx:add_exported_definition([compiler_generated], module_info, [],
                                            ArglessBody, Ctx0),
     VarName = cerl:c_var(mdetail),
     ArgBody = cerl:c_call(cerl:c_atom(erlang),
                           cerl:c_atom(get_module_info),
                           [ModuleName, VarName]),
-    jxa_ctx:add_exported_definition(0, module_info, [VarName],
+    jxa_ctx:add_exported_definition([compiler_generated], module_info, [VarName],
                                     ArgBody, Ctx1).
 
 
 -spec erl_comp(cerl:cerl()) -> binary().
 erl_comp(CerlAST) ->
-    case compile:forms(CerlAST, [from_core,binary,no_bopt]) of
+    case compile:forms(CerlAST, [debug_info,from_core,binary,no_bopt]) of
         {ok, _, Result} ->
             Result;
         Error = {error, _Errors, _Warnings} ->

@@ -5,9 +5,9 @@
 -include_lib("joxa/include/joxa.hrl").
 
 -define(UNDERSCORED, {re_pattern,0,0,
-        <<69,82,67,80,61,0,0,0,16,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,48,0,0,0,
-        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,93,0,9,25,27,95,56,12,
-        26,84,0,9,0>>}).
+                      <<69,82,67,80,61,0,0,0,16,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,48,0,0,0,
+                        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,93,0,9,25,27,95,56,12,
+                        26,84,0,9,0>>}).
 
 %%=============================================================================
 %% Public API
@@ -16,78 +16,82 @@ comp(Path0, Ctx0, Clauses) ->
     comp(Path0, Ctx0, Clauses, []).
 
 comp_pattern(Path0, Acc0={Ctx0, _}, Arg) when is_binary(Arg) ->
-    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
-                                   jxa_ctx:annots(Ctx0)),
-    {Acc0, cerl:ann_make_data([Line], {atomic, Arg}, [])};
+    Annots = jxa_annot:get_line(jxa_path:path(Path0),
+                                jxa_ctx:annots(Ctx0)),
+    {Acc0, cerl:ann_make_data(Annots, {atomic, Arg}, [])};
 comp_pattern(Path0, {Ctx0, Guards0}, '_') ->
-    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
-                                   jxa_ctx:annots(Ctx0)),
+    Annots = jxa_annot:get_line(jxa_path:path(Path0),
+                                jxa_ctx:annots(Ctx0)),
     Gensym = erlang:list_to_atom("_" ++ erlang:atom_to_list(joxa:gensym())),
 
-    CerlVar = cerl:ann_c_var([Line], Gensym),
+    CerlVar = cerl:ann_c_var(Annots, Gensym),
     Ctx1 = jxa_ctx:add_variable_to_scope(Gensym, Ctx0),
     {{Ctx1, Guards0}, CerlVar};
 comp_pattern(Path0, {Ctx0, Guards0}, Arg) when is_atom(Arg) ->
-    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
-                                   jxa_ctx:annots(Ctx0)),
+    Annots = jxa_annot:get_line(jxa_path:path(Path0),
+                                compiler_generated,
+                                jxa_ctx:annots(Ctx0)),
     case jxa_ctx:resolve_reference(Arg, -1, Ctx0) of
         {variable, Var} ->
+            Annots = jxa_annot:get_line(jxa_path:path(Path0),
+                                        compiler_generated,
+                                        jxa_ctx:annots(Ctx0)),
             %% The reference already exists. So we create a new variable and
             %% add a guard for to test for equality
             GenSym = joxa:gensym(),
-            CerlVar = cerl:ann_c_var([Line, compiler_generated], GenSym),
-            Guards1 = [cerl:ann_c_call([Line, compiler_generated],
-                                       cerl:ann_c_atom([Line,
-                                                        compiler_generated],
+            CerlVar = cerl:ann_c_var([compiler_generated | Annots], GenSym),
+            Guards1 = [cerl:ann_c_call(Annots,
+                                       cerl:ann_c_atom([compiler_generated],
                                                        'erlang'),
-                                       cerl:ann_c_atom([Line,
-                                                        compiler_generated],
+                                       cerl:ann_c_atom(Annots,
                                                        '=:='),
-                                       [CerlVar, cerl:set_ann(Var, [Line])])
+                                       [CerlVar, cerl:set_ann(Var, Annots)])
                        | Guards0],
             %% We don't add the generated variable to the scope as we
             %% don't want it to be available to the user (The user really
             %% should not even be aware of it
             {{Ctx0, Guards1}, CerlVar};
         _ ->
+            AnnotsBare = jxa_annot:get_line(jxa_path:path(Path0),
+                                            jxa_ctx:annots(Ctx0)),
             %% The variable is not in the scope so we turn it to a
             %% variable
-            CerlVar = cerl:ann_c_var([Line], Arg),
+            CerlVar = cerl:ann_c_var(AnnotsBare, Arg),
             Ctx1 = jxa_ctx:add_variable_to_scope(Arg, Ctx0),
             {{Ctx1, Guards0}, CerlVar}
     end;
 comp_pattern(Path0, Acc0={Ctx0, _}, Arg) when is_integer(Arg) ->
-    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
-                                   jxa_ctx:annots(Ctx0)),
-    {Acc0, cerl:ann_c_int([Line], Arg)};
+    Annots = jxa_annot:get_line(jxa_path:path(Path0),
+                                jxa_ctx:annots(Ctx0)),
+    {Acc0, cerl:ann_c_int(Annots, Arg)};
 comp_pattern(Path0, Acc0={Ctx0, _}, Arg) when is_float(Arg) ->
-    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
-                                   jxa_ctx:annots(Ctx0)),
-    {Acc0, cerl:ann_c_float([Line], Arg)};
+    Annots = jxa_annot:get_line(jxa_path:path(Path0),
+                                jxa_ctx:annots(Ctx0)),
+    {Acc0, cerl:ann_c_float(Annots, Arg)};
 comp_pattern(Path0, Acc0={Ctx0, _}, ['=', Arg1, Arg2])
   when is_atom(Arg1) ->
-    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
-                                   jxa_ctx:annots(Ctx0)),
-    {_, {Arg1Line, _}} = jxa_annot:get(jxa_path:path(jxa_path:incr(Path0)),
-                                       jxa_ctx:annots(Ctx0)),
+    Annots = jxa_annot:get_line(jxa_path:path(Path0),
+                                jxa_ctx:annots(Ctx0)),
+    Arg1Annots = jxa_annot:get_line(jxa_path:path(jxa_path:incr(Path0)),
+                                    jxa_ctx:annots(Ctx0)),
     {{Ctx1, Guards}, CerlPattern} =
         comp_pattern(jxa_path:add(jxa_path:incr(2, Path0)),
                      Acc0, Arg2),
     CerlArg1 =
-        cerl:ann_c_alias([Line], cerl:ann_c_var([Arg1Line], Arg1),
+        cerl:ann_c_alias(Annots, cerl:ann_c_var(Arg1Annots, Arg1),
                          CerlPattern),
     {{jxa_ctx:add_variable_to_scope(Arg1, Ctx1), Guards}, CerlArg1};
 comp_pattern(Path0, Acc0={Ctx0, _}, ['=', Arg1, Arg2])
   when is_atom(Arg2) ->
-    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
-                                   jxa_ctx:annots(Ctx0)),
-    {_, {Arg2Line, _}} = jxa_annot:get(jxa_path:path(jxa_path:incr(Path0)),
-                                       jxa_ctx:annots(Ctx0)),
+    Annots = jxa_annot:get_line(jxa_path:path(Path0),
+                                jxa_ctx:annots(Ctx0)),
+    Arg2Annots = jxa_annot:get_line(jxa_path:path(jxa_path:incr(Path0)),
+                                    jxa_ctx:annots(Ctx0)),
     {{Ctx1, Guards}, CerlPattern} =
         comp_pattern(jxa_path:add(jxa_path:incr(Path0)),
                      Acc0, Arg1),
     CerlArg1 =
-        cerl:ann_c_alias([Line], cerl:ann_c_var([Arg2Line], Arg2),
+        cerl:ann_c_alias(Annots, cerl:ann_c_var(Arg2Annots, Arg2),
                          CerlPattern),
     {{jxa_ctx:add_variable_to_scope(Arg2, Ctx1), Guards}, CerlArg1};
 comp_pattern(Path0, Acc0={Ctx0, _}, [quote, Args]) ->
@@ -98,20 +102,20 @@ comp_pattern(Path0, Acc0, Expr=[binary | _]) ->
     jxa_binary:comp_pattern(Path0, Acc0, Expr);
 comp_pattern(Path0, Acc0, [Arg1, '.', Arg2]) ->
     {Acc1, Cerl1} = comp_pattern(Path0,
-                         Acc0, Arg1),
+                                 Acc0, Arg1),
     {Acc2={Ctx1, _}, Cerl2} = comp_pattern(jxa_path:incr(2, Path0),
                                            Acc1, Arg2),
-    {_, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
-                                   jxa_ctx:annots(Ctx1)),
-    {Acc2, cerl:ann_c_cons(Line, Cerl1, Cerl2)};
+    Annots = jxa_annot:get_line(jxa_path:add_path(Path0),
+                                jxa_ctx:annots(Ctx1)),
+    {Acc2, cerl:ann_c_cons(Annots, Cerl1, Cerl2)};
 comp_pattern(Path0, Acc0, [cons, Arg1, Arg2]) ->
     {Acc1, Cerl1} = comp_pattern(jxa_path:incr(Path0),
                                  Acc0, Arg1),
     {Acc2={Ctx0, _}, Cerl2} = comp(jxa_path:incr(2, Path0),
-                         Acc1, Arg2),
-    {ident, {Line, _}} = jxa_annot:get(jxa_path:add_path(Path0),
-                                       jxa_ctx:annots(Ctx0)),
-    {Acc2, cerl:ann_c_cons(Line, Cerl1, Cerl2)};
+                                   Acc1, Arg2),
+    Annots = jxa_annot:get_line(jxa_path:add_path(Path0),
+                                jxa_ctx:annots(Ctx0)),
+    {Acc2, cerl:ann_c_cons(Annots, Cerl1, Cerl2)};
 comp_pattern(Path0, Acc0={Ctx0, _}, [quote, Args]) ->
     Literal = jxa_literal:comp(jxa_path:incr(Path0), Ctx0, Args),
     {Acc0, Literal};
@@ -123,25 +127,25 @@ comp_pattern(Path0, Acc0, [tuple | Args]) ->
 comp_pattern(Path0, Ctx0, Arg) when is_tuple(Arg) ->
     mk_tuple(Path0, Ctx0, tuple_to_list(Arg)).
 
-mk_guards(GuardLine, []) ->
-    cerl:ann_c_atom([GuardLine, compiler_generated], true);
-mk_guards(_GuardLine, [Guard]) ->
+mk_guards(GuardAnnots, []) ->
+    cerl:ann_c_atom(GuardAnnots, true);
+mk_guards(_GuardAnnots, [Guard]) ->
     Guard;
-mk_guards(GuardLine, [Pattern | Rest]) ->
-    cerl:ann_c_call([GuardLine, compiler_generated],
-                    cerl:ann_c_atom([GuardLine, compiler_generated],
+mk_guards(GuardAnnots, [Pattern | Rest]) ->
+    cerl:ann_c_call(GuardAnnots,
+                    cerl:ann_c_atom(GuardAnnots,
                                     'erlang'),
-                    cerl:ann_c_atom([GuardLine, compiler_generated],
+                    cerl:ann_c_atom(GuardAnnots,
                                     'and'),
-                    [Pattern, mk_guards(GuardLine, Rest)]).
+                    [Pattern, mk_guards(GuardAnnots, Rest)]).
 
 %%=============================================================================
 %% Private API
 %%=============================================================================
 comp(Path0, Ctx0, [], _Acc) ->
-    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
-                                   jxa_ctx:annots(Ctx0)),
-    ?JXA_THROW({no_clauses_provided, Line});
+    Idx = jxa_annot:get_idx(jxa_path:path(Path0),
+                            jxa_ctx:annots(Ctx0)),
+    ?JXA_THROW({no_clauses_provided, Idx});
 comp(Path0, Ctx0, [Clause = [Pattern | _Rest]], Acc) when is_atom(Pattern) ->
     %% When there is one clause left in the list of clauses (the last clause) If
     %% it is not a catchall we want to make a catchall. Simplistically at the
@@ -153,7 +157,7 @@ comp(Path0, Ctx0, [Clause = [Pattern | _Rest]], Acc) when is_atom(Pattern) ->
 comp(Path0, Ctx0, [Clause], Acc) ->
     {Ctx1, Clauses, SpecialTerminator} =
         do_clause_terminator(Path0, Ctx0, Clause),
-     {Ctx1, lists:reverse([Clauses | Acc]) ++ SpecialTerminator};
+    {Ctx1, lists:reverse([Clauses | Acc]) ++ SpecialTerminator};
 comp(Path0, Ctx0, [Clause | Rest], Acc) ->
     {Ctx1, Clauses} = compile_clause_body(jxa_path:add(Path0),
                                           Ctx0,
@@ -165,10 +169,10 @@ do_clause_terminator(Path0, Ctx0, Clause) ->
     {Ctx1, ActualClause} =
         compile_clause_body(jxa_path:add(Path0), Ctx0,
                             Clause),
-    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
-                                   jxa_ctx:annots(Ctx1)),
+    Annots = jxa_annot:get_line(jxa_path:path(Path0),
+                                compiler_generated,
+                                jxa_ctx:annots(Ctx1)),
     Var = joxa:gensym(),
-    Annots = [Line, compiler_generated],
     {Ctx1,
      ActualClause,
      [cerl:ann_c_clause(Annots,
@@ -183,44 +187,44 @@ do_clause_terminator(Path0, Ctx0, Clause) ->
 
 compile_clause_body(Path0, Ctx0, [Pattern, ['when', Guards], Body]) ->
     Ctx1 = jxa_ctx:push_scope(Ctx0),
-    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
-                                   jxa_ctx:annots(Ctx1)),
+    Annots = jxa_annot:get_line(jxa_path:path(Path0),
+                                jxa_ctx:annots(Ctx1)),
     {{Ctx2, PatternGuards}, CerlPattern} =
         comp_pattern(jxa_path:add(Path0), {Ctx1, []}, Pattern),
-    {_, {GuardLine, _}} =
-        jxa_annot:get(jxa_path:add_path(jxa_path:incr(Path0)),
-                      jxa_ctx:annots(Ctx2)),
+    GuardAnnots =
+        jxa_annot:get_line(jxa_path:add_path(jxa_path:incr(Path0)),
+                           jxa_ctx:annots(Ctx2)),
     {Ctx3, CerlGuard} =
         jxa_expression:comp(
           jxa_path:add(jxa_path:incr(jxa_path:add(jxa_path:incr(Path0)))),
-                            Ctx2, Guards),
-    CompleteGuards = mk_guards(GuardLine,
+          Ctx2, Guards),
+    CompleteGuards = mk_guards(GuardAnnots,
                                [CerlGuard | PatternGuards]),
 
     {Ctx4, CerlBody} =
         jxa_expression:comp(jxa_path:add(jxa_path:incr(2, Path0)),
                             Ctx3, Body),
     {jxa_ctx:pop_scope(Ctx4),
-     cerl:ann_c_clause([Line], [CerlPattern], CompleteGuards,
+     cerl:ann_c_clause(Annots, [CerlPattern], CompleteGuards,
                        CerlBody)};
 compile_clause_body(Path0, Ctx0, [Pattern, Body]) ->
     Ctx1 = jxa_ctx:push_scope(Ctx0),
-    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
-                                   jxa_ctx:annots(Ctx1)),
+    Annots = jxa_annot:get_line(jxa_path:path(Path0),
+                                jxa_ctx:annots(Ctx1)),
     {{Ctx2, PatternGuards}, CerlPattern} =
         comp_pattern(jxa_path:add(Path0), {Ctx1, []}, Pattern),
     {Ctx3, CerlBody} =
         jxa_expression:comp(jxa_path:add(jxa_path:incr(Path0)),
-                                           Ctx2, Body),
-    CompleteGuards = mk_guards(Line, PatternGuards),
+                            Ctx2, Body),
+    CompleteGuards = mk_guards(Annots, PatternGuards),
 
     {jxa_ctx:pop_scope(Ctx3),
-     cerl:ann_c_clause([Line], [CerlPattern],
+     cerl:ann_c_clause(Annots, [CerlPattern],
                        CompleteGuards,
                        CerlBody)};
 compile_clause_body(Path0, Ctx0, _) ->
-    {_, Idx} = jxa_annot:get(jxa_path:path(Path0),
-                             jxa_ctx:annots(Ctx0)),
+    Idx = jxa_annot:get_idx(jxa_path:path(Path0),
+                            jxa_ctx:annots(Ctx0)),
     ?JXA_THROW({invalid_case_clause, Idx}).
 
 
@@ -232,9 +236,9 @@ mk_tuple(Path0, Acc0, Args) ->
                             Path3 = jxa_path:incr(Path2),
                             {Path3, Acc2, [Element | LAcc]}
                     end, {Path0, Acc0, []}, Args),
-    {_, {Line, _}} = jxa_annot:get(jxa_path:path(Path0),
-                                   jxa_ctx:annots(Ctx0)),
-    {Acc3, cerl:ann_c_tuple([Line], lists:reverse(Body))}.
+    Annots = jxa_annot:get_line(jxa_path:path(Path0),
+                                jxa_ctx:annots(Ctx0)),
+    {Acc3, cerl:ann_c_tuple(Annots, lists:reverse(Body))}.
 
 mk_list(_Path0, Acc0, []) ->
     {Acc0, cerl:c_nil()};
@@ -242,8 +246,8 @@ mk_list(Path0, Acc0, [H | T]) ->
     {Acc1, CerlH} = comp_pattern(jxa_path:add(Path0),
                                  Acc0, H),
     {Acc2={Ctx0, _}, CerlT} = mk_list(jxa_path:incr(Path0),
-                            Acc1, T),
-    {_, {Line, _}} = jxa_annot:get(
-                       jxa_path:add_path(Path0),
-                       jxa_ctx:annots(Ctx0)),
-    {Acc2, cerl:ann_c_cons([Line], CerlH, CerlT)}.
+                                      Acc1, T),
+    Annots = jxa_annot:get_line(
+               jxa_path:add_path(Path0),
+               jxa_ctx:annots(Ctx0)),
+    {Acc2, cerl:ann_c_cons(Annots, CerlH, CerlT)}.
