@@ -410,27 +410,29 @@
              (p-string "\"")])
 
      (fn (node idx)
-         (let ((convert (lists/map (fn (el)
-                                       (case el
-                                         ([_ <<"\\\"">>]
-                                          <<"\"">>)
-                                         ([_ <<"\\\\">>]
-                                          <<"\\">>)
-                                         ([_ <<"\\b">>]
-                                          <<"\b">>)
-                                         ([_ <<"\\f">>]
-                                          <<"\f">>)
-                                         ([_ <<"\\n">>]
-                                          <<"\n">>)
-                                         ([_ <<"\\r">>]
-                                          <<"\r">>)
-                                         ([_ <<"\\t">>]
-                                          <<"\t">>)
-                                         (_
-                                          el)))
-                                   node))
-               (result (erlang/binary_to_list (erlang/iolist_to_binary convert))))
-           {:string result idx}))))
+         (case node
+           ([_ string _]
+            (let ((convert (lists/map (fn (el)
+                                          (case el
+                                            ([_ <<"\\\"">>]
+                                             <<"\"">>)
+                                            ([_ <<"\\\\">>]
+                                             <<"\\">>)
+                                            ([_ <<"\\b">>]
+                                             <<"\b">>)
+                                            ([_ <<"\\f">>]
+                                             <<"\f">>)
+                                            ([_ <<"\\n">>]
+                                             <<"\n">>)
+                                            ([_ <<"\\r">>]
+                                             <<"\r">>)
+                                            ([_ <<"\\t">>]
+                                             <<"\t">>)
+                                            (_
+                                             el)))
+                                      string))
+                  (result (erlang/binary_to_list (erlang/iolist_to_binary convert))))
+              {:string result idx}))))))
 
 ;; A forward declaration to support the mutually recursive types
 ;; in the parser

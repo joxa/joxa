@@ -501,25 +501,25 @@ fun_reference_test() ->
 
 
 string_test() ->
-    ?memo(?assertMatch({{string,"\" \\\" \"",{1,1}},<<>>,{1,7}},
+    ?memo(?assertMatch({{string," \" ",{1,1}},<<>>,{1,7}},
                        joxa.compiler:string(<<"\" \\\" \"">>, index()))),
 
-    ?memo(?assertMatch({{string,"\"\\\\\"",{1,1}},<<>>,{1,5}},
+    ?memo(?assertMatch({{string,"\\",{1,1}},<<>>,{1,5}},
                        joxa.compiler:string(<<"\"\\\\\"">>,
                                             index()))),
 
-    ?memo(?assertMatch({{string,"\"\\f\"",{1,1}},<<>>,{1,5}},
+    ?memo(?assertMatch({{string,"\f",{1,1}},<<>>,{1,5}},
                        joxa.compiler:string(<<"\"\\f\"">>,
                                             index()))),
 
-    ?memo(?assertMatch({{string,"\"\\t\"",{1,1}},<<>>,{1,5}},
+    ?memo(?assertMatch({{string,"\t",{1,1}},<<>>,{1,5}},
                        joxa.compiler:string(<<"\"\\t\"">>,
                                             index()))),
 
-    ?memo(?assertMatch({{string,"\"\\n\"",{1,1}},<<>>,{2,2}},
+    ?memo(?assertMatch({{string,"\n",{1,1}},<<>>,{2,2}},
                        joxa.compiler:string(<<"\"\\n\"">>, index()))),
 
-    ?memo(?assertMatch({{string,"\"\\r\"",{1,1}},<<>>,{1,5}},
+    ?memo(?assertMatch({{string,"\r",{1,1}},<<>>,{1,5}},
                        joxa.compiler:string(<<"\"\\r\"">>, index()))).
 
 
@@ -694,12 +694,12 @@ binary_test() ->
     ?memo(?assertMatch({{binary,[],{1,1}},<<>>,{1,5}},
                        joxa.compiler:binary(<<"<<>>">>, index()))),
 
-    ?memo(?assertMatch({{binary,{string,"\"\"",{1,3}},{1,1}},
+    ?memo(?assertMatch({{binary,{string,[],{1,3}},{1,1}},
                         <<>>,
                         {1,7}},
                        joxa.compiler:binary(<<"<<\"\">>">>,
                                             index()))),
-    ?memo(?assertMatch({{binary,{string,"\"HelloWorld\"",{1,4}},{1,1}},
+    ?memo(?assertMatch({{binary,{string,"HelloWorld",{1,4}},{1,1}},
                         <<>>,
                         {1,19}},
                        joxa.compiler:binary(<<"<< \"HelloWorld\" >>">>,
@@ -769,25 +769,25 @@ value_test() ->
                                    {'character-class',"[0-9]"}},{1,1}}},
                        joxa.compiler:value(<<"/2">>, index()))),
 
-    ?memo(?assertMatch({{string,"\" \\\" \"",{1,1}},<<>>,{1,7}},
+    ?memo(?assertMatch({{string," \" ",{1,1}},<<>>,{1,7}},
                        joxa.compiler:value(<<"\" \\\" \"">>, index()))),
 
-    ?memo(?assertMatch({{string,"\"\\\\\"",{1,1}},<<>>,{1,5}},
+    ?memo(?assertMatch({{string,"\\",{1,1}},<<>>,{1,5}},
                        joxa.compiler:value(<<"\"\\\\\"">>,
                                            index()))),
 
-    ?memo(?assertMatch({{string,"\"\\f\"",{1,1}},<<>>,{1,5}},
+    ?memo(?assertMatch({{string,"\f",{1,1}},<<>>,{1,5}},
                        joxa.compiler:value(<<"\"\\f\"">>,
                                            index()))),
 
-    ?memo(?assertMatch({{string,"\"\\t\"",{1,1}},<<>>,{1,5}},
+    ?memo(?assertMatch({{string,"\t",{1,1}},<<>>,{1,5}},
                        joxa.compiler:value(<<"\"\\t\"">>,
                                            index()))),
 
-    ?memo(?assertMatch({{string,"\"\\n\"",{1,1}},<<>>,{2,2}},
+    ?memo(?assertMatch({{string,"\n",{1,1}},<<>>,{2,2}},
                        joxa.compiler:value(<<"\"\\n\"">>, index()))),
 
-    ?memo(?assertMatch({{string,"\"\\r\"",{1,1}},<<>>,{1,5}},
+    ?memo(?assertMatch({{string,"\r",{1,1}},<<>>,{1,5}},
                        joxa.compiler:value(<<"\"\\r\"">>, index()))),
 
     ?memo(?assertMatch({{quote,{ident,ok,{1,2}},{1,1}},<<>>,{1,4}},
@@ -956,12 +956,12 @@ value_test() ->
     ?memo(?assertMatch({{binary,[],{1,1}},<<>>,{1,5}},
                        joxa.compiler:value(<<"<<>>">>, index()))),
 
-    ?memo(?assertMatch({{binary,{string,"\"\"",{1,3}},{1,1}},
+    ?memo(?assertMatch({{binary,{string,"",{1,3}},{1,1}},
                         <<>>,
                         {1,7}},
                        joxa.compiler:value(<<"<<\"\">>">>,
                                            index()))),
-    ?memo(?assertMatch({{binary,{string,"\"HelloWorld\"",{1,4}},{1,1}},
+    ?memo(?assertMatch({{binary,{string,"HelloWorld",{1,4}},{1,1}},
                         <<>>,
                         {1,19}},
                        joxa.compiler:value(<<"<< \"HelloWorld\" >>">>,
