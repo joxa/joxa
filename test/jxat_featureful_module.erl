@@ -21,7 +21,7 @@ given([a,featureful,module], _State, _) ->
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], State, _) ->
-    Result = jxa_compile:comp("", State),
+    Result = joxa.compiler:forms("", State, []),
     {ok, Result}.
 
 then([a,beam,binary,is,produced], State={_, Binary}, _) ->
@@ -33,9 +33,9 @@ then([the,joxa,context,for,a,featureful,module,is,correctly,formed], State={Ctx0
     validate_lists(Ctx0),
     validate_file(Ctx0),
     validate_filename(Ctx0),
-    Required = jxa_ctx:require(Ctx0),
-    Alias = jxa_ctx:alias(Ctx0),
-    _Attrs = jxa_ctx:attrs(Ctx0),
+    Required = joxa.compiler:'get-context'(requires, Ctx0),
+    Alias = joxa.compiler:'get-context'(aliases, Ctx0),
+    _Attrs = joxa.compiler:'get-context'(attrs, Ctx0),
     ?assertMatch(true, ec_dictionary:has_key(proplists, Required)),
     ?assertMatch(true, ec_dictionary:has_key(erlang, Required)),
     ?assertMatch(true, ec_dictionary:has_key(code, Required)),
@@ -53,9 +53,9 @@ then([the,joxa,context,for,a,featureful,module,is,correctly,formed], State={Ctx0
 validate_module(Module, Ctx0) ->
     %% module_info causes problems and is mostly ignored
     Exports = [El || El={Fun, _}
-                         <- proplists:get_value(exports, Module:module_info()),
+                         <- Module:module_info(exports),
                      Fun =/= module_info],
-    Used = jxa_ctx:use(Ctx0),
+    Used = joxa.compiler:'get-context'(uses, Ctx0),
     lists:foreach(fun(Export={Fun, _}) ->
                           ?assertMatch({Fun, Module},
                                        ec_dictionary:get(Export, Used))
@@ -64,11 +64,11 @@ validate_module(Module, Ctx0) ->
 validate_lists(Ctx0) ->
     Required = [{append, 2}],
     Exports = [El || El={Fun, _}
-                         <- proplists:get_value(exports, lists:module_info()),
+                         <- lists:module_info(exports),
                      Fun =/= module_info],
     FilteredExports = [FunArity || FunArity <- Exports,
                                    not lists:member(FunArity, Required)],
-    Used = jxa_ctx:use(Ctx0),
+    Used = joxa.compiler:'get-context'(uses, Ctx0),
     lists:foreach(fun(Export={Fun, _}) ->
                           ?assertMatch({Fun, lists},
                                        ec_dictionary:get(Export, Used))
@@ -86,14 +86,14 @@ validate_file(Ctx0) ->
     DescUsed = [{{chgrp, 2}, change_group},
                 {{chmod, 2}, change_mode}],
     Exports = [El || El={Fun, _}
-                         <- proplists:get_value(exports, file:module_info()),
+                         <- file:module_info(exports),
                      Fun =/= module_info],
     FilteredExports = [FunArity || FunArity <- Exports,
                                    not lists:member(FunArity,
                                                     [{delete, 1},
                                                      {change_group, 2},
                                                      {change_mode, 2}])],
-    Used = jxa_ctx:use(Ctx0),
+    Used = joxa.compiler:'get-context'(uses, Ctx0),
     lists:foreach(fun({Export, Target}) ->
                           ?assertMatch({Target, file},
                                        ec_dictionary:get(Export, Used))
@@ -105,7 +105,7 @@ validate_file(Ctx0) ->
 
 validate_filename(Ctx0) ->
     Exports = [El || El={Fun, _}
-                         <- proplists:get_value(exports, filename:module_info()),
+                         <- filename:module_info(exports),
                      Fun =/= module_info],
     DescExclude = [{absname, 1},
                    {join, 2},
@@ -115,7 +115,7 @@ validate_filename(Ctx0) ->
     FilteredExports = [FunArity || FunArity <- Exports,
                                    not lists:member(FunArity,
                                                     DescExclude)],
-    Used = jxa_ctx:use(Ctx0),
+    Used = joxa.compiler:'get-context'(uses, Ctx0),
     lists:foreach(fun(Export={Target, _}) ->
                           ?assertMatch({Target, filename},
                                        ec_dictionary:get(Export, Used))

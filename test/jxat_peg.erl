@@ -358,7 +358,7 @@ float_test() ->
     ?memo(?assertMatch({fail,{expected,{string,<<".">>},{1,7}}},
                        joxa.compiler:float(<<"123456abc">>, index()))).
 
-p_char_test() ->
+char_test() ->
     ?memo(?assertMatch({{char,97,{1,1}},<<>>,{1,3}},
                        joxa.compiler:char(<<"\\a">>, index()))),
     ?memo(?assertMatch({{char,123,{1,1}},<<>>,{1,3}},
@@ -366,7 +366,19 @@ p_char_test() ->
     ?memo(?assertMatch({fail,{expected,{string,<<"\\">>},{1,1}}},
                        joxa.compiler:char(<<"ab">>, index()))),
     ?memo(?assertMatch({fail,{expected,{string,<<"\\">>},{1,1}}},
-                       joxa.compiler:char(<<"(">>, index()))).
+                       joxa.compiler:char(<<"(">>, index()))),
+    ?memo(?assertMatch({{char,$",{1,1}},<<>>,{1,4}},
+                       joxa.compiler:char(<<"\\\\\"">>, index()))),
+    ?memo(?assertMatch({{char,$\b,{1,1}},<<>>,{1,4}},
+                       joxa.compiler:char(<<"\\\\b">>, index()))),
+    ?memo(?assertMatch({{char,$\f,{1,1}},<<>>,{1,4}},
+                       joxa.compiler:char(<<"\\\\f">>, index()))),
+    ?memo(?assertMatch({{char,$\n,{1,1}},<<>>,{1,4}},
+                       joxa.compiler:char(<<"\\\\n">>, index()))),
+    ?memo(?assertMatch({{char,$\r,{1,1}},<<>>,{1,4}},
+                       joxa.compiler:char(<<"\\\\r">>, index()))),
+    ?memo(?assertMatch({{char,$\t,{1,1}},<<>>,{1,4}},
+                       joxa.compiler:char(<<"\\\\t">>, index()))).
 
 space_test() ->
     ?memo(?assertMatch({<<" ">>,<<"  ">>,{1,2}},
@@ -391,13 +403,13 @@ comment_test() ->
                          [<<";">>,<<";">>,<<" ">>,<<"h">>,<<"a">> | _],
                          <<"\n">>],
                         <<>>,
-                        {1,10}},
+                        {2,1}},
                        joxa.compiler:comment(<<";;; haha\n">>, index()))),
     ?memo(?assertMatch({[<<";">>,
                          [<<";">>,<<";">>,<<" ">>,<<"h">>,<<"a">> | _],
                          <<"\n">>],
                         <<"one">>,
-                        {1,10}},
+                        {2,1}},
                        joxa.compiler:comment(<<";;; haha\none">>, index()))),
     ?memo(?assertMatch({[<<";">>,[],eof],<<>>,{1,2}},
                        joxa.compiler:comment(<<";">>, index()))),
@@ -407,7 +419,7 @@ comment_test() ->
 ignorable_test() ->
     ?memo(?assertMatch({[],<<>>,{1,4}},
                        joxa.compiler:ignorable(<<"   ">>, index()))),
-    ?memo(?assertMatch({[],<<>>,{1,4}},
+    ?memo(?assertMatch({[],<<>>,{2,1}},
                        joxa.compiler:ignorable(<<"\t \n">>, index()))),
     ?memo(?assertMatch({[],<<>>,{1,2}},
                        joxa.compiler:ignorable(<<"\r">>, index()))),
@@ -415,9 +427,9 @@ ignorable_test() ->
                        joxa.compiler:ignorable(<<"abc">>, index()))),
     ?memo(?assertMatch({[],<<>>,{1,9}},
                        joxa.compiler:ignorable(<<";;; haha">>, index()))),
-    ?memo(?assertMatch({[],<<>>,{1,10}},
+    ?memo(?assertMatch({[],<<>>,{2,1}},
                        joxa.compiler:ignorable(<<";;; haha\n">>, index()))),
-    ?memo(?assertMatch({[],<<"one">>,{1,10}},
+    ?memo(?assertMatch({[],<<"one">>,{2,1}},
                        joxa.compiler:ignorable(<<";;; haha\none">>, index()))),
     ?memo(?assertMatch({[],<<>>,{1,2}},
                        joxa.compiler:ignorable(<<";">>, index()))),
@@ -481,16 +493,16 @@ symbol_test() ->
 
 
 fun_reference_test() ->
-    ?memo(?assertMatch({{call,{'__fun__','fun',3},{1,1}},<<>>,{2,3}},
+    ?memo(?assertMatch({{call,{'__fun__','fun',3},{1,1}},<<>>,{1,6}},
                        joxa.compiler:'fun-reference'(<<"fun/3">>, index()))),
     ?memo(?assertMatch({{call,{'__fun__',module,'fun',3},{1,1}},
                         <<>>,
-                        {2,3}},
+                        {1,13}},
                        joxa.compiler:'fun-reference'(<<"module/fun/3">>,
                                                      index()))),
     ?memo(?assertMatch({{call,{'__fun__',module,'fun'},{1,1}},
                         <<>>,
-                        {2,1}},
+                        {1,11}},
                        joxa.compiler:'fun-reference'(<<"module/fun">>,
                                                      index()))),
     ?memo(?assertMatch({fail,{expected,{string,<<"/">>},{1,7}}},
@@ -516,7 +528,7 @@ string_test() ->
                        joxa.compiler:string(<<"\"\\t\"">>,
                                             index()))),
 
-    ?memo(?assertMatch({{string,"\n",{1,1}},<<>>,{2,2}},
+    ?memo(?assertMatch({{string,"\n",{1,1}},<<>>,{1,5}},
                        joxa.compiler:string(<<"\"\\n\"">>, index()))),
 
     ?memo(?assertMatch({{string,"\r",{1,1}},<<>>,{1,5}},
@@ -549,7 +561,7 @@ quote_test() ->
     ?memo(?assertMatch({{quote,{tuple,[{ident,one,_},{ident,two,_}],
                                 {1,2}},{1,1}},
                         <<>>,
-                        {2,7}},
+                        {1,11}},
                        joxa.compiler:quote(<<"'{one two}">>, index()))).
 
 list_test() ->
@@ -687,7 +699,7 @@ binary_test() ->
                            _}],
                          {1,1}},
                         <<>>,
-                        {2,7}},
+                        _},
                        joxa.compiler:binary(<<"<<(d :size 16) e (f :binary)>>">>,
                                             index()))),
 
@@ -752,16 +764,16 @@ value_test() ->
                         {1,6}},
                        joxa.compiler:value(<<":bock(ee">>, index()))),
 
-    ?memo(?assertMatch({{call,{'__fun__','fun',3},{1,1}},<<>>,{2,3}},
+    ?memo(?assertMatch({{call,{'__fun__','fun',3},{1,1}},<<>>,{1,6}},
                        joxa.compiler:value(<<"fun/3">>, index()))),
     ?memo(?assertMatch({{call,{'__fun__',module,'fun',3},{1,1}},
                         <<>>,
-                        {2,3}},
+                        {1,13}},
                        joxa.compiler:value(<<"module/fun/3">>,
                                            index()))),
     ?memo(?assertMatch({{call,{'__fun__',module,'fun'},{1,1}},
                         <<>>,
-                        {2,1}},
+                        {1,11}},
                        joxa.compiler:value(<<"module/fun">>,
                                            index()))),
     ?memo(?assertMatch({fail,
@@ -784,7 +796,7 @@ value_test() ->
                        joxa.compiler:value(<<"\"\\t\"">>,
                                            index()))),
 
-    ?memo(?assertMatch({{string,"\n",{1,1}},<<>>,{2,2}},
+    ?memo(?assertMatch({{string,"\n",{1,1}},<<>>,{1,5}},
                        joxa.compiler:value(<<"\"\\n\"">>, index()))),
 
     ?memo(?assertMatch({{string,"\r",{1,1}},<<>>,{1,5}},
@@ -815,7 +827,7 @@ value_test() ->
     ?memo(?assertMatch({{quote,{tuple,[{ident,one,_},{ident,two,_}],
                                 {1,2}},{1,1}},
                         <<>>,
-                        {2,7}},
+                        {1,11}},
                        joxa.compiler:value(<<"'{one two}">>, index()))),
 
     ?memo(?assertMatch({{list,[{quote,{ident,ok, _},{1,2}}],{1,1}},
@@ -949,7 +961,7 @@ value_test() ->
                            _}],
                          {1,1}},
                         <<>>,
-                        {2,7}},
+                        {1,31}},
                        joxa.compiler:value(<<"<<(d :size 16) e (f :binary)>>">>,
                                            index()))),
 

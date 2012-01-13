@@ -34,7 +34,7 @@
 
 %% for testing purposes
 -export([intermediate_parse/1, p_charclass/1, string/2, setup_memo/0,
-        release_memo/0]).
+         release_memo/0]).
 
 -include_lib("joxa/include/joxa.hrl").
 
@@ -262,8 +262,29 @@ float(Input, Index) ->
 char(Input, Index) ->
     p(Input, Index, char,
       p_seq([p_string(<<"\\">>),
-             p_anything()]),
-      fun([_, Char], Idx) ->
+             p_choose([p_string(<<"\\\"">>),
+                       p_string(<<"\\\\">>),
+                       p_string(<<"\\b">>),
+                       p_string(<<"\\f">>),
+                       p_string(<<"\\n">>),
+                       p_string(<<"\\r">>),
+                       p_string(<<"\\t">>),
+                       p_anything()])]),
+      fun([_, <<"\\\"">>], Idx) ->
+              {char, $", Idx};
+         ([_, <<"\\\\">>], Idx) ->
+              {char, $\\, Idx};
+         ([_, <<"\\b">>], Idx) ->
+              {char, $\b, Idx};
+         ([_, <<"\\f">>], Idx) ->
+              {char, $\f, Idx};
+         ([_, <<"\\n">>], Idx) ->
+              {char, $\n, Idx};
+         ([_, <<"\\r">>], Idx) ->
+              {char, $\r, Idx};
+         ([_, <<"\\t">>], Idx) ->
+              {char, $\t, Idx};
+         ([_, Char], Idx) ->
               {char, hd(binary_to_list(Char)), Idx}
       end).
 
@@ -305,7 +326,7 @@ digit(Input, Index) ->
       fun(I,D) ->
               (p_charclass(<<"[0-9]">>))(I,D)
       end).
-%% done
+
 -spec binary(binary(), index()) -> intermediate_ast().
 binary(Input, Index) ->
     p(Input, Index, binary,
@@ -338,7 +359,6 @@ binary(Input, Index) ->
               {binary, [], Idx}
       end).
 
-%% done
 -spec tuple(binary(), index()) -> intermediate_ast().
 tuple(Input, Index) ->
     p(Input, Index, tuple,
@@ -358,7 +378,6 @@ tuple(Input, Index) ->
               {tuple, [], Idx}
       end).
 
-%% done
 -spec list(binary(), index()) -> intermediate_ast().
 list(Input, Index) ->
     p(Input, Index, list,
@@ -392,7 +411,6 @@ list(Input, Index) ->
               {list, [], Idx}
       end).
 
-%% Done
 -spec string(binary(), index()) -> intermediate_ast().
 string(Input, Index) ->
     p(Input, Index, string,
@@ -461,7 +479,6 @@ ignorable(Input, Index) ->
               []
       end).
 
-%% done
 fun_reference(Input, Index) ->
     p(Input, Index, fun_reference,
       p_choose([p_seq([fun ident/2,
@@ -512,7 +529,6 @@ ident(Input, Index) ->
               {ident, Result, Idx}
       end).
 
-%% done
 -spec quote(binary(), index()) -> intermediate_ast().
 quote(Input, Index) ->
     p(Input, Index, quote,
@@ -523,7 +539,6 @@ quote(Input, Index) ->
               {quote, Item, Idx}
       end).
 
-%% done
 -spec value(binary(), index()) -> intermediate_ast().
 value(Input, Index) ->
     p(Input, Index, value,

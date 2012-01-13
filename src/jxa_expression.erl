@@ -121,9 +121,9 @@ comp(Path0, Ctx0, [values | Args0]) ->
 comp(Path0, Ctx0, Expr = [binary | _]) ->
     jxa_binary:comp(Path0, Ctx0, Expr);
 comp(Path0, Ctx0, [Arg1, '.', Arg2]) ->
-    {Ctx1, Cerl1} = comp(Path0,
+    {Ctx1, Cerl1} = comp(jxa_path:add(Path0),
                          Ctx0, Arg1),
-    {Ctx2, Cerl2} = comp(jxa_path:incr(2, Path0),
+    {Ctx2, Cerl2} = comp(jxa_path:add(jxa_path:incr(2, Path0)),
                          Ctx1, Arg2),
     Annots = jxa_annot:get_line(jxa_path:add_path(Path0),
                                 jxa_ctx:annots(Ctx2)),

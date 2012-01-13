@@ -9,41 +9,23 @@
 ;;; this severely restricts the syntax you can use in the compler, it
 ;;; does ensure that only a very minimal base language is supported.
 (module joxa.compiler
-        (require init getopt
-                 lists unicode
-                 re ets proplists)
+        (require init getopt file
+                 lists unicode sets
+                 re ets proplists filename
+                 re ec_dictionary ec_lists
+                 filelib file cerl code
+                 compile joxa io)
         (use (erlang :only (+/2
                             and/2
                             or/2
                             is_list/1
-                            is_binary/1)))
-        (use (io :only (format/2) :rename ((format/2 print)))))
-
-(defn usage (os-list)
-  (getopt/usage os-list "" "[option1 option2 ...] <joxa-file>"
-                '()))
-
-(defn option-spec-list ()
-  [{:outdir \o "outdir" :string "the directory to output beam files"}])
-
-(defn+ main (args)
-  (case
-      (getopt/parse (option-spec-list) args)
-    ({:ok {options [target]}}
-     :got-it)
-    (_
-     (do
-         (usage (option-spec-list))
-         :did-not-get-it))))
-
-(defn+ main ()
-  (main (init/get_plain_arguments)))
+                            is_binary/1))))
 
 ;; The Lexer and Parser
 ;; --------------------
 ;;
 ;; The parser for Joxa is a [Parsing Expression
-;; Grammer](http://en.wikipedia.org/wiki/Parsing_expression_grammar)
+;; Grammer](http://en.wikipedia.org/wiki/Parsing_expression_grammar)3
 ;; based heavily on the Neotoma project. It provides two classes of
 ;; parse functions. The first set of parse functions are prefixed by a
 ;; 'p-' and are low level constructor functions that are not part of
@@ -51,6 +33,9 @@
 ;; prefixed with a 'p-' and represent parts of the Joxa grammer it
 ;; self. These are public because it is expected that they will be
 ;; used for reader macros.
+
+(deftype index () {(erlang/non_neg_integer)
+                   (erlang/non_neg_integer)})
 
 (defn+ line (index)
   (case index
@@ -71,7 +56,7 @@
                   (is_binary mi)))
         (lists/foldl p-advance-index/2 index
                      (unicode/characters_to_list mi)))
-       (\n
+       (\\n
         {(+ ln 1) 1})
        (_
         {ln (+ col 1)})))))
@@ -294,7 +279,6 @@
   (p input index :digit
      (p-charclass <<"[0-9]">>)))
 
-
 (defn+ int-part (input index)
   (p input index :int-part
      (p-seq [(p-optional (p-string <<"-">>)),
@@ -340,9 +324,30 @@
 (defn+ char (input index)
   (p input index :char
      (p-seq [(p-string <<"\\">>)
-             (p-anything)])
+             (p-choose [(p-string "\\\"")
+                        (p-string "\\\\")
+                        (p-string "\\b")
+                        (p-string "\\f")
+                        (p-string "\\n")
+                        (p-string "\\r")
+                        (p-string "\\t")
+                        (p-anything)])])
      (fn (node idx)
          (case node
+           ([_ <<"\\\"">>]
+            {:char \" idx})
+           ([_ <<"\\\\">>]
+            {:char \\ idx})
+           ([_ <<"\\b">>]
+            {:char \\b idx})
+           ([_ <<"\\f">>]
+            {:char \\f idx})
+           ([_ <<"\\n">>]
+            {:char \\n idx})
+           ([_ <<"\\r">>]
+            {:char \\r idx})
+           ([_ <<"\\t">>]
+            {:char \\t idx})
            ([_ char]
             {:char char idx})))))
 
@@ -547,3 +552,1138 @@
              ignorable/2])
      (fn (node idx)
          (lists/nth 2 node))))
+
+
+;; ### Path Hashing for Line and Type Information
+;;
+;; We have the problem that for macros and for ease of parsing we want
+;; to keep the AST as clean as possible. That is, we want it to be as
+;; close to a normal list as we can get away with. However, we want to
+;; be able to hang information on the graph that the AST
+;; represents. Things like line numbers, additional type information
+;; etc. However, in erlang we cant do that without polluting the graph
+;; itself and making it harder for user written macros to be
+;; implemented. So we need some way to identify specific points in the
+;; graph that is the AST that we can then use as a key on this
+;; additional information that we would like to show.
+;;
+;; In an AST nodes are identified by their location in the graph. That
+;; is, every node in the graph is identified by the path leading to
+;; that node.  Lets look at an example.
+;;
+;;     (hello world (I rock))
+;;
+;; In this case the 'I' node could be identified by the path [hello,
+;; world, <start of children>, I]. This should be a unique identifier
+;; for any point in the graph assuming that there is a single root
+;; term being parsed.
+;;
+;; If that is true we can replace the actual elements with their
+;; positions in the list. So the example above would become. [1, 3,
+;; 1]. Where the outer list is 1 (everything starts at one) the 3rd
+;; position is the list and the first element in that third
+;; position. Lets look at something a bit more something more realistic.
+;;
+;;     (defn+ hello-world [foo bar] (baz bang bong))
+;;
+;; In this example the bang node could be identified by everything
+;; leading up to it. So the path would be [defn+, hello-world,
+;; <children>, <start-of_children>, bang]. Lets translate this to our
+;; simple numerical paths. [1, 4, 2]. This should work to any level in
+;; the graph.
+;;
+;; We can make it even easier to manipulate buy having the firstest
+;; point in the graph be the closest point in the list so that we can
+;; push onto the list as we go forward. The actual path in the example
+;; above would be [2, 4, 1] and built up each time we see a list.
+(deftype path () {(erlang/non_neg_integer) [(erlang/non_neg_integer)]})
+
+(defn+ new-path ()
+  {1, []})
+
+(defn+ incr-path (pos path)
+  (case path
+    ({oldpos oldpath}
+     {(+ pos oldpos) oldpath})))
+
+(defn+ incr-path (path)
+  (incr-path 1 path))
+
+(defn+ traverse-path (path)
+  (case path
+    ({old-position old-path}
+     {1, (old-position . old-path)})))
+
+(defn+ path? (path)
+  (case path
+    ({_ old-path}
+     old-path)))
+
+(defn+ traverse-and-get-path (path)
+  (path? (traverse-path path)))
+
+(defn+ incr-traverse-path (path)
+  (traverse-path (incr-path path)))
+
+;; ### Annotation storage and retrieval
+;;
+;; With path support in place its time take care of the annotations
+;; themselves. We want the api to handle formating and internal
+;; storage forms. As long as we give it a good path we want to get
+;; back what we ask for.
+(defn+ new-annots (file-name)
+  (ec_dictionary/add :__filename__ file-name (ec_dictionary/new :ec_dict)))
+
+(defn+ add-annots (path type idx annotations)
+  (let ((file-name (ec_dictionary/get :__filename__ annotations)))
+    (case idx
+      ({line _}
+       (ec_dictionary/add path {type idx [line, {:file file-name}]} annotations)))))
+
+;; sometimes an invalid path is passed in. This is unfortunate but
+;; things like macros mangle the path in currently unforseable
+;; ways. With this in mind we keep backing up the path until such time
+;; that we get a valid annotation. This lets us give at least the line
+;; number and annotations of the top most related form.
+(defn get-valid-annots (path annotations)
+  (case path
+    ([]
+     (erlang/throw :not-found))
+    ((_ . rest)
+     (try
+      (ec_dictionary/get path annotations)
+      (catch
+          (:throw :not_found
+                  (get-valid-annots rest annotations)))))))
+
+(defn+ get-type-annots (path annotations)
+  (case (get-valid-annots path annotations)
+    ({type _ _}
+     type)))
+
+(defn+ get-idx-annots (path annotations)
+  (case (get-valid-annots path annotations)
+    ({_ idx _}
+     idx)))
+
+(defn+ get-line-annots (path annotations)
+  (case (get-valid-annots path annotations)
+    ({_ _ line}
+     line)))
+
+(defn+ get-line-annots (path extra annotations)
+  (let ((annots (get-line-annots path annotations)))
+    (extra . annots)))
+
+
+;; ### The First Ast Transformation
+;;
+;; Most of the AST transformations in Joxa happen via macros. however,
+;; this very first initial transformation happens here. Turning the
+;; marked up AST into an annotated lisp AST where the annotations are
+;; hidden unless requested.
+
+(defspec transform-ast ((erlang/any) (erlang/any) (erlang/any))
+  {(erlang/any) (erlang/list)})
+
+(definline convert-list-ast (path0 annotations0 elements idx)
+  (let ((transformed
+         (lists/foldl
+          (fn (el, acc)
+              (case acc
+                ({path1 annotations1 elements-acc}
+                 (let ((result (transform-ast
+                                (traverse-path path1)
+                                annotations1 el)))
+                   (case result
+                     ({annotations2 transformed}
+                      {(incr-path path1) annotations2
+                       (transformed . elements-acc)}))))))
+          {path0 annotations0 []}
+          elements)))
+    transformed))
+
+(definline convert-list-call-ast (path0 annotations0 elements idx type)
+  (let ((transformed (convert-list-ast path0 annotations0 elements idx)))
+    (case transformed
+      ({_ annotations3 transform-list}
+       (let ((annotations4 (add-annots (traverse-and-get-path path0)
+                                       :ident
+                                       idx annotations3)))
+         {(add-annots (path? path0)
+                      type idx
+                      annotations4)
+          (type . (lists/reverse transform-list))})))))
+
+(definline convert-binary-string (path0 annotations0 elements idx)
+  (let ((transformed
+         (lists/foldl
+          (fn (el, acc)
+              (case acc
+                ({path1 annotations1 elements-acc}
+                 {(incr-path path1)
+                  (add-annots (traverse-and-get-path path1)
+                              :integer
+                              idx
+                              annotations1)
+                  (el . elements-acc)})))
+          {path0 annotations0 []}
+          elements)))
+    (case transformed
+      ({_ annotations3 transform-list}
+       (let ((annotations4 (add-annots
+                            (traverse-and-get-path path0)
+                            :ident
+                            idx annotations3)))
+         {(add-annots (path? path0)
+                      :binary idx
+                      annotations4)
+          (:binary . (lists/reverse transform-list))})))))
+
+(defn+ transform-ast (path0 annotations node)
+  (case node
+    (:fail
+     (erlang/throw :fail))
+    ({:call mfa idx}
+     {(add-annots (path? path0)
+                  :call idx annotations) mfa})
+    ({:literal-list list idx}
+     (convert-list-call-ast path0 annotations list idx :list))
+    ({:binary {:string string _} idx}
+     (convert-binary-string path0 annotations string idx))
+    ({:binary list idx}
+     (convert-list-call-ast path0 annotations list idx :binary))
+    ({:tuple list idx}
+     (let ((transformed (convert-list-ast path0 annotations list idx)))
+       (case transformed
+         ({_ annotations1 transform-list}
+          {(add-annots (path? path0)
+                       :tuple idx
+                       annotations1)
+           (erlang/list_to_tuple (lists/reverse transform-list))}))))
+    ({:list list idx}
+     (let ((transformed (convert-list-ast path0 annotations list idx)))
+       (case transformed
+         ({_ annotations1 transform-list}
+          {(add-annots (path? path0)
+                       :list idx
+                       annotations1)
+           (lists/reverse transform-list)}))))
+    ({type (= val {_ _ _}) idx}
+     (let ((result (transform-ast (incr-traverse-path path0)
+                                  annotations val)))
+       (case result
+         ({annotations1 p-val}
+
+          {(add-annots (path? path0) type idx
+                       (add-annots (traverse-and-get-path path0)
+                                   :ident idx
+                                   annotations1))
+           [type, p-val]}))))
+    ({type val idx}
+     {(add-annots (path? path0) type idx annotations) val})))
+
+;; These are mostly exponsed for testing purposes
+(defn+ intermediate-parse (input index)
+  (do
+      (setup-memo)
+      (let ((result (value input index)))
+        (do
+            (release-memo)
+            result))))
+
+(defn+ intermediate-parse (input)
+  (intermediate-parse input {1,1}))
+
+(defn+ new-index ()
+  {1,1})
+
+(defn has-more-data-to-parse (input)
+  (case input
+    (<<>>
+     :false)
+    ({:parse-output <<>> _ _ _}
+     :false)
+    (_
+     :true)))
+
+(defn do-parse (path annots input idx0)
+  (case input
+    (<<>>
+     {<<>> path annots idx0})
+    (_
+     (case (intermediate-parse input idx0)
+       ({:fail {:expected expected idx1}}
+        (erlang/throw {:invalid-form expected idx0}))
+       ({intermediate-ast rest idx2}
+        (case (transform-ast (traverse-path path) annots
+                             intermediate-ast)
+          ({annots1 final-ast}
+           {annots1 final-ast {:parse-output rest path annots1 idx2}})))))))
+
+
+(defn+ parse (file-name input)
+  (case input
+    (input (when (erlang/is_binary input))
+           (do-parse (new-path)
+                     (new-annots file-name)
+                     input
+                     (new-index)))
+    ({:parse-output new-input path annots index}
+     (do-parse (incr-path path) annots new-input index))))
+
+(defn+ parse-file (filename)
+  (case (file/read_file filename)
+    ({:ok bin}
+     (parse filename bin))))
+
+;; The Compiler
+;; ------------
+;;
+;; The parser is complete and now its time to turn our attention to
+;; the compiler. we start by defining a compilation context to use for
+;; scope management and variable lookup.
+
+
+;; ### The Context
+
+(deftype context ()
+  {:context,
+   (erlang/atom)
+   (erlang/list)
+   (erlang/term)
+   (erlang/term)
+   (erlang/term)
+   (erlang/term)
+   (erlang/term)
+   (erlang/term)
+   (erlang/term)
+   (erlang/term)
+   (erlang/term)})
+
+;; ### Specifications for broadly used compilation functions
+(defspec comp-literal ((path) (context) (erlang/term)) (cerl/cerl))
+
+;; ### Context Implementation
+(defn+ get-context (field ctx)
+  (case field
+    (:module-name (erlang/element 2 ctx))
+    (:annots (erlang/element 3 ctx))
+    (:attrs (erlang/element 4 ctx))
+    (:exports (erlang/element 5 ctx))
+    (:type-exports (erlang/element 6 ctx))
+    (:scopes (erlang/element 7 ctx))
+    (:type-scopes (erlang/element 8 ctx))
+    (:definitions (erlang/element 9 ctx))
+    (:types (erlang/element 10 ctx))
+    (:aliases (erlang/element 11 ctx))
+    (:requires (erlang/element 12 ctx))
+    (:uses (erlang/element 13 ctx))
+    (:line (erlang/element 14 ctx))
+    (_ (erlang/throw {:invalid-field, :context field}))))
+
+(defn+ set-context (field value ctx)
+  (case field
+    (:module-name (erlang/setelement 2 ctx value))
+    (:annots (erlang/setelement 3 ctx value))
+    (:attrs (erlang/setelement 4 ctx value))
+    (:exports (erlang/setelement 5 ctx value))
+    (:type-exports (erlang/setelement 6 ctx value))
+    (:scopes (erlang/setelement 7 ctx value))
+    (:type-scopes (erlang/setelement 8 ctx value))
+    (:definitions (erlang/setelement 9 ctx value))
+    (:types (erlang/setelement 10 ctx value))
+    (:aliases (erlang/setelement 11 ctx value))
+    (:requires (erlang/setelement 12 ctx value))
+    (:uses (erlang/setelement 13 ctx value))
+    (:line (erlang/setelement 14 ctx value))
+    (_ (erlang/throw {:invalid-field, :context field}))))
+
+(defn+ new-context (key-values)
+  (lists/foldl (fn (set-val ctx1)
+                   (case set-val
+                     ({field value}
+                      (set-context field value ctx1))))
+               {:context
+                :undefined ; module-name
+                :undefined ; annots
+                []  ; attrs
+                (sets/new) ; exports
+                (sets/new) ; type-exports
+                [] ; scopes
+                [] ; type-scopes
+                (ec_dictionary/new :ec_dict) ; definitions
+                (ec_dictionary/new :ec_dict) ; types
+                (ec_dictionary/new :ec_dict) ; alias
+                (ec_dictionary/new :ec_dict) ; require
+                (ec_dictionary/new :ec_dict) ; use
+                :undefined ; line
+                } key-values))
+
+(defn+ new-context (annots module-name)
+  (new-context ([(:annots . annots)
+                 (:module-name . module-name)])))
+
+(defn+ add-export-ctx (annots fun-name arity ctx)
+  (let ((exports (get-context :exports ctx)))
+    (set-context
+     :exports (sets/add_element {fun-name arity annots} exports)
+     ctx)))
+
+(defn+ add-attr-ctx (key value ctx)
+  (let ((attrs (get-context :attrs ctx)))
+    (set-context :attrs ({key value} . attrs) ctx)))
+
+(defn+ add-alias-ctx (aliased-name module ctx)
+  (let ((aliases (get-context :aliases ctx)))
+    (set-context :aliases
+                 (ec_dictionary/add aliased-name module aliases)
+                 ctx)))
+
+(defn+ add-require-ctx (module ctx)
+  (let ((requires (get-context :requires ctx))
+        (exports ((erlang/make_fun module :module_info 1) :exports)))
+    (set-context :requires (ec_dictionary/add module exports requires)
+                 ctx)))
+
+(defn+ add-use-ctx (alias arity target module ctx)
+  (let ((use (get-context :uses ctx)))
+    (set-context :uses (ec_dictionary/add {alias arity}
+                                          {target module} use)
+                 ctx)))
+
+(defn+ add-def-ctx (annots name vars body ctx)
+  (let ((arity (erlang/length vars))
+        (defs (get-context :definitions ctx))
+        (cerl-name (cerl/ann_c_fname annots name arity))
+        (cerl-body (cerl/ann_c_fun annots vars body)))
+    (set-context :definitions (ec_dictionary/add {name arity}
+                                                 {cerl-name cerl-body}
+                                                 defs)
+                 ctx)))
+
+(defn+ add-exported-def-ctx (annots name vars body ctx)
+  (let ((arity (erlang/length vars)))
+    (add-export-ctx annots name arity
+                    (add-def-ctx annots name vars body ctx))))
+
+
+(defspec alias-ctx? ((erlang/atom) (erlang/atom)
+                     (erlang/non_neg_integer) (erlang/term))
+  (erlang/term))
+
+(defn+ remote-function-ctx? (module function possible-arity ctx aliased)
+  (try
+   (let ((requires (get-context :requires ctx))
+         (exports (ec_dictionary/get module requires)))
+     (case (lists/member {function possible-arity} exports)
+       (:true
+        {:remote module function possible-arity})
+       (:false
+        :not-a-reference)))
+   (catch
+       (_ :not_found
+          (case aliased
+            (:false
+             (alias-ctx? module function possible-arity ctx))
+            (:true
+             :not-a-reference))))))
+
+(defn+ remote-function-ctx? (module function possible-arity ctx)
+  (remote-function-ctx? module function possible-arity ctx :false))
+
+(defn+ alias-ctx? (module function possible-arity ctx)
+  (try
+   (let ((aliases (get-context :aliases ctx))
+         (aliased-module  (ec_dictionary/get module aliases)))
+     (remote-function-ctx?
+      aliased-module function possible-arity ctx :true))
+   (catch
+       (_ :not_found
+          :not-a-reference))))
+
+(defn is-speced-ctx? (name possible-arity ctx)
+  (let ((types (get-context :types ctx)))
+    (case (ec_dictionary/get {name possible-arity} :undefined types)
+      (:undefined
+       :not-a-reference)
+      (_
+       {:apply name possible-arity}))))
+
+(defn used-function-ctx? (name possible-arity ctx)
+  (let ((uses (get-context :uses ctx)))
+    (case (ec_dictionary/get {name possible-arity} :undefined uses)
+      ({fun-name module-name}
+       {:remote module-name fun-name possible-arity})
+      (:undefined
+       (is-speced-ctx? name possible-arity ctx)))))
+
+(defn+ defined-used-function-ctx? (name possible-arity ctx)
+  (let ((types (get-context :types ctx))
+        (defs (get-context :definitions ctx))
+        (uses (get-context :uses ctx)))
+    (case (ec_dictionary/has_key {name possible-arity} defs)
+      (:true
+       {:apply name possible-arity})
+      (:false
+       (used-function-ctx? name possible-arity ctx)))))
+
+(defn+ push-scope-ctx (ctx)
+  (let ((scopes (get-context :scopes ctx)))
+    (set-context :scopes ((ec_dictionary/new :ec_dict) . scopes) ctx)))
+
+(defn+ pop-scope-ctx (ctx)
+  (case (get-context :scopes ctx)
+    ((_ . scopes)
+     (set-context :scopes scopes ctx))))
+
+(defn+ add-reference-to-scope-ctx (name arity ctx)
+  (let ((scopes (get-context :scopes ctx))
+        (body     (case arity
+                    (-1 (cerl/c_var name))
+
+                    (Arity (cerl/c_fname name arity)))))
+    (case scopes
+      ((current . rest)
+       (set-context :scopes ((ec_dictionary/add {name arity} body current) . rest) ctx))
+      ([]
+       (erlang/throw :no-scope)))))
+
+(defn+ resolve-reference-ctx (ref arity ctx)
+  (case ref
+    ({:__fun__ _ arity}
+     (defined-used-function-ctx? ref arity ctx))
+    ({:__fun__ module function}
+     (when (and (erlang/is_atom module)
+                (erlang/is_atom function)))
+     (remote-function-ctx? module function arity ctx))
+    ({:__fun__ fun invalid-arity}
+     (erlang/throw {:mismatched-arity fun arity invalid-arity}))
+    ({:__fun__ module function arity}
+     (remote-function-ctx? module function arity ctx))
+    ({:__fun__ module function invalid-arity}
+     (erlang/throw {:mismatched-arity module function arity invalid-arity}))
+    (name
+     (when (erlang/is_atom name))
+     (let ((scopes (get-context :scopes ctx)))
+       (case (ec_lists/search (fn (scope)
+                                  (try
+                                   {:ok (ec_dictionary/get {name arity} scope)}
+                                   (catch (_ :not_found
+                                             :not_found)))) scopes)
+         ({:ok var _}
+          {:reference var})
+         (:not_found
+          (defined-used-function-ctx? name arity ctx)))))))
+
+;; #### Context Helper Functions
+;;
+;; These mostly exist to reduce the visual cost of function calls to
+;; get values from the annotations.
+(defn thing-from-context (actions path0 ctx do-fun)
+  (let ((do-action (fn (action path1)
+                       (case action
+                         (:traverse
+                          (traverse-path path1))
+                         (:incr
+                          (incr-path path1)))))
+        (path1     (case actions
+                     (a1 (when (erlang/is_list a1))
+
+                         (lists/foldl do-action path0 actions))
+                     (a2 (when (erlang/is_atom a2))
+                         (do-action actions path0)))))
+    (do-fun (path? path1) (get-context :annots ctx))))
+
+(defn idx-from-context (actions path0 ctx)
+  (thing-from-context actions path0 ctx get-idx-annots/2))
+
+(defn annots-from-context (actions path0 ctx)
+  (thing-from-context actions path0 ctx get-line-annots/2))
+
+(defn type-from-context (actions path0 ctx)
+ (thing-from-context actions path0 ctx get-type-annots/2))
+
+
+;; Module Compilation
+;; ------------------
+;;
+;; The form of the module is defined as follows.
+;;
+;;     (module <module_name>
+;;        <require>
+;;        <use>
+;;        <attributes>)
+;;
+;; The module clause is a special form and its contents are not evaluated.
+;;
+;; comp compiles the provided AST into a Joxa context. Later that context
+;; must be compiled to core erlang.
+(defn get-exports (module idx)
+  (let ((mod_info (erlang/make_fun module :module_info 1))
+        (exports (mod_info :exports)))
+    (lists/map (fn (el)
+                   (case el
+                     ({fun arity}
+                      {{fun arity} fun})))
+               exports)))
+
+(defn gather-fun-arity-pairs (idx fun-arity-list acc)
+  (case fun-arity-list
+    (({:__fun__ fun arity} . rest)
+     (gather-fun-arity-pairs idx rest ({fun arity} . acc)))
+    ([] acc)
+    (_
+     (erlang/throw {:invalid-use :invalid-fun-spec idx}))))
+
+(defn gather-fun-alias-pairs (idx fun-alias-pairs acc)
+  (case fun-alias-pairs
+    (([{:__fun__ fun arity} alias] . rest)
+     (when (erlang/is_atom alias))
+     (gather-fun-alias-pairs idx rest ({{fun arity} alias} . acc)))
+    ([]
+     acc)
+    (_
+     (erlang/throw {:invalid_use :invalid_fun_spec idx}))))
+
+(defn populate-use-into-context (module-name imports ctx0)
+  (case imports
+    ([] ctx0)
+    (_
+     (lists/foldl (fn (el ctx1)
+                      (case el
+                        ({{fun-name arity} alias-name}
+                         (add-use-ctx alias-name arity fun-name module-name ctx1))))
+                  ctx0
+                  imports))))
+
+;; Joxa Module Definitions
+;; -----------------------
+;;
+;; Module declarations in Joxa are more complex then module definitions in
+;; Erlang. They follow the Clojure model much more closely then the Erlang
+;; module. That is that all modules used in the system must be required. You
+;; may provide an alias for a dependent module name in both the require
+;; clause and the use clauses. You may also import functions from modules in
+;; the use clause.
+;;
+;; ### Module Form
+;; The form of the module is defined as follows.
+;;
+;;     (module <module_name>
+;;        <require>
+;;        <use>
+;;        <attributes>)
+;;
+;; The module clause is a special form and its contents are not evaluated.
+;;
+;; comp compiles the provided AST into a Joxa context. Later that context
+;; must be compiled to core erlang.
+
+(defn gather-fun-alias-pairs (idx pairs acc)
+  (case pairs
+    (([{:__fun__ fun arity} alias] . rest)
+     (when (erlang/is_atom alias))
+     (gather-fun-alias-pairs idx rest ({{fun arity} alias} . acc)))
+    ([]
+     acc)
+    (_
+     (erlang/throw {:invalid-use :invalid-fun-spec idx}))))
+
+(defn gather-fun-arity-pairs (idx pairs acc)
+  (case pairs
+    (({:__fun__ fun arity} . rest)
+     (gather-fun-arity-pairs idx rest ({fun arity} . acc)))
+    ([]
+     acc)
+    (_
+     (erlang/throw {:invalid-use :invalid-fun-spec idx}))))
+
+(defn filter-imports-to-onlys (idx target-funs imports0)
+  (let ((fun-arity-pairs (gather-fun-arity-pairs idx target-funs '())))
+    (lists/foldl (fn (el acc)
+                     (case el
+                       ({fun arity}
+                        (let ((new-el {{fun arity} fun}))
+                          (case (lists/member new-el imports0)
+                            (:true
+                             (new-el . acc))
+                            (:false
+                             (erlang/throw {:invalid-use :non-existant-fun-name {fun arity} idx})))))))
+                 [] fun-arity-pairs)))
+
+(defn exclude-specific-funs (idx excluded-funs imports0)
+  (let ((fun-arity-pairs (gather-fun-arity-pairs idx excluded-funs [])))
+    (lists/foldl (fn (el acc)
+                     (case el
+                       ({{fun arity} _}
+                        (let ((new-el {{fun arity} fun}))
+                          (case (lists/member {fun arity} fun-arity-pairs)
+                            (:true
+                             acc)
+                            (:false
+                             (new-el . acc)))))))
+                 [] imports0)))
+
+(defn rename-funs (idx renames imports0)
+  (let ((fun-alias-pairs (gather-fun-alias-pairs idx renames [])))
+    (lists/foldl (fn (el exports1)
+                     (case el
+                       ({{fun arity} alias}
+                        (lists/keyreplace {fun arity} 1 exports1
+                                          {{fun arity} alias}))))
+                 imports0 fun-alias-pairs)))
+
+(defspec comp-use ((index) (context) (erlang/term) (erlang/atom) (erlang/list))
+  (context))
+
+(defn handle-use-clauses (idx ctx0 forms module-name imports0)
+  (do
+      (io/format "~n~n---------------->~p:~p" [module-name imports0])
+  (case forms
+    ([]
+     (populate-use-into-context module-name imports0 ctx0))
+    (('(quote as) . (alias-name . rest))
+     (let ((ctx1 (add-alias-ctx alias-name module-name ctx0)))
+       (handle-use-clauses idx ctx1 rest module-name imports0)))
+    (('(quote only) . (target-funs . rest))
+     (when (and (erlang/is_atom module-name)
+                (erlang/is_list target-funs)))
+     (let ((imports1 (filter-imports-to-onlys idx target-funs imports0)))
+       (handle-use-clauses idx ctx0 rest module-name imports1)))
+    (('(quote exclude) . (target-funs . rest))
+     (when (and (erlang/is_atom module-name)
+                (erlang/is_list target-funs)))
+     (let ((imports1 (exclude-specific-funs idx target-funs imports0)))
+       (handle-use-clauses idx ctx0 rest module-name imports1)))
+    (('(quote rename) . (target-funs . rest))
+     (when (and (erlang/is_atom module-name)
+                (erlang/is_list target-funs)))
+     (let ((imports1 (rename-funs idx target-funs imports0)))
+       (handle-use-clauses idx ctx0 rest module-name imports1)))
+    (probably-more-uses
+     (comp-use idx ctx0 probably-more-uses module-name imports0)))))
+
+
+(defn module-exists? (mod-name)
+  (case (code/ensure_loaded mod-name)
+    ({:module _}
+     :true)
+    ({:error :embedded}
+     :true)
+    ({:error :native_code}
+     :true)
+    (_
+     :false)))
+
+
+;; Use Clauses
+;; -----------
+;;
+;; At last we get to the use clauses. Use clauses are, by far, the most
+;; complex of the header clauses as the both manipulate and subset the
+;; functions buing used while at the same time aliasing the function if
+;; required.
+;;
+;;     (use string)
+;;     (use [string :only [tokens/2]])
+;;     (use [string :exclude [substr/3 join/2 join/3]])
+;;     (use [string :rename ([substr/3 str-substring] [join/2 str-join])])
+;;     (use [string :as str :only [join/2 substr/3]])
+;;     (use [string :as str :only [tokens/2]])
+;;     (use [string :as str :exclude [substr/3 join/2 join/3]])
+;;     (use [string :as str :rename ([substr/3 str-substring] [join/2 str-join])])
+;;
+;; As you can see each clause may consist of a module name, or a vector/list
+;; that contains a few some clauses.  The subcluase is always headed by a
+;; module name, followed by an action, followed by the subject of that
+;; action. The subclause action/subject may ocurre in any order. Even though
+;; some do not make sense when used together. So, for example you could have
+;; the following
+;;
+;;     (use [string :rename ([substr/3 str-substring] [join/2 str-join]
+;;                  :exclude [substr/4 join/2]
+;;                  :as str)])
+;;
+;; This would be perfectly valid and could use occur in any order at all.
+
+(defn+ comp-use (idx ctx0 form module-name imports)
+  (case form
+    ([]
+     (populate-use-into-context module-name imports ctx0))
+    (((use-module-name . clause-body) . rest)
+     (when (erlang/is_atom use-module-name))
+     (case (module-exists? use-module-name)
+       (:true
+        (let ((ctx1 (add-require-ctx use-module-name ctx0))
+              (imports (get-exports use-module-name idx))
+              (ctx2 (handle-use-clauses idx ctx1 clause-body use-module-name imports)))
+          (comp-use idx ctx2 rest :undefined '())))
+       (:false
+        (erlang/throw {:invalid-use-clause {:bad-module use-module-name} idx}))))
+    ((use-module-name . rest)
+     (when (erlang/is_atom use-module-name))
+     (let ((imports (get-exports use-module-name idx)))
+       (comp-use idx (populate-use-into-context use-module-name imports ctx0) rest :undefined '())))))
+
+
+;; Attribute Clauses
+;; -----------------
+;;
+;; Attribute clauses are the simplest of the three clauses There are simply
+;; a three element list where the first element is the ident 'attr', the
+;; second element is a Joxa term that provides the key value and the third
+;; is a Joxa term that provides the value.
+;;
+;; Attributes follow the form:
+;;
+;;     (attr <key> <value>)
+;;
+(defn+ comp-attr (path0 ctx0 form)
+  (case form
+    ([key value]
+     (add-attr-ctx
+      (comp-literal (traverse-path path0) ctx0 key)
+      (comp-literal (traverse-path (incr-path path0)) ctx0 value)
+      ctx0))
+    (_
+     (let ((idx (idx-from-context :traverse path0 ctx0)))
+       (erlang/throw {:invalid-attr-clause idx})))))
+
+;; ### Require Clause
+;;
+;; The require clause is a list that starts with the ident 'require' and
+;; then contains a require body. Examples of the require and require bodies
+;; appear below.
+;;
+;;     (require (erlang string test))
+;;     (require string [test :as test])
+;;     (require [string :as str])
+;;     (require [string :as str1])
+;;     (require string test)
+;;
+;; The body of the require contains a list of require clauses, in the form
+;;
+;;    (erlang string test)
+;;    (string [test :as test])
+;;
+;;  or a simple group of require clauses in the form:
+;;
+;;    string test
+;;    [string :as str] compiler
+;;
+;; Each clause is a module name or a module alias form in the form:
+;;
+;;    [string :as str]
+;;
+(defn+ comp-require (path0 ctx0 form)
+  (case form
+    ([]
+     ctx0)
+    ((module-name . rest)
+     (when (erlang/is_atom module-name))
+     (case (module-exists? module-name)
+       (:true
+        (comp-require (incr-path path0) (add-require-ctx module-name ctx0) rest))
+       (:false
+        (let ((idx (idx-from-context [] path0 ctx0)))
+          (erlang/throw {:invalid-require-clause {:bad-module module-name} idx})))))
+    (([module-name [quote as] module-alias]  . rest)
+     (when (and (erlang/is_atom module-name)
+                (erlang/is_atom module-alias)))
+     (case (module-exists? module-name)
+       (:true
+        (comp-require (incr-path path0)
+                      (add-alias-ctx module-alias module-name
+                                     (add-require-ctx module-name ctx0))
+                      rest))
+       (:false
+        (let ((idx (idx-from-context [] path0 ctx0)))
+          (erlang/throw {:invalid-require-clause {:bad-module module-name} idx})))))
+    (clause
+     (let ((idx (idx-from-context [:traverse] path0 ctx0)))
+       (erlang/throw {:invalid-require-clause clause idx})))))
+
+
+;; ### Module Body
+;;
+;;  The module body may consist of any number of require, use are attribute
+;;  clauses in any order. Each clause starts with a (require ...)
+;;  (use ....) or (attr ...)
+;;
+(defn+ comp-module-body (path0 ctx0 form)
+  (case form
+    ([]
+     ctx0)
+    ((:require . body)
+     (comp-require (incr-path path0) ctx0 body))
+    ((:attr . body)
+     (comp-attr (incr-path path0) ctx0 body))
+    ((:use . body)
+     (let ((idx (idx-from-context [] path0 ctx0)))
+       (comp-use idx ctx0 body :undefined [])))
+    (_
+     (let ((idx (idx-from-context [] path0 ctx0)))
+       (erlang/throw {:invalid-form idx})))))
+
+
+(defn+ comp-module (path0 ctx0 forms)
+  (let ((path1 (traverse-path path0)))
+    (case forms
+      ((:module . (module-name . rest))
+       (case (type-from-context [] path1 ctx0)
+         (:ident
+          (let ((annots (annots-from-context [] path0 ctx0))
+                (result (lists/foldl (fn (form acc)
+                                         (case acc
+                                           ({path2 ctx1}
+                                            (let ((ctx2 (comp-module-body (traverse-path path2) ctx1 form)))
+                                              {(incr-path path2) ctx2}))))
+                                     {(incr-path 2 path0) (set-context :module-name module-name ctx0)} rest)))
+            (case result
+              ({_ ctx3}
+               ctx3))))))
+         (_
+          (let ((idx (idx-from-context [] path1 ctx0)))
+            (erlang/throw {:invalid-module-declaration idx}))))))
+
+
+;; TMP COMPILATION
+
+(defn make-literal-list (path0 annots ctx0 list)
+  (case list
+    ([] (cerl/c_nil))
+    ((h . t)
+     (cerl/ann_c_cons annots
+                      (comp-literal (traverse-path path0) ctx0 h)
+                      (make-literal-list (incr-path path0) annots ctx0 t)))))
+
+(defn make-literal-string (_path0 annots _ctx0 string)
+  (cerl/ann_c_string annots string))
+
+(defn make-literal-tuple (path0 annots ctx0 elements0)
+  (let ((result (lists/foldl (fn (element acc)
+                                 (case acc
+                                   ({path1 acc0}
+                                    (let ((acc1 ((comp-literal (traverse-path path1) ctx0 element) .  acc0))
+                                          (path2 (incr-path path1)))
+                                      {path2 acc1}))))
+                             {path0 []} elements0)))
+    (case result
+      ({_ elements1}
+       (cerl/ann_c_tuple annots elements1)))))
+
+(defn comp-literal (path0 ctx0 arg)
+  (let ((annots  (annots-from-context [] path0 ctx0)))
+    (case arg
+      (arg
+       (when (erlang/is_binary arg))
+       (cerl/ann_make_data annots {:atomic arg} []))
+      (arg
+       (when (erlang/is_atom arg))
+       (cerl/ann_c_atom annots arg))
+      (arg
+       (when (erlang/is_tuple arg))
+       (make-literal-tuple path0 annots ctx0 arg))
+      (arg
+       (when (erlang/is_integer arg))
+         (case (type-from-context [] path0 ctx0)
+           (:integer
+            (cerl/ann_c_int annots arg))
+           (:char
+            (cerl/ann_c_char annots arg))))
+      (arg
+       (when (erlang/is_float arg))
+       (cerl/ann_c_float annots arg))
+      (arg
+       (when (erlang/is_list arg))
+       (let ((type (type-from-context [] path0 ctx0)))
+         (case type
+           (:list
+            (make-literal-list path0 annots ctx0 arg))
+           (:string
+            (make-literal-string path0 annots ctx0 arg))
+           (_
+            (let ((idx (idx-from-context [] path0 ctx0)))
+              (erlang/throw {:invalid-literal idx})))))))))
+
+;; Compilation Infrastructure
+(defn usage (os-list)
+  (getopt/usage os-list "" "[option1 option2 ...] <joxa-file>"
+                '()))
+
+(defn option-spec-list ()
+  [{:outdir \o "outdir" :string "the directory to output beam files"}
+   {:bootstrap \b "bootstrap" {:boolean :false} "Use the special limited bootstrap compiler"}])
+
+
+(defn comp-forms (path0 ctx0 form)
+  (case form
+    ((:module . _)
+     (comp-module path0 ctx0 form))
+    (_
+     ctx0)))
+
+(defn erl-comp (cerl-ast)
+  (case (compile/forms cerl-ast [:debug_info :from_core :binary])
+    ({ok _ result}
+     result)
+    (error
+     (erlang/throw error))))
+
+(defn get-context-exports (ctx0)
+  (lists/map (fn (el)
+                 (case el
+                   ({fun arity annots}
+                    (cerl/ann_c_fname annots fun arity))))
+             (sets/to_list (get-context :exports ctx0))))
+
+(defn get-definitions (ctx0)
+  (lists/map (fn (el)
+                 (case el
+                   ({_ value}
+                    value)))
+             (ec_dictionary/to_list (get-context :definitions ctx0))))
+
+(defn comp-module-info (ctx0)
+  (let ((module-name (cerl/c_atom (get-context :module-name ctx0)))
+        (argless-body (cerl/c_call (cerl/c_atom :erlang)
+                                   (cerl/c_atom :get_module_info)
+                                   [module-name]))
+        (ctx1 (add-exported-def-ctx [:compiler_generated] :module_info []
+                                    argless-body ctx0))
+        (detail-var (joxa/gensym))
+        (var-name (cerl/c_var detail-var))
+        (arg-body (cerl/c_call (cerl/c_atom :erlang)
+                               (cerl/c_atom :get_module_info)
+                               [module-name var-name])))
+    (add-exported-def-ctx [:compiler_generated] :module_info [var-name] arg-body ctx1)))
+
+(defn compile-types (ctx0)
+  (let ((exported-types (sets/to_list (get-context :type-exports ctx0)))
+        (all-types (ec_dictionary/to_list (get-context :types ctx0))))
+    ({(cerl/c_atom :export_type) (cerl/make_data {:atomic exported-types} [])} .
+     (lists/map (fn (el)
+                    (case el
+                      ({_ attr}
+                       attr))) all-types))))
+
+
+(defn compile-context (ctx0)
+  (let ((ctx1 (comp-module-info ctx0))
+        (annots (get-context :line ctx1))
+        (module-name (cerl/ann_c_atom annots
+                                      (get-context :module-name ctx1)))
+        (exports (get-context-exports ctx1))
+        (attrs (lists/append (get-context :attrs ctx1)
+                             (compile-types ctx1)))
+        (defs (get-definitions ctx1)))
+    {ctx1 (erl-comp (cerl/ann_c_module annots module-name exports attrs defs))}))
+
+(defn parse-all (file-name input acc)
+  (case (has-more-data-to-parse input)
+    (:false
+     (case input
+       ({:parse-output _ _ annots _}
+        {annots  (lists/reverse acc)})))
+    (:true
+     (case (parse file-name input)
+       ({annots ast0 rest}
+        (parse-all file-name rest (ast0 . acc)))))))
+
+(defn bootstrap-comp (file-name options binary)
+  (let ((comp-result
+         (case (parse-all file-name binary [])
+           ({annots ast}
+            (lists/foldl (fn (def acc)
+                             (case acc
+                               ({path ctx0}
+                                (let ((ctx1 (comp-forms (traverse-path path)
+                                                        ctx0 def)))
+                                  {(incr-path path) ctx1}))))
+                         {(new-path) (new-context [{:annots annots}])} ast)))))
+    (case comp-result
+      ({_ ctx2}
+       (compile-context ctx2)))))
+
+(defn+ bootstrap-comp (file-name options)
+  (case (file/read_file file-name)
+    ({:ok binary}
+     (let ((result (bootstrap-comp file-name options binary)))
+       (case result
+         ({ctx0 module-binary}
+          (let ((module-name (get-context :module-name ctx0))
+                (load-result (code/load_binary module-name file-name module-binary)))
+            (case load-result
+              ({:module module-name}
+               result)
+              (_
+               (erlang/throw {:unable-to-load file-name}))))))))
+    ({:error reason}
+     (erlang/throw {:file-access reason file-name}))))
+
+
+(defn compile-form (file-name input ctx0 binary)
+  (case (has-more-data-to-parse input)
+    (:false
+     {ctx0 binary})
+    (:true
+     (case (parse file-name input)
+       ({annots ast0 (= rest {:parse-output _ path _ _})}
+        (let ((ctx1  (comp-forms (traverse-path path)
+                                 (set-context :annots annots ctx0)
+                                 ast0)))
+          (case (compile-context ctx1)
+            ({ctx2 binary1}
+             (let ((module-name (get-context :module-name ctx2))
+
+)
+               (case (code/load_binary module-name file-name binary1)
+                 ({:module module-name}
+                  (compile-form file-name rest ctx2 binary1))))))))))))
+
+(defn+ forms (file-name binary options)
+  (compile-form file-name binary (new-context []) <<>>))
+
+(defn save-beam (options binary ctx)
+  (let ((out-dir (proplists/get_value :outdir options :undefined)))
+    (case out-dir
+      (:undefined
+       ctx)
+      (out-dir
+       (let ((module-name (get-context :module-name ctx))
+             (path (re/split module-name "\\."))
+             (out-path (filename/join (out-dir . path)))
+             (out-file (lists/flatten ((erlang/binary_to_list out-path)  . ".beam"))))
+         (do
+             (filelib/ensure_dir out-path)
+             (file/write_file out-file binary)))))))
+
+(defn+ do-compile (file-name options)
+  (let ((result
+         (case (proplists/get_value :bootstrap options)
+           (:true
+            (bootstrap-comp file-name options))
+           (:false
+            (case (file/read_file file-name)
+              ({:ok binary}
+               (forms file-name binary options))
+              ({:error reason}
+               (erlang/throw {:file-access reason file-name})))))))
+    (case result
+      ({ctx binary}
+       (save-beam options binary ctx)))))
+
+(defn+ main (args)
+  (case
+      (getopt/parse (option-spec-list) args)
+    ({:ok {options [target]}}
+     (do-compile target options))
+    (_
+     (do
+         (usage (option-spec-list))
+         :did-not-get-it))))
+
+(defn+ main ()
+  (main (init/get_plain_arguments)))
+

@@ -31,7 +31,13 @@ compile_bindings(Path0, Path1, Ctx0, [[Var, Expr] | Rest], Body) ->
                             compile_bindings(Path0a,
                                              jxa_path:incr(Path1a),
                                              Ctx1, Rest, Body)
-                    end).
+                    end);
+compile_bindings(_Path0, Path1, Ctx0, _, _Body) ->
+    Idx =
+        jxa_annot:get_idx(jxa_path:add_path(Path1),
+                          jxa_ctx:annots(Ctx0)),
+    ?JXA_THROW({invalid_let_binding,  Idx}).
+
 compile_binding(Path0, Path1, Ctx0, Var, Expr=[fn, Args, _],
                 Continuation) when not is_list(Var) ->
     %% For letrecs the variable has to be available in the scope so

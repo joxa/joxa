@@ -39,9 +39,11 @@ comp(Path0, Ctx0, _) ->
     ?JXA_THROW({invalid_definition, Idx}).
 
 
-compile_function(Path0, Ctx0, Body = [_, _, _]) ->
+compile_function(Path0, Ctx0, Body = [Name, Args, _])
+  when is_list(Args), is_atom(Name) ->
     compile_function1(Path0, Ctx0, [default_type() | Body]);
-compile_function(Path0, Ctx0, Body = [_, _, _, _]) ->
+compile_function(Path0, Ctx0, Body = [_, Name, Args, _])
+  when is_list(Args), is_atom(Name) ->
     compile_function1(jxa_path:incr(Path0), Ctx0, Body);
 compile_function(Path0, Ctx0, _) ->
     Idx = jxa_annot:get_idx(jxa_path:path(Path0),

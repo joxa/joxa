@@ -4,35 +4,35 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,declares,types], _State, _) ->
-      Source = <<"(module jxat-spec-test)
+    Source = <<"(module jxat-spec-test)
 
                   (deftype+ tunion () (erlang/union :x :y))
-                  (deftype+ trange () (erlang/range 1 2))
-                  (deftype+ tbinary () <<>>)
-                  (deftype+ tbinary1 () <<8>>)
-                  (deftype+ tbinary2 () <<* 8>>)
-                  (deftype+ tbinary3 () <<7 * 8>>)
-                  (deftype+ tfn () (fn (...) :ok))
-                  (deftype+ tfn1(a) (fn (a 2) {:ok a}))
-                  (deftype+ tfn2() (fn () :ok))
-                  (deftype+ ttuple (a b) {a b 3})
-                  (deftype+ ttuple1 () {})
-                  (deftype+ tf () (fn))
+               (deftype+ trange () (erlang/range 1 2))
+               (deftype+ tbinary () <<>>)
+               (deftype+ tbinary1 () <<8>>)
+               (deftype+ tbinary2 () <<* 8>>)
+               (deftype+ tbinary3 () <<7 * 8>>)
+               (deftype+ tfn () (fn (...) :ok))
+               (deftype+ tfn1(a) (fn (a 2) {:ok a}))
+               (deftype+ tfn2() (fn () :ok))
+               (deftype+ ttuple (a b) {a b 3})
+               (deftype+ ttuple1 () {})
+               (deftype+ tf () (fn))
 
-                  (deftype+ foo (bar baz) {bar baz})
-                  (deftype boo () :ok)
-                  (deftype+ baz () (erlang/range 1 2))
-                  (deftype+ hoo (a) a)
-                  (defspec internal-test () (foo :this :is))
+               (deftype+ foo (bar baz) {bar baz})
+               (deftype boo () :ok)
+               (deftype+ baz () (erlang/range 1 2))
+               (deftype+ hoo (a) a)
+               (defspec internal-test () (foo :this :is))
 
-                (defn internal-test ()
-                    {:this :is :a :test})
+               (defn internal-test ()
+                {:this :is :a :test})
 
-                (defn+ (foo :this :is) do-test1 ()
-                     {:this :is :a :test})
+               (defn+ (foo :this :is) do-test1 ()
+                {:this :is :a :test})
 
-                (defn+ (boo) do-test2 (((boo) z) ((hoo :ok) y))
-                        {:this :is z}) ">>,
+               (defn+ (boo) do-test2 (((boo) z) ((hoo :ok) y))
+                {:this :is z}) ">>,
 
     {ok, Source}.
 
@@ -45,7 +45,7 @@ then([a,beam,binary,is,produced], State = {_, Binary},  _) ->
     ?assertMatch(true, is_binary(Binary)),
     {ok, State};
 then([the,described,function,can,be,called,'and',works,correctly],
-     State = {_, Binary}, _) ->
+     State = {_, _Binary}, _) ->
     ?assertMatch([{'do-test1',0},
                   {'do-test2',2},
                   {module_info,0},

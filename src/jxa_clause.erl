@@ -101,9 +101,9 @@ comp_pattern(Path0, Acc0={Ctx0, _}, [quote, Args]) ->
 comp_pattern(Path0, Acc0, Expr=[binary | _]) ->
     jxa_binary:comp_pattern(Path0, Acc0, Expr);
 comp_pattern(Path0, Acc0, [Arg1, '.', Arg2]) ->
-    {Acc1, Cerl1} = comp_pattern(Path0,
+    {Acc1, Cerl1} = comp_pattern(jxa_path:add(Path0),
                                  Acc0, Arg1),
-    {Acc2={Ctx1, _}, Cerl2} = comp_pattern(jxa_path:incr(2, Path0),
+    {Acc2={Ctx1, _}, Cerl2} = comp_pattern(jxa_path:add(jxa_path:incr(2, Path0)),
                                            Acc1, Arg2),
     Annots = jxa_annot:get_line(jxa_path:add_path(Path0),
                                 jxa_ctx:annots(Ctx1)),

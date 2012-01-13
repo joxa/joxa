@@ -13,6 +13,7 @@ given([a,module,that,has,an,anonymous,function], _State, _) ->
 
                 (defn+ do-test ()
                       (let ((z (internal-test))
+                            (c '(one two three))
                             (x (fn (arg1 arg2)
                                 {:hello arg1 arg2}))
                             (a erlang/phash2/1)
