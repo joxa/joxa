@@ -124,8 +124,12 @@ comp_pattern(Path0, Acc0, [list | Args]) ->
     mk_list(Path1, Acc0, Args);
 comp_pattern(Path0, Acc0, [tuple | Args]) ->
     mk_tuple(Path0, Acc0, Args);
-comp_pattern(Path0, Ctx0, Arg) when is_tuple(Arg) ->
-    mk_tuple(Path0, Ctx0, tuple_to_list(Arg)).
+comp_pattern(Path0, Acc0, Arg) when is_tuple(Arg) ->
+    mk_tuple(Path0, Acc0, tuple_to_list(Arg));
+comp_pattern(Path0, {Ctx0, _}, _Arg) ->
+    Idx = jxa_annot:get_idx(jxa_path:path(Path0),
+                            jxa_ctx:annots(Ctx0)),
+    ?JXA_THROW({invalid_pattern, Idx}).
 
 mk_guards(GuardAnnots, []) ->
     cerl:ann_c_atom(GuardAnnots, true);
