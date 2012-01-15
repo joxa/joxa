@@ -194,7 +194,7 @@ comp(Path0, Ctx0, [fn | FnBody]) ->
     end;
 comp(Path0, Ctx0, [tuple | Args]) ->
     mk_tuple(Path0, Ctx0, Args);
-comp(Path0, Ctx0, Form = ['try' | _]) ->
+comp(Path0, Ctx0, Form = ['__try' | _]) ->
     jxa_try:comp(Path0, Ctx0, Form);
 comp(Path0, Ctx0, Form = [Val | Args]) ->
     Annots = jxa_annot:get_line(jxa_path:path(Path0), jxa_ctx:annots(Ctx0)),

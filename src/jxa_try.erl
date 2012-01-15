@@ -20,13 +20,13 @@ comp(Path0, Ctx0, ['__try', Expr, ['catch', [Type, Value], CatchExpr]])
     IgnoredVar = cerl:ann_c_var([compiler_generated | Annots], joxa:gensym()),
 
     Ctx2 =
-        jxa_ctx:add_variable_to_scope(TypeVar,
-                                      jxa_ctx:add_variable_to_scope(ValueVar,
+        jxa_ctx:add_variable_to_scope(Type,
+                                      jxa_ctx:add_variable_to_scope(Value,
                                                                     jxa_ctx:push_scope(Ctx1))),
-    {Ctx2, CerlCatch} =
-        jxa_expression:comp(jxa_path:incr(2, jxa_path:add(jxa_path:incr(2, Path0))),
+    {Ctx3, CerlCatch} =
+        jxa_expression:comp(jxa_path:add(jxa_path:incr(2, jxa_path:add(jxa_path:incr(2, Path0)))),
                             Ctx2, CatchExpr),
-    {Ctx2,
+    {Ctx3,
      cerl:ann_c_try(Annots, CerlExpr,
                     [TryVar],
                     TryVar,
