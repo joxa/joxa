@@ -518,10 +518,12 @@ symbol(Input, Index) ->
 -spec ident(binary(), index()) -> intermediate_ast().
 ident(Input, Index) ->
     p(Input, Index, ident,
-      p_one_or_more(
-        p_and([p_not(
-                 p_charclass(<<"[ :;~`'\\\\,><{}/\t\n\s\r\\(\\)\\[\\]\"]">>)),
-               p_anything()])),
+
+      p_seq([p_not(p_charclass(<<"[:;~`'\\\\,><{}/\t\n\s\r\\(\\)\\[\\]\"]">>)),
+             p_zero_or_more(
+               p_and([p_not(
+                        p_charclass(<<"[,\\\\{}/\t\n\s\r\\(\\)\\[\\]\"]">>)),
+                      p_anything()]))]),
 
       fun(Node, Idx) ->
               Result =
