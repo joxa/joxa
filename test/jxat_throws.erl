@@ -11,15 +11,17 @@ given([a,module,that,catches,an,exception], _State, _) ->
                     (throw {:this :is :a :test}))
 
                 (defn+ do-test1 ()
-                      (try (do (internal-test) :nope)
-                       (catch
-                          (:throw {:this :is :a :test}
-                           :got-it))))
+                      (__try (do (internal-test) :nope)
+                       (catch (type body)
+                          (case {type body}
+                           ({:throw {:this :is :a :test}}
+                           :got-it)))))
                 (defn+ do-test2 ()
-                      (try (do (internal-test) :nope)
-                       (catch
-                         (:throw {:this :is :not}
-                                  :got-it))))">>,
+                      (__try (do (internal-test) :nope)
+                       (catch (type body)
+                         (case {type body}
+                          ({:throw {:this :is :not}}
+                                  :got-it)))))">>,
 
     {ok, Source}.
 
