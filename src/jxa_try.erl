@@ -26,7 +26,7 @@ comp(Path0, Ctx0, ['__try', Expr, ['catch', [Type, Value], CatchExpr]])
     {Ctx3, CerlCatch} =
         jxa_expression:comp(jxa_path:add(jxa_path:incr(2, jxa_path:add(jxa_path:incr(2, Path0)))),
                             Ctx2, CatchExpr),
-    {Ctx3,
+    {jxa_ctx:pop_scope(Ctx3),
      cerl:ann_c_try(Annots, CerlExpr,
                     [TryVar],
                     TryVar,

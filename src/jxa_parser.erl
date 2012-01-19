@@ -120,7 +120,6 @@ do_parse(Path0, Annots0, Ast, Input, Idx0) ->
             do_parse(jxa_path:incr(Path0), Annots1,
                      [FinalAST | Ast],
                      Rest, Idx1)
-
     end.
 
 -spec transform_ast(jxa_path:state(), jxa_annot:annotations(),
@@ -509,20 +508,24 @@ fun_reference(Input, Index) ->
 symbol(Input, Index) ->
     p(Input, Index, symbol,
       p_seq([p_string(":"),
-             fun ident/2]),
-      fun([_, Result = {ident, _, _}], Idx) ->
-              {quote, Result, Idx}
+             p_one_or_more(
+               p_and([p_not(
+                        p_charclass(<<"[,\\\\{}\t\n\s\r\\(\\)\\[\\]\"]">>)),
+                      p_anything()]))]),
+      fun([_, Value], Idx) ->
+              Result =
+                  list_to_atom(binary_to_list(iolist_to_binary(Value))),
+              {quote, {ident, Result, Idx}, Idx}
       end).
 
 %% done
 -spec ident(binary(), index()) -> intermediate_ast().
 ident(Input, Index) ->
     p(Input, Index, ident,
-
       p_seq([p_not(p_charclass(<<"[:;~`'\\\\,><{}/\t\n\s\r\\(\\)\\[\\]\"]">>)),
              p_zero_or_more(
                p_and([p_not(
-                        p_charclass(<<"[,\\\\{}/\t\n\s\r\\(\\)\\[\\]\"]">>)),
+                        p_charclass(<<"[,\\\\><{}/\t\n\s\r\\(\\)\\[\\]\"]">>)),
                       p_anything()]))]),
 
       fun(Node, Idx) ->
@@ -549,14 +552,14 @@ value(Input, Index) ->
                       p_choose([fun float/2,
                                 fun integer/2,
                                 fun fun_reference/2,
-                                fun ident/2,
+                                fun binary/2,
                                 fun symbol/2,
+                                fun ident/2,
                                 fun list/2,
                                 fun tuple/2,
                                 fun string/2,
                                 fun quote/2,
-                                fun char/2,
-                                fun binary/2]),
+                                fun char/2]),
                       fun ignorable/2]))(I,D) end,
       fun(Node, _Idx) ->
               lists:nth(2, Node)
@@ -794,7 +797,7 @@ ident_test() ->
     ?memo(?assertMatch({{ident, 'null', {1, _}}, <<>>, _}, value(<<"null">>, index()))),
     ?memo(?assertMatch({{ident, 'Hello?', {1, _}}, <<>>, _}, value(<<"Hello?">>, index()))),
     ?memo(?assertMatch({{ident, 'boo88', {1, _}}, <<>>, _}, value(<<"boo88">>, index()))),
-    ?memo(?assertMatch({{ident, 'bock', {1, _}}, <<":">>, _}, value(<<"bock:">>, index()))),
+    ?memo(?assertMatch({{ident, 'bock:', {1, _}}, <<>>, _}, value(<<"bock:">>, index()))),
     ?memo(?assertMatch({{ident, 'bock', {1, _}}, <<"{">>, _}, value(<<"bock{">>, index()))),
     ?memo(?assertMatch({{ident, 'bock', {1, _}}, <<"[">>, _}, value(<<"bock[">>, index()))),
     ?memo(?assertMatch({{ident, 'bock', {1, _}}, <<"(ee">>, _}, value(<<"bock(ee">>, index()))).

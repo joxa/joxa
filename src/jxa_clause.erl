@@ -33,13 +33,10 @@ comp_pattern(Path0, {Ctx0, Guards0}, Arg) when is_atom(Arg) ->
                                 jxa_ctx:annots(Ctx0)),
     case jxa_ctx:resolve_reference(Arg, -1, Ctx0) of
         {variable, Var} ->
-            Annots = jxa_annot:get_line(jxa_path:path(Path0),
-                                        compiler_generated,
-                                        jxa_ctx:annots(Ctx0)),
             %% The reference already exists. So we create a new variable and
             %% add a guard for to test for equality
             GenSym = joxa:gensym(),
-            CerlVar = cerl:ann_c_var([compiler_generated | Annots], GenSym),
+            CerlVar = cerl:ann_c_var(Annots, GenSym),
             Guards1 = [cerl:ann_c_call(Annots,
                                        cerl:ann_c_atom([compiler_generated],
                                                        'erlang'),
@@ -198,12 +195,15 @@ compile_clause_body(Path0, Ctx0, [Pattern, ['when', Guards], Body]) ->
     GuardAnnots =
         jxa_annot:get_line(jxa_path:add_path(jxa_path:incr(Path0)),
                            jxa_ctx:annots(Ctx2)),
+    Idx =
+        jxa_annot:get_idx(jxa_path:add_path(jxa_path:incr(Path0)),
+                           jxa_ctx:annots(Ctx2)),
     {Ctx3, CerlGuard} =
         jxa_expression:comp(
           jxa_path:add(jxa_path:incr(jxa_path:add(jxa_path:incr(Path0)))),
           Ctx2, Guards),
-    CompleteGuards = mk_guards(GuardAnnots,
-                               [CerlGuard | PatternGuards]),
+    CompleteGuards = check_guards(Idx, mk_guards(GuardAnnots,
+                                                 [CerlGuard | PatternGuards])),
 
     {Ctx4, CerlBody} =
         jxa_expression:comp(jxa_path:add(jxa_path:incr(2, Path0)),
@@ -255,3 +255,82 @@ mk_list(Path0, Acc0, [H | T]) ->
                jxa_path:add_path(Path0),
                jxa_ctx:annots(Ctx0)),
     {Acc2, cerl:ann_c_cons(Annots, CerlH, CerlT)}.
+
+check_guards(AST) ->
+    case cerl:type(AST) of
+        call ->
+            valid_guard(cerl:atom_val(cerl:call_module(AST)),
+                        cerl:atom_val(cerl:call_name(AST)),
+                        cerl:call_arity(AST)) andalso
+                lists:all(fun check_guards/1, cerl:call_args(AST));
+        cons ->
+            check_guards(cerl:cons_head(AST)) andalso
+                check_guards(cerl:cons_tail(AST));
+        binary ->
+            true;
+        bitstring ->
+            true;
+        tuple ->
+            lists:all(fun check_guards/1, cerl:tuple_es(AST));
+        var ->
+            true;
+        literal ->
+            true;
+        _ ->
+            false
+    end.
+
+check_guards(Idx, AST) ->
+    case check_guards(AST) of
+        true ->
+            AST;
+        false ->
+            ?JXA_THROW({invalid_guard, Idx})
+    end.
+
+valid_guard(erlang, abs, 1) -> true;
+valid_guard(erlang, bitsize, 1) -> true;
+valid_guard(erlang, byte_size, 1) -> true;
+valid_guard(erlang, element, 2) -> true;
+valid_guard(erlang, float, 1) -> true;
+valid_guard(erlang, hd, 1) -> true;
+valid_guard(erlang, length, 1) -> true;
+valid_guard(erlang, node, 0) -> true;
+valid_guard(erlang, node, 1) -> true;
+valid_guard(erlang, round, 1) -> true;
+valid_guard(erlang, self, 0) -> true;
+valid_guard(erlang, size, 1) -> true;
+valid_guard(erlang, tl, 1) -> true;
+valid_guard(erlang, trunc, 1) -> true;
+valid_guard(erlang, tuple_size, 1) -> true;
+valid_guard(erlang, is_binary, 1) -> true;
+valid_guard(erlang, is_alive, 0) -> true;
+valid_guard(erlang, is_boolean, 1) -> true;
+valid_guard(erlang, is_function, 1) -> true;
+valid_guard(erlang, is_function, 2) -> true;
+valid_guard(erlang, is_integer, 1) -> true;
+valid_guard(erlang, is_float, 1) -> true;
+valid_guard(erlang, is_list, 1) -> true;
+valid_guard(erlang, is_atom, 1) -> true;
+valid_guard(erlang, is_number, 1) -> true;
+valid_guard(erlang, is_pid, 1) -> true;
+valid_guard(erlang, is_port, 1) -> true;
+valid_guard(erlang, is_record, 2) -> true;
+valid_guard(erlang, is_record, 3) -> true;
+valid_guard(erlang, is_reference, 1) -> true;
+valid_guard(erlang, is_tuple, 1) -> true;
+valid_guard(erlang, 'and', 2) -> true;
+valid_guard(erlang, 'or', 2) -> true;
+valid_guard(erlang, '>', 2) -> true;
+valid_guard(erlang, '<', 2) -> true;
+valid_guard(erlang, '==', 2) -> true;
+valid_guard(erlang, '=<', 2) -> true;
+valid_guard(erlang, '>=', 2) -> true;
+valid_guard(erlang, '/=', 2) -> true;
+valid_guard(erlang, '=:=', 2) -> true;
+valid_guard(erlang, '=/=', 2) -> true;
+valid_guard(_, _, _) ->
+    false.
+
+
+
