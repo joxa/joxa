@@ -19,7 +19,7 @@ given([a,module,that,has,an,anonymous,function], _State, _) ->
                             (a erlang/phash2/1)
                             (y (x 1 2)))
                            (do (== y (x 1 2))
-                               (apply internal-test/0)
+                                (apply internal-test/0)
                                 (apply x 1 2)
                                 (apply a 22)
                                 (a 22))))">>,
@@ -27,7 +27,7 @@ given([a,module,that,has,an,anonymous,function], _State, _) ->
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = jxa_compile:comp("", Source),
+    Result = joxa.compiler:forms("", Source, []),
     {ok, Result}.
 then([a,beam,binary,is,produced], State = {_, Binary}, _) ->
     ?assertMatch(true, is_binary(Binary)),

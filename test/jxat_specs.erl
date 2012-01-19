@@ -6,7 +6,7 @@
 given([a,module,that,declares,types], _State, _) ->
     Source = <<"(module jxat-spec-test)
 
-                  (deftype+ tunion () (erlang/union :x :y))
+               (deftype+ tunion () (erlang/union :x :y))
                (deftype+ trange () (erlang/range 1 2))
                (deftype+ tbinary () <<>>)
                (deftype+ tbinary1 () <<8>>)
@@ -38,7 +38,7 @@ given([a,module,that,declares,types], _State, _) ->
 
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = jxa_compile:comp("", Source),
+    Result = joxa.compiler:forms("", Source, []),
     {ok, Result}.
 
 then([a,beam,binary,is,produced], State = {_, Binary},  _) ->

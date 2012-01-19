@@ -16,6 +16,7 @@
                  filelib file cerl code
                  compile joxa io)
         (use (erlang :only (+/2
+                            ==/2
                             and/2
                             or/2
                             is_list/1
@@ -85,7 +86,7 @@
         (<<>>
          {:fail {:expected :any-character index}})
         (<<(c :utf8) (rest :binary)>>
-         {c, rest, (p-advance-index c index)}))))
+         {c rest (p-advance-index c index)}))))
 
 
 (defn+ p-string (s)
@@ -353,11 +354,11 @@
 
 (defn+ ident (input index)
   (p input index :ident
-     (p-one-or-more
-      (p-and
-       [(p-not
-         (p-charclass <<"[ :;~`'\\\\,><{}/\t\n\s\r\\(\\)\\[\\]\"]">>))
-        (p-anything)]))
+     (p-seq [(p-not (p-charclass <<"[:;~`'\\\\,><{}/\t\n\s\r\\(\\)\\[\\]\"]">>))
+             (p-zero-or-more
+              (p-and [(p-not
+                       (p-charclass <<"[,\\\\><{}/\t\n\s\r\\(\\)\\[\\]\"]">>))
+                      (p-anything)]))])
      (fn (node idx)
          (let ((result
                 (erlang/list_to_atom
@@ -368,11 +369,16 @@
 (defn+ symbol (input index)
   (p input index :symbol
      (p-seq [(p-string ":")
-             ident/2])
+             (p-one-or-more
+              (p-and [(p-not (p-charclass <<"[,\\\\{}\t\n\s\r\\(\\)\\[\\]\"]">>))
+                      (p-anything)]))])
      (fn (node idx)
          (case node
-           ([_ (= result {:ident _ _})]
-            {:quote result idx})))))
+           ([_ value]
+            (let ((result (erlang/list_to_atom
+                           (erlang/binary_to_list
+                            (erlang/iolist_to_binary value)))))
+              {:quote {:ident result idx} idx}))))))
 
 (defn+ fun-reference (input index)
   (p input index :fun-reference
@@ -553,7 +559,6 @@
      (fn (node idx)
          (lists/nth 2 node))))
 
-
 ;; ### Path Hashing for Line and Type Information
 ;;
 ;; We have the problem that for macros and for ease of parsing we want
@@ -622,8 +627,12 @@
 (defn+ traverse-and-get-path (path)
   (path? (traverse-path path)))
 
-(defn+ incr-traverse-path (path)
+(defn+ traverse-incr-path (path)
   (traverse-path (incr-path path)))
+
+(defn+ traverse-incr-path (amount path)
+  (traverse-path (incr-path amount path)))
+
 
 ;; ### Annotation storage and retrieval
 ;;
@@ -638,7 +647,8 @@
   (let ((file-name (ec_dictionary/get :__filename__ annotations)))
     (case idx
       ({line _}
-       (ec_dictionary/add path {type idx [line, {:file file-name}]} annotations)))))
+       (ec_dictionary/add path {type idx [line, {:file file-name}]}
+                          annotations)))))
 
 ;; sometimes an invalid path is passed in. This is unfortunate but
 ;; things like macros mangle the path in currently unforseable
@@ -650,11 +660,12 @@
     ([]
      (erlang/throw :not-found))
     ((_ . rest)
-     (try
+     (__try
       (ec_dictionary/get path annotations)
-      (catch
-          (:throw :not_found
-                  (get-valid-annots rest annotations)))))))
+      (catch (type body)
+        (case {type body}
+          ({:throw :not_found}
+           (get-valid-annots rest annotations))))))))
 
 (defn+ get-type-annots (path annotations)
   (case (get-valid-annots path annotations)
@@ -674,7 +685,6 @@
 (defn+ get-line-annots (path extra annotations)
   (let ((annots (get-line-annots path annotations)))
     (extra . annots)))
-
 
 ;; ### The First Ast Transformation
 ;;
@@ -704,7 +714,9 @@
     transformed))
 
 (definline convert-list-call-ast (path0 annotations0 elements idx type)
-  (let ((transformed (convert-list-ast path0 annotations0 elements idx)))
+  (let ((transformed
+         (convert-list-ast (incr-path path0)
+                           annotations0 elements idx)))
     (case transformed
       ({_ annotations3 transform-list}
        (let ((annotations4 (add-annots (traverse-and-get-path path0)
@@ -770,7 +782,7 @@
                        annotations1)
            (lists/reverse transform-list)}))))
     ({type (= val {_ _ _}) idx}
-     (let ((result (transform-ast (incr-traverse-path path0)
+     (let ((result (transform-ast (traverse-incr-path path0)
                                   annotations val)))
        (case result
          ({annotations1 p-val}
@@ -798,7 +810,7 @@
 (defn+ new-index ()
   {1,1})
 
-(defn has-more-data-to-parse (input)
+(defn+ has-more-data-to-parse (input)
   (case input
     (<<>>
      :false)
@@ -820,7 +832,6 @@
                              intermediate-ast)
           ({annots1 final-ast}
            {annots1 final-ast {:parse-output rest path annots1 idx2}})))))))
-
 
 (defn+ parse (file-name input)
   (case input
@@ -862,7 +873,7 @@
    (erlang/term)})
 
 ;; ### Specifications for broadly used compilation functions
-(defspec comp-literal ((path) (context) (erlang/term)) (cerl/cerl))
+(defspec make-literal ((path) (context) (erlang/term)) (cerl/cerl))
 
 ;; ### Context Implementation
 (defn+ get-context (field ctx)
@@ -973,7 +984,7 @@
   (erlang/term))
 
 (defn+ remote-function-ctx? (module function possible-arity ctx aliased)
-  (try
+  (__try
    (let ((requires (get-context :requires ctx))
          (exports (ec_dictionary/get module requires)))
      (case (lists/member {function possible-arity} exports)
@@ -981,26 +992,28 @@
         {:remote module function possible-arity})
        (:false
         :not-a-reference)))
-   (catch
-       (_ :not_found
-          (case aliased
-            (:false
-             (alias-ctx? module function possible-arity ctx))
-            (:true
-             :not-a-reference))))))
+   (catch (_type body)
+     (case body
+       (:not_found
+        (case aliased
+          (:false
+           (alias-ctx? module function possible-arity ctx))
+          (:true
+           :not-a-reference)))))))
 
 (defn+ remote-function-ctx? (module function possible-arity ctx)
   (remote-function-ctx? module function possible-arity ctx :false))
 
 (defn+ alias-ctx? (module function possible-arity ctx)
-  (try
+  (__try
    (let ((aliases (get-context :aliases ctx))
          (aliased-module  (ec_dictionary/get module aliases)))
      (remote-function-ctx?
       aliased-module function possible-arity ctx :true))
-   (catch
-       (_ :not_found
-          :not-a-reference))))
+   (catch (type body)
+     (case body
+       (:not_found
+        :not-a-reference)))))
 
 (defn is-speced-ctx? (name possible-arity ctx)
   (let ((types (get-context :types ctx)))
@@ -1019,9 +1032,7 @@
        (is-speced-ctx? name possible-arity ctx)))))
 
 (defn+ defined-used-function-ctx? (name possible-arity ctx)
-  (let ((types (get-context :types ctx))
-        (defs (get-context :definitions ctx))
-        (uses (get-context :uses ctx)))
+  (let ((defs (get-context :definitions ctx)))
     (case (ec_dictionary/has_key {name possible-arity} defs)
       (:true
        {:apply name possible-arity})
@@ -1041,7 +1052,6 @@
   (let ((scopes (get-context :scopes ctx))
         (body     (case arity
                     (-1 (cerl/c_var name))
-
                     (Arity (cerl/c_fname name arity)))))
     (case scopes
       ((current . rest)
@@ -1052,6 +1062,7 @@
 (defn+ resolve-reference-ctx (ref arity ctx)
   (case ref
     ({:__fun__ _ arity}
+     (when (erlang/is_integer arity))
      (defined-used-function-ctx? ref arity ctx))
     ({:__fun__ module function}
      (when (and (erlang/is_atom module)
@@ -1067,14 +1078,54 @@
      (when (erlang/is_atom name))
      (let ((scopes (get-context :scopes ctx)))
        (case (ec_lists/search (fn (scope)
-                                  (try
+                                  (__try
                                    {:ok (ec_dictionary/get {name arity} scope)}
-                                   (catch (_ :not_found
-                                             :not_found)))) scopes)
+                                   (catch (_type body)
+                                     (case body
+                                       (:not_found
+                                        :not_found))))) scopes)
          ({:ok var _}
-          {:reference var})
+          {:reference var arity})
          (:not_found
-          (defined-used-function-ctx? name arity ctx)))))))
+          (defined-used-function-ctx? name arity ctx)))))
+    (_
+     :not-a-reference)))
+
+(defn push-type-scope-ctx (ctx0)
+  (let ((type-scopes (get-context :type-scopes ctx0)))
+    (set-context :type-scopes ((sets/new) . type-scopes) ctx0)))
+
+(defn pop-type-scope-ctx (ctx0)
+  (case (get-context :type-scopes ctx0)
+    ((_ . scopes)
+     (set-context :type-scopes scopes ctx0))))
+
+(defn add-type-reference-to-scope-ctx (name arity ctx0)
+  (case (get-context :type-scopes ctx0)
+    ((current . scopes)
+     (set-context :type-scopes ((sets/add_element {name arity} current) . scopes) ctx0))))
+
+(defn resolve-type-reference-ctx (name arity ctx)
+  (let ((type-scopes (get-context :type-scopes ctx))
+        (types (get-context :types ctx)))
+    (case (lists/any (fn (set-scope)
+                         (sets/is_element {name arity} set-scope)) type-scopes)
+      (:true
+       :true)
+      (:false
+       (case (ec_dictionary/get {name arity} :undefined types)
+         (:undefined
+          :false)
+         (_
+          :true))))))
+
+(defn add-type-export-ctx (type-name arity ctx0)
+  (let ((type-exports (get-context :type-exports ctx0)))
+    (set-context :type-exports (sets/add_element {type-name arity} type-exports) ctx0)))
+
+(defn add-type-ctx (type-name arity body ctx0)
+  (let ((types (get-context :types ctx0)))
+    (set-context :types  (ec_dictionary/add {type-name arity} body types) ctx0)))
 
 ;; #### Context Helper Functions
 ;;
@@ -1090,7 +1141,7 @@
         (path1     (case actions
                      (a1 (when (erlang/is_list a1))
 
-                         (lists/foldl do-action path0 actions))
+                         (lists/foldl do-action/2 path0 actions))
                      (a2 (when (erlang/is_atom a2))
                          (do-action actions path0)))))
     (do-fun (path? path1) (get-context :annots ctx))))
@@ -1102,7 +1153,7 @@
   (thing-from-context actions path0 ctx get-line-annots/2))
 
 (defn type-from-context (actions path0 ctx)
- (thing-from-context actions path0 ctx get-type-annots/2))
+  (thing-from-context actions path0 ctx get-type-annots/2))
 
 
 ;; Module Compilation
@@ -1238,8 +1289,6 @@
   (context))
 
 (defn handle-use-clauses (idx ctx0 forms module-name imports0)
-  (do
-      (io/format "~n~n---------------->~p:~p" [module-name imports0])
   (case forms
     ([]
      (populate-use-into-context module-name imports0 ctx0))
@@ -1262,8 +1311,7 @@
      (let ((imports1 (rename-funs idx target-funs imports0)))
        (handle-use-clauses idx ctx0 rest module-name imports1)))
     (probably-more-uses
-     (comp-use idx ctx0 probably-more-uses module-name imports0)))))
-
+     (comp-use idx ctx0 probably-more-uses module-name imports0))))
 
 (defn module-exists? (mod-name)
   (case (code/ensure_loaded mod-name)
@@ -1275,7 +1323,6 @@
      :true)
     (_
      :false)))
-
 
 ;; Use Clauses
 ;; -----------
@@ -1317,14 +1364,16 @@
        (:true
         (let ((ctx1 (add-require-ctx use-module-name ctx0))
               (imports (get-exports use-module-name idx))
-              (ctx2 (handle-use-clauses idx ctx1 clause-body use-module-name imports)))
+              (ctx2 (handle-use-clauses idx ctx1
+                                        clause-body use-module-name imports)))
           (comp-use idx ctx2 rest :undefined '())))
        (:false
         (erlang/throw {:invalid-use-clause {:bad-module use-module-name} idx}))))
     ((use-module-name . rest)
      (when (erlang/is_atom use-module-name))
      (let ((imports (get-exports use-module-name idx)))
-       (comp-use idx (populate-use-into-context use-module-name imports ctx0) rest :undefined '())))))
+       (comp-use idx (populate-use-into-context
+                      use-module-name imports ctx0) rest :undefined '())))))
 
 
 ;; Attribute Clauses
@@ -1343,8 +1392,8 @@
   (case form
     ([key value]
      (add-attr-ctx
-      (comp-literal (traverse-path path0) ctx0 key)
-      (comp-literal (traverse-path (incr-path path0)) ctx0 value)
+      (make-literal (traverse-path path0) ctx0 key)
+      (make-literal (traverse-incr-path path0) ctx0 value)
       ctx0))
     (_
      (let ((idx (idx-from-context :traverse path0 ctx0)))
@@ -1401,7 +1450,7 @@
         (let ((idx (idx-from-context [] path0 ctx0)))
           (erlang/throw {:invalid-require-clause {:bad-module module-name} idx})))))
     (clause
-     (let ((idx (idx-from-context [:traverse] path0 ctx0)))
+     (let ((idx (idx-from-context :traverse path0 ctx0)))
        (erlang/throw {:invalid-require-clause clause idx})))))
 
 
@@ -1426,7 +1475,6 @@
      (let ((idx (idx-from-context [] path0 ctx0)))
        (erlang/throw {:invalid-form idx})))))
 
-
 (defn+ comp-module (path0 ctx0 forms)
   (let ((path1 (traverse-path path0)))
     (case forms
@@ -1434,18 +1482,1190 @@
        (case (type-from-context [] path1 ctx0)
          (:ident
           (let ((annots (annots-from-context [] path0 ctx0))
-                (result (lists/foldl (fn (form acc)
-                                         (case acc
-                                           ({path2 ctx1}
-                                            (let ((ctx2 (comp-module-body (traverse-path path2) ctx1 form)))
-                                              {(incr-path path2) ctx2}))))
-                                     {(incr-path 2 path0) (set-context :module-name module-name ctx0)} rest)))
+                (result (lists/foldl
+                         (fn (form acc)
+                             (case acc
+                               ({path2 ctx1}
+                                (let ((ctx2 (comp-module-body (traverse-path path2) ctx1 form)))
+                                  {(incr-path path2) ctx2}))))
+                         {(incr-path 2 path0) (set-context :module-name module-name
+                                                           (set-context :line annots ctx0))} rest)))
             (case result
               ({_ ctx3}
                ctx3))))))
+      (_
+       (let ((idx (idx-from-context [] path1 ctx0)))
+         (erlang/throw {:invalid-module-declaration idx}))))))
+
+(defspec comp-expr ((path) (context) (erlang/term)) {(context) (cerl/cerl)})
+
+(defn make-tuple-expr (path0 ctx0 values)
+  (case (lists/foldl (fn (val acc0)
+                         (case acc0
+                           ({path1 ctx1 acc1}
+                            (case (comp-expr (traverse-path path1) ctx1 val)
+                              ({ctx2 element}
+                               {(incr-path path1) ctx2 (element . acc1)})))))
+                     {path0 ctx0 []} values)
+    ({_ ctx3 body}
+     {ctx3 (cerl/ann_c_tuple (annots-from-context [] path0 ctx3)
+                             (lists/reverse body))})))
+(defn make-do (path0 ctx0 form)
+  (let ((annots (annots-from-context :traverse path0 ctx0)))
+    (case form
+      ([arg1 arg2]
+       (case (comp-expr (traverse-path path0) ctx0 arg1)
+         ({ctx1 cerl-arg1}
+          (case (comp-expr (traverse-incr-path path0) ctx1 arg2)
+            ({ctx2 cerl-arg2}
+             {ctx2 (cerl/ann_c_seq annots cerl-arg1 cerl-arg2)})))))
+      ([arg1]
+       (comp-expr (traverse-path path0) ctx0 arg1))
+      ((arg1 . rest)
+       (case (comp-expr (traverse-path path0) ctx0 arg1)
+         ({ctx1 cerl-arg1}
+          (case (make-do (incr-path path0) ctx1 rest)
+            ({ctx2 cerl-arg2}
+             {ctx2 (cerl/ann_c_seq annots cerl-arg1 cerl-arg2)})))))
+      ([]
+       (erlang/throw {:invalid-do-form (idx-from-context [] path0 ctx0)})))))
+
+(defn make-cons (annots arg1-path arg2-path ctx0 arg1 arg2)
+  (case (comp-expr arg1-path ctx0 arg1)
+    ({ctx1 cerl-arg1}
+     (case (comp-expr arg2-path ctx1 arg2)
+       ({ctx2 cerl-arg2}
+        {ctx2 (cerl/ann_c_cons annots cerl-arg1 cerl-arg2)})))))
+
+(defn eval-args (path0 ctx0 args0)
+  (case (lists/foldl (fn (arg acc0)
+                         (case acc0
+                           ({path1 ctx1 acc1}
+                            (case (comp-expr (traverse-path path1) ctx1 arg)
+                              ({ctx2 cerl}
+                               {(incr-path path1) ctx2 (cerl . acc1)})))))
+                     {path0 ctx0 []} args0)
+    ({_ ctx3 args1}
+     {ctx3 (lists/reverse args1)})))
+
+(defn make-apply (path0 ctx0 form)
+  (let ((annots (annots-from-context [] path0 ctx0))
+        (build-apply (fn (path1 ctx1 cerl-target args)
+                         (case (eval-args (incr-path 2 path1) ctx1 args)
+                           ({ctx2 cerl-arg-list}
+                            (case (cerl/is_c_fname cerl-target)
+                              (:true
+                               (case (==  (cerl/fname_arity cerl-target)
+                                          (erlang/length cerl-arg-list))
+                                 (:true
+                                  {ctx2 (cerl/ann_c_apply annots cerl-target cerl-arg-list)})
+                                 (:false
+                                  (erlang/throw {:invalid-arity (idx-from-context [] path0 ctx0)}))))
+                              (:false
+                               {ctx2 (cerl/ann_c_apply annots cerl-target cerl-arg-list)})))))))
+    (case form
+      ((:apply . ((= ref  {:__fun__ module function _}) . args))
+       (case (resolve-reference-ctx function (erlang/length args) ctx0)
+         ({:remote module function arity}
+          (case (eval-args (incr-path 2 path0) ctx0 args)
+            ({ctx1 arg-list}
+             {ctx1 (cerl/ann_c_call annots
+                                    (cerl/ann_c_atom annots module)
+                                    (cerl/ann_c_atom annots function)
+                                    arg-list)})))
          (_
-          (let ((idx (idx-from-context [] path1 ctx0)))
-            (erlang/throw {:invalid-module-declaration idx}))))))
+          (erlang/throw {:invalid-reference  ref (erlang/length args)
+                                             (idx-from-context [] path0 ctx0)}))))
+      ((:apply . ((= ref {__fun__ function arity}) . args))
+       (case (resolve-reference-ctx function (erlang/length args) ctx0)
+         ({:apply function arity}
+          (build-apply path0 ctx0 (cerl/ann_c_fname annots function arity) args))
+         (_
+          (erlang/throw {:invalid-reference ref (erlang/length args)
+                                            (idx-from-context [] path0 ctx0)}))))
+      ((:apply . (target . args))
+       (when (erlang/is_atom target))
+       (case (resolve-reference-ctx target (erlang/length args) ctx0)
+         ({:reference val _}
+          (build-apply path0 ctx0 (cerl/set_ann val annots) args))
+         (:not-a-reference
+          (case (comp-expr (traverse-path path0) ctx0 target)
+            ({ctx1 cerl-val}
+             (build-apply path0 ctx0 cerl-val args))
+            (_
+             (erlang/throw {:invalid-reference target (erlang/length args)
+                                               (idx-from-context [] path0 ctx0)}))))))
+      ((:apply . (target . args))
+       (case (comp-expr (traverse-incr-path path0) ctx0 target)
+         ({ctx1 cerl-target}
+          (build-apply path0 ctx0 cerl-target args))
+         (_
+          (erlang/throw {:invalid-reference target (erlang/length args)
+                                            (idx-from-context [] path0 ctx0)})))))))
+
+(defn make-fun (path0 ctx0 form)
+  (let ((annots (annots-from-context [] path0 ctx0)))
+    (case form
+      ({:__fun__ f a} (when (erlang/is_integer a))
+       (case (resolve-reference-ctx f a ctx0)
+         ({:reference var _}
+          (case (erlang/and (cerl/is_c_fname var)
+                            (== (cerl/fname_arity var) a))
+            (:true
+             {ctx0 (cerl/set_ann var annots)})
+            (:false
+             (let ((idx (idx-from-context [] path0 ctx0)))
+               (erlang/throw {:invalid-reference {f a} idx})))))
+         ({:apply name a}
+          {ctx0 (cerl/ann_c_fname annots name a)})
+         (_
+          (let ((idx (idx-from-context [] path0 ctx0)))
+            (erlang/throw {:invalid-reference {f a} idx})))))
+      ((= ref {:__fun__ _ _ a})
+       (when (erlang/is_integer a))
+       (case (resolve-reference-ctx ref a ctx0)
+         ({:reference _ _}
+          (erlang/throw {:invalid-reference (idx-from-context [] path0 ctx0)}))
+         ({:remote module function arity}
+          (when (erlang/and (erlang/is_atom module)
+                            (erlang/is_atom function)))
+          {ctx0 (cerl/ann_c_call annots
+                                 (cerl/ann_c_atom annots
+                                                  :erlang)
+                                 (cerl/ann_c_atom annots
+                                                  :make_fun)
+                                 [(cerl/ann_c_atom annots module)
+                                  (cerl/ann_c_atom annots function)
+                                  (cerl/ann_c_int annots arity)])})
+         (_
+          (erlang/throw {:undefined-reference ref (idx-from-context [] path0 ctx0)}))))
+      (_
+       (erlang/throw {:undefined-reference form (idx-from-context [] path0 ctx0)})))))
+
+(defn make-list (path0 ctx0 form)
+  (let ((annots (annots-from-context :traverse path0 ctx0)))
+    (case form
+      ([]
+       {ctx0 (cerl/c_nil)})
+      ((h . t)
+       (case (comp-expr (traverse-path path0) ctx0 h)
+         ({ctx1 cerl-h}
+          (case (make-list (incr-path path0)  ctx1 t)
+            ({ctx2 cerl-t}
+             {ctx2 (cerl/ann_c_cons annots cerl-h cerl-t)}))))))))
+
+(defn make-call (path0 ctx0 val args)
+
+  (let ((annots (annots-from-context [] path0 ctx0)))
+
+    (case (type-from-context [] path0 ctx0)
+      (:string
+       {ctx0 (cerl/ann_c_string annots (val . args))})
+      (:list
+       (let ((possible-arity (erlang/length args))
+             (path1 (traverse-path path0))
+             (call-annots (annots-from-context [] path1 ctx0)))
+         (case (eval-args (incr-path path0) ctx0 args)
+           ({ctx1 arg-list}
+            (case (resolve-reference-ctx val possible-arity ctx1)
+              ({:reference var _}
+               {ctx1 (cerl/ann_c_apply annots
+                                       (cerl/set_ann var annots)
+                                       arg-list)})
+              ({:apply name arity}
+               {ctx1 (cerl/ann_c_apply annots
+                                       (cerl/ann_c_fname call-annots
+                                                         name
+                                                         arity)
+                                       arg-list)})
+              ({:remote module function possible-arity}
+               {ctx1 (cerl/ann_c_call annots
+                                      (cerl/ann_c_atom call-annots
+                                                       module)
+                                      (cerl/ann_c_atom call-annots
+                                                       function)
+                                      arg-list)})
+              ({:error error}
+               (erlang/throw {error (idx-from-context [] path0 ctx1)}))
+              (:not-a-reference
+               (when (erlang/is_list val))
+               (case (comp-expr (traverse-path path0) ctx0 val)
+                 ({ctx1 cerl-val}
+                  {ctx1 (cerl/ann_c_apply annots cerl-val arg-list)})))
+              (:not-a-reference
+               (case (resolve-reference-ctx val -1 ctx1)
+                 ({:reference var _}
+                  {ctx1 (cerl/ann_c_apply annots
+                                          (cerl/set_ann var annots)
+                                          arg-list)})
+                 (_
+                  (erlang/throw {:invalid-reference val possible-arity
+                                                    (idx-from-context [] path0 ctx1)}))))))))))))
+
+(defn make-try (path0 ctx0 form)
+  (let ((annots (annots-from-context [] path0 ctx0)))
+    (case form
+      ([:__try expr [:catch [type value] catch-expr]]
+       (when (erlang/and (erlang/is_atom type)
+                         (erlang/is_atom value)))
+       (case (comp-expr (traverse-incr-path path0) ctx0 expr)
+         ({ctx1 cerl-expr}
+          (let ((try-var (cerl/ann_c_var (:compiler_generated . annots) (joxa/gensym)))
+                (type-var (cerl/ann_c_var annots type))
+                (value-var (cerl/ann_c_var annots value))
+                (ignore-var (cerl/ann_c_var (:compiler_generated . annots) (joxa/gensym)))
+                (ctx2 (add-reference-to-scope-ctx type -1
+                                                  (add-reference-to-scope-ctx value -1
+                                                                              (push-scope-ctx ctx1)))))
+            (case (comp-expr (incr-path (traverse-incr-path 2 path0)) ctx2 catch-expr)
+              ({ctx2 cerl-catch}
+               {(pop-scope-ctx ctx2)
+                (cerl/ann_c_try annots cerl-expr [try-var] try-var
+                                [type-var value-var ignore-var]
+                                cerl-catch)}))))))
+      (_
+       (erlang/throw {:invalid-try-expression (idx-from-context [] path0 ctx0)})))))
+
+(defn get-bitstring (field bit)
+  (case field
+    (:var (erlang/element 2 bit))
+    (:size (erlang/element 3 bit))
+    (:unit (erlang/element 4 bit))
+    (:type (erlang/element 5 bit))
+    (:signedness (erlang/element 6 bit))
+    (:endianness (erlang/element 7 bit))
+    (_ (erlang/throw {:invalid-field :bitstring field}))))
+
+(defn set-bitstring (field value bit)
+  (case field
+    (:var (erlang/setelement 2 bit value))
+    (:size (erlang/setelement 3 bit value))
+    (:unit (erlang/setelement 4 bit value))
+    (:type (erlang/setelement 5 bit value))
+    (:signedness (erlang/setelement 6 bit value))
+    (:endianness (erlang/setelement 7 bit value))
+    (_ (erlang/throw {:invalid-field :bitstring field}))))
+
+(defn new-bitstring ()
+  {:bitstring
+   :undefined
+   :undefined
+   :undefined
+   :integer
+   :unsigned
+   :big})
+
+(defn resolve-bitstring-defaults (idx value)
+  (case value
+    (:invalid
+     (erlang/throw {:invalid-bistring-spec idx}))
+    (_
+     (let ((annots '(compiler_generated))
+           (size0 (get-bitstring :size value))
+           (unit0 (get-bitstring :unit value))
+           (type0 (get-bitstring :type value))
+           (size1 (case size0
+                    (:undefined
+                     (case type0
+                       (:integer 8)
+                       (:float 64)
+                       (:binary [:quote :all])
+                       (:bitstring 1)
+                       (:bits 1)
+                       (:utf8 [:quote :undefined])
+                       (:utf16 [:quote :undefined])
+                       (:utf32 [:quote :undefined])))
+                    (val
+                     val)))
+           (unit1 (case unit0
+                    (:undefined
+                     (case type0
+                       (:float (cerl/ann_c_int annots 1))
+                       (:integer (cerl/ann_c_int annots 1))
+                       (:bitstring (cerl/ann_c_int annots 1))
+                       (:bits (cerl/ann_c_int annots 1))
+                       (:binary (cerl/ann_c_int annots 8))
+                       (:utf8 (cerl/ann_c_int annots :undefined))
+                       (:utf16 (cerl/ann_c_int annots :undefined))
+                       (:utf32 (cerl/ann_c_int annots :undefined))))
+                    (val
+                     val))))
+       (set-bitstring :size size1
+                      (set-bitstring :unit unit1 value))))))
+
+(defn convert-bitstring (pairs bitstring)
+  (case pairs
+    (([:quote :size] . (value . rest))
+     (convert-bitstring rest (set-bitstring :size value bitstring)))
+    (([:quote :unit] . (value . rest))
+     (convert-bitstring rest (set-bitstring :unit value bitstring)))
+    (([:qute :little] . rest)
+     (convert-bitstring rest (set-bitstring :endianness :little bitstring)))
+    (([:quote :big] . rest)
+     (convert-bitstring rest (set-bitstring :endianness :big bitstring)))
+    (([:quote :native] . rest)
+     (convert-bitstring rest (set-bitstring :endianness :native bitstring)))
+    (([:quote :signed] . rest)
+     (convert-bitstring rest (set-bitstring :signedness :signed bitstring)))
+    (([:quote :unsigned] . rest)
+     (convert-bitstring rest (set-bitstring :signedness :unsigned bitstring)))
+    (([:quote :integer] . rest)
+     (convert-bitstring rest (set-bitstring :type :integer bitstring)))
+    (([:quote :binary] . rest)
+     (convert-bitstring rest (set-bitstring :type :binary bitstring)))
+    (([:quote :utf8] . rest)
+     (convert-bitstring rest (set-bitstring :type :utf8 bitstring)))
+    (([:quote :utf16] . rest)
+     (convert-bitstring rest (set-bitstring :type :utf16 bitstring)))
+    (([:quote :utf32] . rest)
+     (convert-bitstring rest (set-bitstring :type :utf32 bitstring)))
+    (([:quote :float] . rest)
+     (convert-bitstring rest (set-bitstring :type :float bitstring)))
+    ([]
+     bitstring)
+    (_
+     :invalid)))
+
+(defn make-binary-element (element acc0)
+  (case acc0
+    ({path0 ctx0 acc1}
+     (let ((idx (idx-from-context [] path0 ctx0)))
+       (case element
+         ((var . pairs0)
+          (let ((path1 (traverse-path path0))
+                (bitstring
+                 (resolve-bitstring-defaults idx
+                                             (convert-bitstring pairs0
+                                                                (new-bitstring))))
+                (annots (annots-from-context :traverse path1 ctx0)))
+            (case (comp-expr path1 ctx0 var)
+              ({ctx1 cerl-var}
+               (case (comp-expr path1 ctx1 (get-bitstring :size bitstring))
+                 ({ctx2 size}
+                  {(incr-path path1)
+                   ctx2
+                   ((cerl/ann_c_bitstr annots
+                                       cerl-var
+                                       size
+                                       (get-bitstring :unit bitstring)
+                                       (cerl/ann_c_atom annots
+                                                        (get-bitstring :type bitstring))
+                                       (cerl/ann_make_list annots
+                                                           [(cerl/ann_c_atom annots
+                                                                             (get-bitstring :signedness bitstring))
+                                                            (cerl/ann_c_atom annots
+                                                                             (get-bitstring :endianness bitstring))]))
+                    . acc1)}))))))
+         (var (when (erlang/or (erlang/is_atom  var)
+                               (erlang/is_integer var)))
+              (let ((annots (annots-from-context :traverse path0 ctx0))
+                    (bitstring (resolve-bitstring-defaults idx (new-bitstring))))
+                (case (comp-expr path0 ctx0 var)
+                  ({ctx1 cerl-var}
+                   (case (comp-expr path0 ctx1 (get-bitstring :size bitstring))
+                     ({ctx2 size}
+                      {(incr-path path0)
+                       ctx2
+                       ((cerl/ann_c_bitstr annots
+                                           cerl-var
+                                           size
+                                           (get-bitstring :unit bitstring)
+                                           (cerl/ann_c_atom annots (get-bitstring :type bitstring))
+                                           (cerl/ann_make_list annots
+                                                               [(cerl/ann_c_atom annots
+                                                                                 (get-bitstring :signedness bitstring))
+                                                                (cerl/ann_c_atom annots
+                                                                                 (get-bitstring :endianness bitstring))]))
+                        . acc1)}))))))
+         (_
+          (erlang/throw {:invalid-bitstring idx})))))))
+
+(defn make-binary (path0 ctx0 form)
+  (let ((annots (annots-from-context [] path0 ctx0)))
+    (case form
+      ((:binary . args)
+       (case (lists/foldl make-binary-element/2 {(incr-path path0) ctx0 []} args)
+         ({_ ctx1 acc}
+          {ctx1 (cerl/ann_c_binary annots (lists/reverse acc))}))))))
+
+(defn get-expr-arity (expr)
+  (case (cerl/type expr)
+    (:var
+     (case (cerl/fname_arity expr)
+       (:undefined
+        -1)
+       (arity (when (erlang/is_integer arity))
+              arity)))
+    (:fun
+     (cerl/fun_arity expr))
+    (_ -1)))
+
+(defn make-let-binding (body-path0 binding-path0 ctx0 var expr continuation)
+  (let ((binding-path1 (traverse-path binding-path0) )
+        (annots (annots-from-context [] binding-path1 ctx0)))
+    (case expr
+      ([:fn args _]
+       ;; For letrecs the variable has to be available in the scope so
+       ;; the function can call as needed
+       (let ((arity (erlang/length args))
+             (ctx1 (add-reference-to-scope-ctx var arity
+                                               (push-scope-ctx ctx0)))
+             (cerl-var (cerl/ann_c_fname annots var arity)))
+         (case (comp-expr (traverse-incr-path binding-path1) ctx1 expr)
+           ({ctx3 cerl-expr}
+            (case (continuation body-path0 binding-path0 ctx3)
+              ({ctx4 cerl-body}
+               {(pop-scope-ctx ctx4) (cerl/ann_c_letrec annots
+                                                        [{cerl-var cerl-expr}]
+                                                        cerl-body)}))))))
+      (_
+       (case (comp-expr (traverse-incr-path (traverse-path binding-path0))
+                        ctx0
+                        expr)
+         ({ctx1 cerl-expr}
+          (let ((ctx2 (add-reference-to-scope-ctx
+                       var
+                       (get-expr-arity cerl-expr)
+                       (push-scope-ctx ctx1))))
+            (case (continuation body-path0 binding-path0 ctx2)
+              ({ctx4 cerl-body}
+               {(pop-scope-ctx ctx4) (cerl/ann_c_let annots
+                                                     [ (cerl/ann_c_var annots var)]
+                                                     cerl-expr
+                                                     cerl-body)})))))))))
+
+(defn make-let-bindings (body-path0 binding-path0 ctx0 bindings body)
+  (case bindings
+    ([[var expr]]
+     (make-let-binding body-path0 binding-path0 ctx0 var expr
+                       (fn (body-path1 binding-path1 ctx1)
+                           (comp-expr (traverse-path body-path1)  ctx1 body))))
+    (([var expr] . rest)
+     (make-let-binding body-path0 binding-path0 ctx0 var expr
+                       (fn (body-path1 binding-path1 ctx1)
+                           (make-let-bindings body-path1
+                                              (incr-path binding-path1)
+                                              ctx1 rest body))))
+    (_
+     (erlang/throw {:invalid-let-binding
+                    (idx-from-context [] binding-path0 ctx0)}))))
+
+
+(defn make-let (path0 ctx0 form)
+  (let ((path1 (traverse-incr-path path0)))
+    (case form
+      ([:let bindings body]
+       (make-let-bindings (incr-path 2 path0) path1 ctx0 bindings body))
+      (_
+       (erlang/throw {:invalid-form (idx-from-context [] path0 ctx0)})))))
+
+
+(defn valid-guard (module function arity)
+  (case {module function arity}
+    ({:erlang :abs 1} :true)
+    ({:erlang :bitsize 1} :true)
+    ({:erlang :byte_size 1} :true)
+    ({:erlang :element 2} :true)
+    ({:erlang :float 1} :true)
+    ({:erlang :hd 1} :true)
+    ({:erlang :length 1} :true)
+    ({:erlang :node 0} :true)
+    ({:erlang :node 1} :true)
+    ({:erlang :round 1} :true)
+    ({:erlang :self 0} :true)
+    ({:erlang :size 1} :true)
+    ({:erlang :tl 1} :true)
+    ({:erlang :trunc 1} :true)
+    ({:erlang :tuple_size 1} :true)
+    ({:erlang :is_binary 1} :true)
+    ({:erlang :is_alive 0} :true)
+    ({:erlang :is_boolean 1} :true)
+    ({:erlang :is_function 1} :true)
+    ({:erlang :is_function 2} :true)
+    ({:erlang :is_integer 1} :true)
+    ({:erlang :is_float 1} :true)
+    ({:erlang :is_list 1} :true)
+    ({:erlang :is_atom 1} :true)
+    ({:erlang :is_number 1} :true)
+    ({:erlang :is_pid 1} :true)
+    ({:erlang :is_port 1} :true)
+    ({:erlang :is_record 2} :true)
+    ({:erlang :is_record 3} :true)
+    ({:erlang :is_reference 1} :true)
+    ({:erlang :is_tuple 1} :true)
+    ({:erlang :and 2} :true)
+    ({:erlang :or 2} :true)
+    ({:erlang :> 2} :true)
+    ({:erlang :< 2} :true)
+    ({:erlang :== 2} :true)
+    ({:erlang :=< 2} :true)
+    ({:erlang :>= 2} :true)
+    ({:erlang :/= 2} :true)
+    ({:erlang :=:= 2} :true)
+    ({:erlang :=/= 2} :true)
+    (_ :false)))
+
+(defn check-guards (ast)
+  (case (cerl/type ast)
+    (:call
+     (erlang/and (valid-guard (cerl/atom_val (cerl/call_module ast))
+                              (cerl/atom_val (cerl/call_name ast))
+                              (cerl/call_arity ast))
+                 (lists/all check-guards/1 (cerl/call_args ast))))
+    (:cons
+     (erlang/and (check-guards (cerl/cons_hd ast))
+                 (check-guards (cerl/cons_tl ast))))
+    (:binary :true)
+    (:bitstring :true)
+    (:tuple (lists/all check-guards/1 (cerl/tuple_es ast)))
+    (:var :true)
+    (:literal :true)
+    (_ :false)))
+
+(defn check-guards (idx ast)
+  (case (check-guards ast)
+    (:true ast)
+    (:false
+     (erlang/throw {:invalid-guard idx}))))
+
+
+(defn make-guards (annots guards)
+  (case guards
+    ([]
+     (cerl/ann_c_atom annots :true))
+    ([guard]
+     guard)
+    ((pattern . rest)
+     (cerl/ann_c_call annots
+                      (cerl/ann_c_atom annots :erlang)
+                      (cerl/ann_c_atom annots :and)
+                      [pattern (make-guards annots rest)]))))
+
+(defn make-pattern-var (path0 ctx0 guards0 var0)
+  (let ((annots (:compiler_generated .
+                                     (annots-from-context [] path0 ctx0))))
+    (case (resolve-reference-ctx var0 -1 ctx0)
+      ({:reference var1 _}
+       ;; The reference already exists. So we create a new variable and
+       ;; add a guard for to test for equality
+       (let ((gensym (joxa/gensym))
+             (cerl-var (cerl/ann_c_var annots gensym))
+             (guards1 ((cerl/ann_c_call annots
+                                        (cerl/ann_c_atom [:compiler_generated]
+                                                         :erlang)
+                                        (cerl/ann_c_atom annots
+                                                         :=:=)
+                                        [cerl-var (cerl/set_ann var1 annots)])
+                       . guards0)))
+         ;; We don't add the generated variable to the scope as we
+         ;; don't want it to be available to the user (The user really
+         ;; should not even be aware of it)
+         {ctx0 guards1 cerl-var}))
+      (_
+       (let ((annots-bare (annots-from-context [] path0 ctx0))
+             ;; The variable is not in the scope so we turn it to a
+             ;; variable
+             (cerl-var (cerl/ann_c_var annots-bare var0))
+             (ctx1 (add-reference-to-scope-ctx var0 -1 ctx0)))
+         {ctx1 guards0 cerl-var})))))
+
+(defspec make-pattern-element ((path) (context) [(erlang/term)] (erlang/term))
+  {(context) (erlang/term) (cerl/cerl)})
+
+(defn make-pattern-alias (alias-path pattern-path ctx0 guards0 alias pattern)
+  (let ((alias-annots (annots-from-context [] alias-path ctx0))
+        (pattern-annots (annots-from-context [] pattern-path ctx0))
+        (alias-var (cerl/ann_c_var alias-annots alias)))
+    (case (make-pattern-element (traverse-incr-path pattern-path)
+                                ctx0 guards0 pattern)
+      ({ctx1 guards1 cerl-pattern}
+       (case (resolve-reference-ctx alias -1 ctx0)
+         (:not-a-reference
+          {(add-reference-to-scope-ctx alias -1 ctx1)
+           guards1
+           (cerl/ann_c_alias alias-annots alias-var cerl-pattern)})
+         (_
+          (erlang/throw {:reference-already-defined alias
+                                                    (idx-from-context [] alias-path ctx0)})))))))
+
+(defn make-binary-pattern-element (arg acc0)
+  (case acc0
+    ({path0 ctx0 guards0 acc1}
+     (let ((annots (annots-from-context [] path0 ctx0))
+           (idx (idx-from-context [] path0 ctx0)))
+       (case arg
+         ((var . pairs0)
+          (let ((path1 (traverse-path path0))
+                (bitstring  (resolve-bitstring-defaults idx
+                                                        (convert-bitstring pairs0 (new-bitstring)))))
+            (case (make-pattern-element path1 ctx0 guards0 var)
+              ({ctx1 guards1 cerl-var}
+               (case (comp-expr path1 ctx1 (get-bitstring :size bitstring))
+                 ({ctx2 size}
+                  {(incr-path path1) ctx2 guards1
+                   ((cerl/ann_c_bitstr annots
+                                       cerl-var
+                                       size
+                                       (get-bitstring :unit bitstring)
+                                       (cerl/ann_c_atom annots (get-bitstring :type bitstring))
+                                       (cerl/ann_make_list annots
+                                                           [(cerl/ann_c_atom annots
+                                                                             (get-bitstring :signedness bitstring))
+                                                            (cerl/ann_c_atom annots
+                                                                             (get-bitstring :endianness bitstring))]))
+                    . acc1)}))))))
+         (var (when (erlang/or (erlang/is_atom var)
+                               (erlang/is_integer var)))
+              (let ((bitstring (resolve-bitstring-defaults idx (new-bitstring))))
+                (case (make-pattern-element path0 ctx0 guards0 var)
+                  ({ctx1 guards1 cerl-var}
+                   (case (comp-expr path0 ctx1 (get-bitstring :size bitstring))
+                     ({ctx2 size}
+                      {(incr-path path0)
+                       ctx2 guards1
+                       ((cerl/ann_c_bitstr annots
+                                           cerl-var
+                                           size
+                                           (get-bitstring :unit bitstring)
+                                           (cerl/ann_c_atom annots (get-bitstring :type bitstring))
+                                           (cerl/ann_make_list annots
+                                                               [(cerl/ann_c_atom annots
+                                                                                 (get-bitstring :signedness bitstring))
+                                                                (cerl/ann_c_atom annots
+                                                                                 (get-bitstring :endianness bitstring))])) . acc1)}))
+
+                   ))))
+         (_
+          (erlang/throw {:invalid-bitstring idx})))))))
+
+(defn make-binary-pattern (path0 ctx0 guards0 pairs)
+  (case (lists/foldl make-binary-pattern-element/2
+                     {(incr-path path0) ctx0 guards0 []} pairs)
+    ({_ ctx1 guards1 acc}
+     {ctx1 guards1 (cerl/ann_c_binary (annots-from-context [] path0 ctx0)
+                                      (lists/reverse acc))})))
+
+(defn make-pattern-tuple (path0 ctx0 guards0 args)
+  (let ((annots (annots-from-context [] path0 ctx0)))
+    (case (lists/foldl (fn (arg acc0)
+                           (case acc0
+                             ({path1 ctx1 guards1 acc1}
+                              (case (make-pattern-element (traverse-path path1) ctx1 guards1 arg)
+                                ({ctx2 guards2 element}
+                                 {(incr-path path1)
+                                  ctx2 guards2 (element . acc1)})))))
+                       {path0 ctx0 guards0 []} args)
+      ({_ ctx3 guards3 acc}
+       {ctx3 guards3 (cerl/ann_c_tuple annots (lists/reverse acc))}))))
+
+(defn make-pattern-list (path0 ctx0 guards0 l)
+  (let ((annots (annots-from-context [] path0 ctx0)))
+    (case l
+      ([]
+       {ctx0 guards0 (cerl/c_nil)})
+      ((h . t)
+       (case (make-pattern-element (traverse-path path0) ctx0 guards0 h)
+         ({ctx1 guards1 cerl-h}
+          (case (make-pattern-list (incr-path path0) ctx1 guards1 t)
+            ({ctx2 guards2 cerl-t}
+             {ctx2 guards2 (cerl/ann_c_cons annots cerl-h cerl-t)}))))))))
+
+(defn make-pattern-element (path0 ctx0 guards0 arg0)
+  (let ((annots (annots-from-context [] path0 ctx0)))
+    (case arg0
+      (arg0 (when (erlang/is_binary arg0))
+            {ctx0 guards0 (cerl/ann_make_data annots {:atomic arg0} [])})
+      (:_
+       (let ((gensym (erlang/list_to_atom (lists/append "_"
+                                                        (erlang/atom_to_list (joxa/gensym)))))
+             (cerl-var (cerl/ann_c_var annots gensym))
+             (ctx1 (add-reference-to-scope-ctx gensym -1 ctx0)))
+         {ctx1 guards0 cerl-var}))
+      (arg0 (when (erlang/is_atom arg0))
+            (make-pattern-var path0 ctx0 guards0 arg0))
+      (arg0 (when (erlang/is_integer arg0))
+            {ctx0 guards0 (cerl/ann_c_int annots arg0)})
+      (arg0 (when (erlang/is_float arg0))
+            {ctx0 guards0 (cerl/ann_c_float annots arg0)})
+      (args0 (when (erlang/is_tuple args0))
+             (make-pattern-tuple path0 ctx0 guards0 (erlang/tuple_to_list args0)))
+      ([:= alias pattern] (when (erlang/is_atom alias))
+       (make-pattern-alias (incr-path path0) (traverse-incr-path 2 path0)
+                           ctx0 guards0 alias pattern))
+      ([:= pattern alias] (when (erlang/is_atom alias))
+       (make-pattern-alias (traverse-incr-path 2 path0) (incr-path path0)
+                           ctx0 guards0 alias pattern))
+      ([:quote args]
+       (let ((literal (make-literal (traverse-incr-path path0) ctx0 args)))
+         {ctx0 guards0 literal}))
+      ((:binary . pairs)
+       (make-binary-pattern path0 ctx0 guards0 pairs))
+      ((:list . args)
+       (make-pattern-list (incr-path path0) ctx0 guards0 args))
+      ((:tuple . args)
+       (make-pattern-tuple (incr-path path0) ctx0 guards0 args))
+      ([arg1 :. arg2]
+       (case (make-pattern-element (traverse-path path0) ctx0 guards0 arg1)
+         ({ctx1 guards1 cerl-arg1}
+          (case (make-pattern-element (traverse-incr-path 2 path0)
+                                      ctx1 guards1 arg2)
+            ({ctx2 guards2 cerl-arg2}
+             {ctx2 guards2 (cerl/ann_c_cons annots cerl-arg1 cerl-arg2)})))))
+      ([:cons arg1 arg2]
+       (case (make-pattern-element (traverse-incr-path path0) ctx0 guards0 arg1)
+         ({ctx1 guards1 cerl-arg1}
+          (case (make-pattern-element (traverse-incr-path 2 path0)
+                                      ctx1 guards1 arg2)
+            ({ctx2 guards2 cerl-arg2}
+             {ctx2 guards2 (cerl/ann_c_cons annots cerl-arg1 cerl-arg2)})))))
+      (_
+       (erlang/throw {:invalid-pattern (idx-from-context [] path0 ctx0)})))))
+
+(defn make-pattern-clause-body (path0 ctx0 form)
+  (let ((ctx1 (push-scope-ctx ctx0))
+        (annots (annots-from-context [] path0 ctx0)))
+    (case form
+      ([pattern [:when guards] body]
+       (case (make-pattern-element (traverse-path path0) ctx1 [] pattern)
+         ({ctx2 pattern-guards cerl-pattern}
+          (let ((guard-annots (annots-from-context []
+                                                   (traverse-incr-path path0) ctx2))
+                (guard-idx (idx-from-context [] (traverse-incr-path path0) ctx2)))
+            (case (comp-expr (traverse-incr-path (traverse-incr-path path0)) ctx2 guards)
+              ({ctx3 cerl-guard}
+               (case (comp-expr (traverse-incr-path 2 path0) ctx3 body)
+                 ({ctx4 cerl-body}
+                  {(pop-scope-ctx ctx4)
+                   (cerl/ann_c_clause annots
+                                      [cerl-pattern]
+                                      (check-guards guard-idx
+                                                    (make-guards guard-annots
+                                                                 (cerl-guard . pattern-guards)))
+                                      cerl-body)}))))))))
+      ([pattern body]
+       (case (make-pattern-element (traverse-path path0) ctx1 [] pattern)
+         ({ctx2 pattern-guards cerl-pattern}
+          (case (comp-expr (traverse-incr-path path0) ctx2 body)
+            ({ctx3 cerl-body}
+             {(pop-scope-ctx ctx3)
+              (cerl/ann_c_clause annots
+                                 [cerl-pattern]
+                                 (make-guards annots pattern-guards)
+                                 cerl-body)})))))
+      (_
+       (erlang/throw {:invalid-case-clause (idx-from-context [] path0 ctx0)})))))
+
+(defn do-clause-terminator (path0 ctx0 clause)
+  (case (make-pattern-clause-body (traverse-path path0) ctx0 clause)
+    ({ctx1 actual-clause}
+     (let ((annots (:compiler_generated . (annots-from-context [] path0 ctx0)))
+           (var (joxa/gensym)))
+       {ctx1
+        actual-clause
+        [(cerl/ann_c_clause annots
+                            [(cerl/ann_c_var annots var)]
+                            (cerl/ann_c_primop annots
+                                               (cerl/ann_c_atom annots :match_fail)
+                                               [(cerl/ann_c_tuple annots
+                                                                  [(cerl/ann_c_atom annots :case_clause)
+                                                                   (cerl/ann_c_var annots var)])]))]}))))
+
+(defn make-pattern (path0 ctx0 form acc)
+  (case form
+    ([]
+     (erlang/throw {:no-clauses-provided (idx-from-context [] path0 ctx0)}))
+    ([clause]
+     (case (do-clause-terminator path0 ctx0 clause)
+       ({ctx1 clauses special-terminator}
+        {ctx1 (lists/append (lists/reverse (clauses . acc)) special-terminator)})))
+    ((clause . rest)
+     (case (make-pattern-clause-body (traverse-path path0) ctx0 clause)
+       ({ctx1 clauses}
+        (make-pattern (incr-path path0) ctx1 rest (clauses . acc)))))))
+
+(defn gen-args (path0 ctx0 args0)
+  (case (lists/foldl (fn (arg acc0)
+                         (case acc0
+                           ({path1 ctx1 acc1}
+                            (case arg
+                              (a (when (erlang/is_atom a))
+                                 (let ((annots
+                                        (annots-from-context :traverse path1 ctx1)))
+                                   {(incr-path path1) ctx1 ((cerl/ann_c_var annots arg) . acc1)}))
+                              (_
+                               (erlang/throw {:invalid-arg (idx-from-context []
+                                                                             (incr-path path1) ctx1)}))))))
+                     {path0 ctx0 []} args0)
+    ({_ ctx2 args1}
+     {ctx2 (lists/reverse args1)})))
+
+(defn do-function-body (path0 ctx0 args0 expression)
+  (case (lists/foldl (fn (el, acc0)
+                         (let ((arg (case el
+                                      ([_ arg]
+                                       arg)
+                                      (_
+                                       el))))
+                           (case acc0
+                             ({ctx1 acc1}
+                              {(add-reference-to-scope-ctx arg -1 ctx1)
+                               (arg . acc1)}))))
+                     {(push-scope-ctx ctx0)  []} args0)
+    ({ctx2 args1}
+     (case (gen-args (traverse-path path0) ctx2 (lists/reverse args1))
+       ({ctx3 arg-list}
+        (case (comp-expr (traverse-incr-path path0) ctx3 expression)
+          ({ctx4 body}
+           {(pop-scope-ctx ctx4) arg-list body})))))))
+
+(defn comp-expr (path0 ctx0 form)
+  (let ((annots (annots-from-context [] path0 ctx0)))
+    (case form
+      (arg (when (erlang/is_binary arg))
+           {ctx0 (cerl/ann_make_data annots {:atomic arg} [])})
+      (arg (when (erlang/is_integer arg))
+           {ctx0 (cerl/ann_c_int annots arg)})
+      (arg (when (erlang/is_float arg))
+           {ctx0 (cerl/ann_c_float annots arg)})
+      (arg (when (erlang/is_atom arg))
+           (case (resolve-reference-ctx arg -1 ctx0)
+             ({:reference var _}
+              {ctx0 (cerl/set_ann var annots)})
+             (e
+              (let ((idx (idx-from-context [] path0 ctx0)))
+                (erlang/throw {:invalid-reference e arg idx})))))
+      (arg (when (erlang/and
+                  (erlang/is_tuple arg)
+                  (== (erlang/element 1 arg) :__fun__)))
+           (make-fun path0 ctx0 form))
+      (arg (when (erlang/is_tuple arg))
+           (make-tuple-expr path0 ctx0 (erlang/tuple_to_list arg)))
+      ((:let . _)
+       (make-let path0 ctx0 form))
+      ((:case . (expr . clauses))
+       (case (comp-expr (traverse-incr-path path0) ctx0 expr)
+         ({ctx1 cerl-expr}
+          (case (make-pattern (incr-path 2 path0) ctx1 clauses [])
+            ({ctx2 cerl-clauses}
+             {ctx2 (cerl/ann_c_case annots cerl-expr cerl-clauses)})))))
+      ((:do . args)
+       (make-do (incr-path path0) ctx0 args))
+      ((:binary . _)
+       (make-binary path0 ctx0 form))
+      ([arg1 :. arg2]
+       (make-cons annots (traverse-path path0) (traverse-incr-path 2 path0)
+                  ctx0 arg1 arg2))
+      ([:cons arg1 arg2]
+       (make-cons annots (incr-path path0) (incr-path 2 path0) ctx0 arg1 arg2))
+      ((:apply . _)
+       (make-apply path0 ctx0 form))
+      ([:quote args]
+       (let ((literal (make-literal (traverse-incr-path path0) ctx0 args)))
+         {ctx0 literal}))
+      ((:list . args)
+       (make-list (incr-path path0) ctx0 args))
+      ((:tuple . args)
+       (make-tuple-expr (incr-path path0) ctx0 args))
+      ((:__try . _)
+       (make-try path0 ctx0 form))
+      ((:fn . fn-body)
+       (case fn-body
+         ([args expression]
+          (case (do-function-body (incr-path path0) ctx0 args expression)
+            ({ctx1 arg-list body}
+             {ctx1 (cerl/ann_c_fun annots arg-list body)})
+            (_
+             (erlang/throw {:invalid-fn-form (idx-from-context [] path0 ctx0)}))))))
+      ((val . args)
+       (make-call path0 ctx0 val args))
+      (_
+       (case (type-from-context [] path0 ctx0)
+         (:string
+          {ctx0 (cerl/ann_c_string annots form)})
+         (_
+          (erlang/throw {:invalid-fn-form (idx-from-context [] path0 ctx0)})))))))
+
+(defspec comp-spec-expr ((path) (context) (erlang/term))
+  {(context) (erlang/term)})
+
+(defn default-type ()
+  [{:__fun__ :erlang :any}])
+
+(defn make-spec-tuple (line path0 ctx0 form)
+  (case (lists/foldl (fn (el acc0)
+                         (case acc0
+                           ({path1 ctx1 acc1}
+                            (case (comp-spec-expr path1 ctx1 el)
+                              ({ctx2 comp-el}
+                               {(incr-path path1) ctx2 (comp-el . acc1)})))))
+                     {path0 ctx0 []} (erlang/tuple_to_list form))
+    ({_ ctx3 tuple-values}
+     {ctx3 {:tuple line (erlang/list_to_tuple (lists/reverse tuple-values))}})))
+
+(defn comp-spec-args (line ctx0 args)
+  (case (lists/foldl (fn (el acc0)
+                         (case acc0
+                           ({ctx1 acc1}
+                            {(add-type-reference-to-scope-ctx el -1 ctx1)
+                             ({:var line el} . acc1)})))
+                     {ctx0 []} args)
+    ({ctx3 comp-args}
+     {ctx3 (lists/reverse comp-args)})))
+
+
+(defn def-anon-function-spec (path0 ctx0 args0 expr0)
+  (let ((line1 (case (idx-from-context [] path0 ctx0)
+                 ({line0 _}
+                  line0))))
+
+    (case (comp-spec-args path0 (push-type-scope-ctx ctx0) args0)
+      ({ctx3 args1}
+       (case (comp-spec-expr (incr-path 2 path0) ctx3 expr0)
+         ({ctx4 expr1}
+          {(pop-type-scope-ctx ctx4) [{:type line1 :fun
+                                             [{:type line1 :product (lists/reverse args1)}
+                                              expr1]}]}))))))
+
+(defn comp-binary-spec (line1 path0 ctx0 form)
+  (case form
+    ([:binary]
+     {ctx0 {:type line1 :binary [{:integer line1 0} {:integer line1 0}]}})
+    ([:binary arg]
+     (when (erlang/is_integer arg))
+     {ctx0 {:type line1 :binary [{:integer line1 arg} {:integer line1 0}]}})
+    ([:binary :* arg]
+     (when (erlang/is_integer arg))
+     {ctx0 {:type line1 :binary [{:integer line1 0} {:integer line1 arg}]}})
+    ([:binary arg1 :* arg2]
+     (when (erlang/and (erlang/is_integer arg1)
+                       (erlang/is_integer arg2)))
+     {ctx0 {:type line1 :binary [{:integer line1 arg1} {:integer line1 arg2}]}})
+    (_
+     (let ((idx (idx-from-context [] path0 ctx0)))
+       (erlang/throw {:invalid-binary-type-spec idx})))))
+
+(defn comp-function-spec (line1 path0 ctx0 form)
+  (case form
+    ([:fn]
+     {ctx0 {:type line1 :fun []}})
+    ([:fn [:...] expr]
+     (case (comp-expr (traverse-incr-path 2 path0) ctx0 expr)
+       ({ctx1 comp-expr}
+        {ctx1 {:type line1 :fun [{:type line1 :any} comp-expr]}})))
+    ([:fn args expr]
+     (def-anon-function-spec (incr-path path0) ctx0 args expr))))
+
+(defn comp-type-call-spec (line path0 ctx0 form)
+  (case form
+    ([{:__fun__ :erlang :range} a1 a2]
+     (when (erlang/and (erlang/is_integer a1)
+                       (erlang/is_integer a2)))
+     (case (comp-spec-args (incr-path path0) ctx0 [a1 a2])
+       ({ctx1 comp-args}
+        {ctx1 {:type line :range
+                     comp-args}})))
+    (({:__fun__ :erlang func} . args)
+     ;; Things in erlang get treated a bit differently then things in
+     ;; other modules. It sucks that they have to be special
+     (case (comp-spec-args (incr-path path0) ctx0 args)
+       ({ctx3 comp-args}
+        {ctx3 {:type line func comp-args}})))
+    (({:__fun__ module func} . args)
+     (when (erlang/and (erlang/is_atom module)
+                       (erlang/is_atom func)))
+     (case (comp-spec-args (incr-path path0) ctx0 args)
+       ({ctx3 comp-args}
+        {ctx3 {:remote_type line [{:atom line module}
+                                  {:atom line func}
+                                  comp-args]}})))))
+
+(defn make-spec-literal (path0 ctx0 arg0)
+  (let ((line1 (case (idx-from-context [] path0 ctx0)
+                 ({line0 _}
+                  line0))))
+    (case arg0
+      (arg1
+       (when (erlang/is_atom arg1))
+       {:atom line1 arg1})
+      (arg1
+       (when (erlang/is_integer arg1))
+       {:integer line1 arg1})
+      ([args]
+       {:list line1 (make-spec-literal (traverse-path path0) ctx0 args)})
+      (arg1
+       (when (erlang/is_list arg1))
+       (let ((specs (lists/foldl (fn (el acc0)
+                                     (case acc0
+                                       ({path1 acc1}
+                                        {(incr-path path1)
+                                         ((make-spec-literal path1 ctx0 el) .  acc1)})))
+                                 {path0 []} arg1)))
+         {:list line1 (lists/reverse specs)}))
+      (arg1
+       (when (erlang/is_tuple arg1))
+       (let ((specs (lists/foldl (fn (el acc0)
+                                     (case acc0
+                                       ({path1 acc1}
+                                        {(incr-path path1)
+                                         ((make-spec-literal path1 ctx0 el) .  acc1)})))
+                                 {path0 []} (erlang/tuple_to_list arg1))))
+         {:tuple line1 (lists/reverse specs)}))
+      (_
+       (let ((idx (idx-from-context [] path0 ctx0)))
+         (erlang/throw {:invalid-type-literal idx}))))))
+
+(defn comp-spec-expr (path0 ctx0 form)
+  (let ((line1 (case (idx-from-context [] path0 ctx0)
+                 ({line0 _}
+                  line0))))
+    (case form
+      ([:quote value]
+       {ctx0 (make-spec-literal (traverse-incr-path path0) ctx0 value)})
+      (arg
+       (when (erlang/is_tuple arg))
+       (make-spec-tuple line1 path0 ctx0 form))
+      (arg
+       (when (erlang/is_integer arg))
+       {ctx0 (make-spec-literal path0 ctx0 arg)})
+      ((:binary . _)
+       (comp-binary-spec line1 path0 ctx0 form))
+      ((:fn . _)
+       (comp-function-spec line1 path0 ctx0 form))
+      (({:__fun__ _ _} . _)
+       (comp-type-call-spec line1 path0 ctx0 form))
+      ([:list arg]
+       (case (comp-spec-expr (traverse-incr-path path0) ctx0 arg)
+         ({ctx1 list}
+          {ctx1 {:list line1 list}})))
+      (name
+       (when (erlang/is_atom name))
+       (case (resolve-type-reference-ctx name -1 ctx0)
+         (:true
+          {ctx0 {:var line1 name}})
+         (:false
+          (let ((idx (idx-from-context []  path0 ctx0)))
+            (erlang/throw {:invalid-type-reference name idx})))))
+      ((var . args)
+       (let ((arg-count (erlang/length args)))
+         (case (resolve-type-reference-ctx var arg-count ctx0)
+           (:false
+            (let ((idx (idx-from-context [] path0 ctx0)))
+              (erlang/throw {:invalid-type-reference var idx})))
+           (:true
+            (case (comp-spec-args (incr-path path0) ctx0 args)
+              ({ctx3 comp-args}
+               {ctx3 {:type line1 var comp-args}}))))))
+      (_
+       (let ((idx (idx-from-context [] path0 ctx0)))
+         (erlang/throw {:invalid-type-reference idx}))))))
+
+(defn comp-implicit-spec (path0 ctx0 name args expr)
+  (let ((annots (annots-from-context [] path0 ctx0))
+        (arity (erlang/length args)))
+    (case (def-anon-function-spec (incr-path 2 path0) ctx0 args expr)
+      ({ctx1 body}
+       (add-type-ctx name arity {{:c_literal annots :spec}
+                                 {:c_literal annots [{{name arity}
+                                                      [body]}]}} ctx1)))))
+
+(defn def-top-level-function-spec (path0 ctx0 name args expression)
+  (let ((line1 (case (idx-from-context [] path0 ctx0)
+                 ({line0 _}
+                  line0)))
+        (arity (erlang/length args))
+        (ctx1 (push-type-scope-ctx ctx0))
+        (ctx2 (add-type-reference-to-scope-ctx name arity ctx1))
+        (ctx4 (lists/foldl (fn (arg0 ctx3)
+                               (case arg0
+                                 (arg1 (when (erlang/is_atom arg1))
+                                       (add-type-reference-to-scope-ctx
+                                        arg1 -1 ctx3))
+                                 (_
+                                  (let ((idx (idx-from-context [] path0 ctx3)))
+                                    (erlang/throw {:invalid-type-definition
+                                                   idx})))))
+                           ctx2 args)))
+    (case (comp-spec-expr (incr-path 3 path0) ctx4 expression)
+      ({ctx5 expr}
+       (add-type-ctx name arity {{:c_literal [line1] :type}
+                                 {:c_literal [line1]
+                                             [{name expr
+                                                    (lists/map
+                                                     (fn (el)
+                                                         {:var line1 el})
+                                                     args)}]}}
+                     (pop-type-scope-ctx ctx5))))))
+
+(defn comp-spec (path0 ctx0 form)
+  (case form
+    ([:deftype+ name args expression]
+     (when (erlang/and (erlang/is_atom name)
+                       (erlang/is_list args)))
+     (let ((arity (erlang/length args))
+           (ctx1 (add-type-export-ctx name arity ctx0)))
+       (def-top-level-function-spec (incr-path path0) ctx0 name args expression)))
+    ([:deftype name args expression]
+     (when (erlang/and (erlang/is_atom name)
+                       (erlang/is_list args)))
+     (comp-implicit-spec (incr-path path0) ctx0 name args expression))
+    ([:defspec name args expression]
+     (comp-implicit-spec (incr-path path0) ctx0 name args expression))
+    (_
+     (let ((idx (idx-from-context [] path0 ctx0)))
+       (erlang/throw {:invalid-type-definition idx})))))
+
+(defn comp-function1 (path0 ctx0 form)
+  (case form
+    ([return-type name args expression]
+     (let ((spec-args (lists/map (fn (arg)
+                                     (case arg
+                                       ([spec-arg _]
+                                        spec-arg)
+                                       (_
+                                        (default-type)))) args))
+           (ctx1 (comp-implicit-spec path0 ctx0 name spec-args return-type)))
+       (case (do-function-body (incr-path path0) ctx1 args expression)
+         ({ctx2 arg-list body}
+          {ctx2 name arg-list body}))))))
+
+(defn comp-function (path0 ctx0 form)
+  (case form
+    ((= body  [name args _])
+     (when (and (erlang/is_list args)
+                (erlang/is_atom name)))
+     (comp-function1 path0 ctx0 ((default-type) . body)))
+    ((= body [_ name args _])
+     (when (and (erlang/is_list args)
+                (erlang/is_atom name)))
+     (comp-function1 (incr-path path0) ctx0 body))
+    (_
+     (erlang/throw {:invalid-definition (idx-from-context [] path0 ctx0)}))))
+
+(defn+ comp-definition (path0 ctx0 form)
+  (let ((annots (annots-from-context :traverse  path0 ctx0)))
+    (case form
+      ((:defn+ . details)
+       (case (comp-function (incr-path path0) ctx0 details)
+         ({ctx1 name arg-list body}
+          (add-exported-def-ctx annots name arg-list body ctx1))))
+      ((:defn . details)
+       (case (comp-function (incr-path path0) ctx0 details)
+         ({ctx1 name arg-list body}
+          (add-def-ctx annots name arg-list body ctx1))))
+      ((:definline . details)
+       (let ((inline-annots (:inline . annots)))
+         (case (comp-function (incr-path path0) ctx0 details)
+           ({ctx1 name arg-list body}
+            (add-def-ctx annots name arg-list body ctx1)))))
+      ((:deftype+ . _)
+       (comp-spec path0 ctx0 form))
+      ((:deftype . _)
+       (comp-spec path0 ctx0 form))
+      ((:defspec . _)
+       (comp-spec path0 ctx0 form))
+      (_
+       (let ((idx (idx-from-context [] path0 ctx0)))
+         (erlang/throw {:invalid-definition idx}))))))
 
 
 ;; TMP COMPILATION
@@ -1455,7 +2675,7 @@
     ([] (cerl/c_nil))
     ((h . t)
      (cerl/ann_c_cons annots
-                      (comp-literal (traverse-path path0) ctx0 h)
+                      (make-literal (traverse-path path0) ctx0 h)
                       (make-literal-list (incr-path path0) annots ctx0 t)))))
 
 (defn make-literal-string (_path0 annots _ctx0 string)
@@ -1465,7 +2685,7 @@
   (let ((result (lists/foldl (fn (element acc)
                                  (case acc
                                    ({path1 acc0}
-                                    (let ((acc1 ((comp-literal (traverse-path path1) ctx0 element) .  acc0))
+                                    (let ((acc1 ((make-literal (traverse-path path1) ctx0 element) .  acc0))
                                           (path2 (incr-path path1)))
                                       {path2 acc1}))))
                              {path0 []} elements0)))
@@ -1473,7 +2693,7 @@
       ({_ elements1}
        (cerl/ann_c_tuple annots elements1)))))
 
-(defn comp-literal (path0 ctx0 arg)
+(defn make-literal (path0 ctx0 arg)
   (let ((annots  (annots-from-context [] path0 ctx0)))
     (case arg
       (arg
@@ -1487,11 +2707,11 @@
        (make-literal-tuple path0 annots ctx0 arg))
       (arg
        (when (erlang/is_integer arg))
-         (case (type-from-context [] path0 ctx0)
-           (:integer
-            (cerl/ann_c_int annots arg))
-           (:char
-            (cerl/ann_c_char annots arg))))
+       (case (type-from-context [] path0 ctx0)
+         (:integer
+          (cerl/ann_c_int annots arg))
+         (:char
+          (cerl/ann_c_char annots arg))))
       (arg
        (when (erlang/is_float arg))
        (cerl/ann_c_float annots arg))
@@ -1512,8 +2732,8 @@
   (getopt/usage os-list "" "[option1 option2 ...] <joxa-file>"
                 '()))
 
-(defn option-spec-list ()
-  [{:outdir \o "outdir" :string "the directory to output beam files"}
+(defn+ option-spec-list ()
+  [{:outdir \o "outdir" {:string "./"} "the directory to output beam files"}
    {:bootstrap \b "bootstrap" {:boolean :false} "Use the special limited bootstrap compiler"}])
 
 
@@ -1522,7 +2742,7 @@
     ((:module . _)
      (comp-module path0 ctx0 form))
     (_
-     ctx0)))
+     (comp-definition path0 ctx0 form))))
 
 (defn erl-comp (cerl-ast)
   (case (compile/forms cerl-ast [:debug_info :from_core :binary])
@@ -1567,7 +2787,6 @@
                     (case el
                       ({_ attr}
                        attr))) all-types))))
-
 
 (defn compile-context (ctx0)
   (let ((ctx1 (comp-module-info ctx0))
@@ -1622,7 +2841,6 @@
     ({:error reason}
      (erlang/throw {:file-access reason file-name}))))
 
-
 (defn compile-form (file-name input ctx0 binary)
   (case (has-more-data-to-parse input)
     (:false
@@ -1636,8 +2854,7 @@
           (case (compile-context ctx1)
             ({ctx2 binary1}
              (let ((module-name (get-context :module-name ctx2))
-
-)
+                   )
                (case (code/load_binary module-name file-name binary1)
                  ({:module module-name}
                   (compile-form file-name rest ctx2 binary1))))))))))))
@@ -1652,7 +2869,7 @@
        ctx)
       (out-dir
        (let ((module-name (get-context :module-name ctx))
-             (path (re/split module-name "\\."))
+             (path (re/split (erlang/atom_to_list  module-name) "\\."))
              (out-path (filename/join (out-dir . path)))
              (out-file (lists/flatten ((erlang/binary_to_list out-path)  . ".beam"))))
          (do
@@ -1661,7 +2878,7 @@
 
 (defn+ do-compile (file-name options)
   (let ((result
-         (case (proplists/get_value :bootstrap options)
+         (case (proplists/get_value :bootstrap options :false)
            (:true
             (bootstrap-comp file-name options))
            (:false
@@ -1686,4 +2903,3 @@
 
 (defn+ main ()
   (main (init/get_plain_arguments)))
-

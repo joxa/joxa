@@ -5,7 +5,7 @@
 
 given([a,module,that,catches,an,exception], _State, _) ->
     Source = <<"(module jxat-throws-test
-                    (use (erlang :only (throw/1))))
+                    (use (erlang :only (throw/1 raise/3 get_stacktrace/0))))
 
                 (defn internal-test ()
                     (throw {:this :is :a :test}))
@@ -21,13 +21,15 @@ given([a,module,that,catches,an,exception], _State, _) ->
                        (catch (type body)
                          (case {type body}
                           ({:throw {:this :is :not}}
-                                  :got-it)))))">>,
+                                  :got-it)
+                          (_
+                           (erlang/raise type body (erlang/get_stacktrace)))))))">>,
 
     {ok, Source}.
 
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = jxa_compile:comp("", Source),
+    Result = joxa.compiler:forms("", Source, []),
     {ok, Result}.
 
 then([a,beam,binary,is,produced], State = {_, Binary},  _) ->

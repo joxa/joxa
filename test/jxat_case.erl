@@ -36,7 +36,7 @@ given([a,module,that,has,a,'case',statement], _State, _) ->
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = jxa_compile:comp("", Source),
+    Result = joxa.compiler:forms("", Source, []),
     {ok, Result}.
 
 then([a,beam,binary,is,produced], State={_, Binary}, _) ->
