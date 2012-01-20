@@ -17,4 +17,4 @@ erl -pa $BEAM_DIR -noshell -s jxa_compile main -s init stop \
 
 echo Building the compiler with itself
 erl -pa $BEAM_DIR -noshell -s joxa.compiler main -s init stop \
-      -extra  -bootstrap -o ${JXA_OUT} ${SIN_joxa_DIR}/src/joxa/compiler.jxa
+      -extra  --bootstrap -o ${JXA_OUT} ${SIN_joxa_DIR}/src/joxa/compiler.jxa
