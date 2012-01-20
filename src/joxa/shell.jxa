@@ -90,4 +90,6 @@
 
 (defn+ start ()
   (let ((ctx (initialize-context)))
-    (loop ctx)))
+    (do
+      (io/format "Joxa 0.0.1~n~n")
+      (loop ctx))))
