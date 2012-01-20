@@ -22,6 +22,6 @@ then([a,beam,binary,is,produced], State={_Ctx, Binary}, _) ->
 
     {ok, State};
 then([the,joxa,context,for,a,bare,module,is,correctly,formed], State={Ctx, _}, _) ->
-    ?assertMatch('my-module', jxa_ctx:module_name(Ctx)),
+    ?assertMatch('my-module', joxa.compiler:'get-context'('module-name', Ctx)),
     {ok, State}.
 
