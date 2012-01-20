@@ -13,8 +13,8 @@
                  lists unicode sets
                  re ets proplists filename
                  re ec_dictionary ec_lists
-                 filelib file cerl code
-                 compile joxa io)
+                 filelib file cerl code core_pp
+                 compile joxa io io_lib)
         (use (erlang :only (+/2
                             ==/2
                             and/2
@@ -369,12 +369,13 @@
 (defn+ symbol (input index)
   (p input index :symbol
      (p-seq [(p-string ":")
+             ignorable/2
              (p-one-or-more
               (p-and [(p-not (p-charclass <<"[,\\\\{}\t\n\s\r\\(\\)\\[\\]\"]">>))
                       (p-anything)]))])
      (fn (node idx)
          (case node
-           ([_ value]
+           ([_ _ value]
             (let ((result (erlang/list_to_atom
                            (erlang/binary_to_list
                             (erlang/iolist_to_binary value)))))
@@ -891,6 +892,7 @@
     (:requires (erlang/element 12 ctx))
     (:uses (erlang/element 13 ctx))
     (:line (erlang/element 14 ctx))
+    (:options (erlang/element 15 ctx))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ set-context (field value ctx)
@@ -908,6 +910,7 @@
     (:requires (erlang/setelement 12 ctx value))
     (:uses (erlang/setelement 13 ctx value))
     (:line (erlang/setelement 14 ctx value))
+    (:options (erlang/setelement 15 ctx value))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ new-context (key-values)
@@ -929,6 +932,7 @@
                 (ec_dictionary/new :ec_dict) ; require
                 (ec_dictionary/new :ec_dict) ; use
                 :undefined ; line
+                [] ; context
                 } key-values))
 
 (defn+ new-context (annots module-name)
@@ -2731,11 +2735,12 @@
 (defn usage (os-list)
   (getopt/usage os-list "" "[option1 option2 ...] <joxa-file>"
                 '()))
-
 (defn+ option-spec-list ()
-  [{:outdir \o "outdir" {:string "./"} "the directory to output beam files"}
-   {:bootstrap \b "bootstrap" {:boolean :false} "Use the special limited bootstrap compiler"}])
-
+  [{:ast \a "ast" {:boolean :false} "compile to core ast"}
+   {:to-core \c "to-core" {:boolean :false} "compile to core erlang"}
+   {:outdir \o "outdir" {:string "./"} "the directory to output beam files"}
+   {:bootstrap \b "bootstrap" {:boolean :false}
+               "Use the special limited bootstrap compiler"}])
 
 (defn+ comp-forms (path0 ctx0 form)
   (case form
@@ -2744,12 +2749,29 @@
     (_
      (comp-definition path0 ctx0 form))))
 
-(defn erl-comp (cerl-ast)
-  (case (compile/forms cerl-ast [:debug_info :from_core :binary])
-    ({ok _ result}
-     result)
-    (error
-     (erlang/throw error))))
+(defn erl-comp (ctx0 cerl-ast type)
+  (case type
+    (:final
+     (case (lists/member :to_core (get-context :options ctx0))
+       (:true
+        [(core_pp/format cerl-ast) \\n])
+       (:false
+        (case (lists/member :to_ast (get-context :options ctx0))
+          (:true
+           (io_lib/format "~p" [cerl-ast]))
+          (_
+           (case (compile/forms cerl-ast (lists/append (get-context :options ctx0)
+                                                       [:from_core :binary]))
+             ({ok _ result}
+              result)
+             (error
+              (erlang/throw error))))))))
+    (_
+     (case (compile/forms cerl-ast [:debug_info :from_core :binary])
+       ({ok _ result}
+        result)
+       (error
+        (erlang/throw error))))))
 
 (defn get-context-exports (ctx0)
   (lists/map (fn (el)
@@ -2788,7 +2810,7 @@
                       ({_ attr}
                        attr))) all-types))))
 
-(defn+ compile-context (ctx0)
+(defn+ compile-context (ctx0 compile-type)
   (let ((ctx1 (comp-module-info ctx0))
         (annots (get-context :line ctx1))
         (module-name (cerl/ann_c_atom annots
@@ -2797,7 +2819,8 @@
         (attrs (lists/append (get-context :attrs ctx1)
                              (compile-types ctx1)))
         (defs (get-definitions ctx1)))
-    {ctx1 (erl-comp (cerl/ann_c_module annots module-name exports attrs defs))}))
+    {ctx1 (erl-comp ctx0 (cerl/ann_c_module annots module-name exports attrs defs)
+                    compile-type)}))
 
 (defn parse-all (file-name input acc)
   (case (has-more-data-to-parse input)
@@ -2810,6 +2833,19 @@
        ({annots ast0 rest}
         (parse-all file-name rest (ast0 . acc)))))))
 
+(defn convert-options (options acc)
+  (case options
+    (({:to-core :true} . tail)
+     (convert-options tail (:to_core . acc)))
+    (({:ast :true} . tail)
+     (convert-options tail (:to_ast . acc)))
+    (({:debug-info :true} . tail)
+     (convert-options tail (:debug_info . acc)))
+    ([]
+     acc)
+    ((_ . tail)
+     (convert-options tail acc))))
+
 (defn bootstrap-comp (file-name options binary)
   (let ((comp-result
          (case (parse-all file-name binary [])
@@ -2820,10 +2856,11 @@
                                 (let ((ctx1 (comp-forms (traverse-path path)
                                                         ctx0 def)))
                                   {(incr-path path) ctx1}))))
-                         {(new-path) (new-context [{:annots annots}])} ast)))))
+                         {(new-path) (new-context [{:options (convert-options options [])}
+                                                   {:annots annots}])} ast)))))
     (case comp-result
       ({_ ctx2}
-       (compile-context ctx2)))))
+       (compile-context ctx2 :intermediate)))))
 
 (defn+ bootstrap-comp (file-name options)
   (case (file/read_file file-name)
@@ -2835,7 +2872,7 @@
                 (load-result (code/load_binary module-name file-name module-binary)))
             (case load-result
               ({:module module-name}
-               result)
+               (compile-context ctx0 :final))
               (_
                (erlang/throw {:unable-to-load file-name}))))))))
     ({:error reason}
@@ -2844,14 +2881,14 @@
 (defn compile-form (file-name input ctx0 binary)
   (case (has-more-data-to-parse input)
     (:false
-     {ctx0 binary})
+     (compile-context ctx0 :final))
     (:true
      (case (parse file-name input)
        ({annots ast0 (= rest {:parse-output _ path _ _})}
         (let ((ctx1  (comp-forms (traverse-path path)
                                  (set-context :annots annots ctx0)
                                  ast0)))
-          (case (compile-context ctx1)
+          (case (compile-context ctx1 :intermediate)
             ({ctx2 binary1}
              (let ((module-name (get-context :module-name ctx2))
                    )
@@ -2860,9 +2897,21 @@
                   (compile-form file-name rest ctx2 binary1))))))))))))
 
 (defn+ forms (file-name binary options)
-  (compile-form file-name binary (new-context []) <<>>))
+  (compile-form file-name binary
+                (new-context [{:options (convert-options options [])}]) <<>>))
 
-(defn save-beam (options binary ctx)
+(defn get-extension (options)
+  (case (proplists/get_value :ast options)
+    (:false
+     (case (proplists/get_value :to-core options)
+       (:false
+        ".beam")
+       (_
+        ".core")))
+    (_
+     ".ast")))
+
+(defn save-output (options binary ctx)
   (let ((out-dir (proplists/get_value :outdir options :undefined)))
     (case out-dir
       (:undefined
@@ -2871,7 +2920,8 @@
        (let ((module-name (get-context :module-name ctx))
              (path (re/split (erlang/atom_to_list  module-name) "\\."))
              (out-path (filename/join (out-dir . path)))
-             (out-file (lists/flatten ((erlang/binary_to_list out-path)  . ".beam"))))
+             (out-file (lists/flatten ((erlang/binary_to_list out-path)  . (get-extension options))))
+             (_ (io/format "writing ~p~n" [out-file])))
          (do
              (filelib/ensure_dir out-path)
              (file/write_file out-file binary)))))))
@@ -2889,7 +2939,7 @@
                (erlang/throw {:file-access reason file-name})))))))
     (case result
       ({ctx binary}
-       (save-beam options binary ctx)))))
+       (save-output options binary ctx)))))
 
 (defn+ main (args)
   (case
