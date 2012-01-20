@@ -508,11 +508,12 @@ fun_reference(Input, Index) ->
 symbol(Input, Index) ->
     p(Input, Index, symbol,
       p_seq([p_string(":"),
+             fun ignorable/2,
              p_one_or_more(
                p_and([p_not(
                         p_charclass(<<"[,\\\\{}\t\n\s\r\\(\\)\\[\\]\"]">>)),
                       p_anything()]))]),
-      fun([_, Value], Idx) ->
+      fun([_, _,  Value], Idx) ->
               Result =
                   list_to_atom(binary_to_list(iolist_to_binary(Value))),
               {quote, {ident, Result, Idx}, Idx}
