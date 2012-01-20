@@ -1,3 +1,7 @@
 #! /bin/sh
 
-erl -noshell -env ERL_LIBS deps -pa ebin -s joxa.shell start 
+SCRIPTPATH=$(cd $(dirname $(readlink -f $0))/..; pwd)
+JOXAPATH=${JOXAPATH:-$SCRIPTPATH}
+
+erl -noshell -env ERL_LIBS $JOXAPATH/deps -pa $JOXAPATH/ebin \
+    -pa $JOXAPATH/_build/joxa/lib/*/ebin -s joxa.shell start
