@@ -1,5 +1,5 @@
 (module joxa.shell
-        (require io code
+        (require io code lists ec_dictionary
                  joxa.compiler)
         (use (erlang :only (list_to_binary/1 apply/3))))
 
@@ -8,6 +8,19 @@
 (defn read (ctx) 
   (let ((input (io/get_line "joxa> ")))
     (joxa.compiler/parse "shell" (list_to_binary input))))
+
+(defn transform-module-expr-attr (type)
+  (case type
+        (:require :requires)
+        (:use :uses)))
+        
+(defn transform-module-expr (type expr ctx)
+  [:module 
+   (joxa.compiler/get-context :module-name ctx)
+   (type .
+         (lists/concat [(ec_dictionary/to_list (joxa.compiler/get-context (transform-module-expr-attr type) ctx))
+                        expr]))])
+
 
 (defn transform-expr (ast ctx)
   (case ast
@@ -25,6 +38,10 @@
          ast)
         ((:module . _)
          ast)
+        ((:require . requires)
+         (transform-module-expr :require requires ctx))
+        ((:use . uses)
+         (transform-module-expr :use uses ctx))
         (_
         [:defn+ :__joxa_shell__ [] ast])))
 
@@ -54,7 +71,6 @@
                               ctx3})
                           (_
                            {:ok ctx3})))))))))
-
 
 (defn print (data ctx)
      (io/format "~p~n" [data]))
