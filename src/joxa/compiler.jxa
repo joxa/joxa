@@ -2737,7 +2737,7 @@
    {:bootstrap \b "bootstrap" {:boolean :false} "Use the special limited bootstrap compiler"}])
 
 
-(defn comp-forms (path0 ctx0 form)
+(defn+ comp-forms (path0 ctx0 form)
   (case form
     ((:module . _)
      (comp-module path0 ctx0 form))
@@ -2788,7 +2788,7 @@
                       ({_ attr}
                        attr))) all-types))))
 
-(defn compile-context (ctx0)
+(defn+ compile-context (ctx0)
   (let ((ctx1 (comp-module-info ctx0))
         (annots (get-context :line ctx1))
         (module-name (cerl/ann_c_atom annots

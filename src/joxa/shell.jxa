@@ -1,0 +1,95 @@
+(module joxa.shell
+        (require io code lists ec_dictionary
+                 joxa.compiler)
+        (use (erlang :only (list_to_binary/1 apply/3))))
+
+
+
+(defn read (ctx) 
+  (let ((input (io/get_line "joxa> ")))
+    (joxa.compiler/parse "shell" (list_to_binary input))))
+
+(defn transform-module-expr-attr (type)
+  (case type
+        (:require :requires)
+        (:use :uses)))
+        
+(defn transform-module-expr (type expr ctx)
+  [:module 
+   (joxa.compiler/get-context :module-name ctx)
+   (type .
+         (lists/concat [(ec_dictionary/to_list (joxa.compiler/get-context (transform-module-expr-attr type) ctx))
+                        expr]))])
+
+
+(defn transform-expr (ast ctx)
+  (case ast
+        ((:defn+ . _)
+         ast)
+        ((:defn . _)
+         ast)
+        ((:definline . _)
+         ast)
+        ((:deftype . _)
+         ast)
+        ((:deftype+ . _)
+         ast)
+        ((:defspec . _)
+         ast)
+        ((:module . _)
+         ast)
+        ((:require . requires)
+         (transform-module-expr :require requires ctx))
+        ((:use . uses)
+         (transform-module-expr :use uses ctx))
+        (_
+        [:defn+ :__joxa_shell__ [] ast])))
+
+(defn prepare-context (ctx)
+  ctx)
+
+(defn update-context (ctx)
+  (joxa.compiler/add-require-ctx (joxa.compiler/get-context :module-name ctx) ctx))
+
+(defn eval (parse ctx)
+  (case parse
+        ({annots ast (= rest {:parse-output _ path _ _})}
+         
+         (let ((ast1 (transform-expr ast ctx))
+               (ctx1 (joxa.compiler/comp-forms (joxa.compiler/traverse-path path)
+                                               (prepare-context 
+                                                (joxa.compiler/set-context :annots annots ctx))
+                                               ast1)))
+           (case (joxa.compiler/compile-context ctx1)
+                 ({ctx2 binary}
+                  (let ((_
+                         (code/load_binary (joxa.compiler/get-context :module-name ctx2) "shell" binary))
+                        (ctx3 (update-context ctx2)))
+                    (case ast1
+                          ([:defn+ :__joxa_shell__ [] _]
+                             {(erlang/apply (joxa.compiler/get-context :module-name ctx2) :__joxa_shell__ []) ;; result
+                              ctx3})
+                          (_
+                           {:ok ctx3})))))))))
+
+(defn print (data ctx)
+     (io/format "~p~n" [data]))
+
+(defn loop (ctx)
+  (do
+    (let ((r (read ctx))
+          (e (eval r ctx)))
+      (case e
+            ({result ctx1}
+               (do 
+                 (print result ctx1)
+                 (loop ctx1)))))))
+
+(defn initialize-context ()
+  (joxa.compiler/new-context [{:module-name :joxa-shell}]))
+
+(defn+ start ()
+  (let ((ctx (initialize-context)))
+    (do
+      (io/format "Joxa 0.0.1~n~n")
+      (loop ctx))))
