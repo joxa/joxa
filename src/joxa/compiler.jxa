@@ -2755,15 +2755,23 @@
           (:true
            (io_lib/format "~p" [cerl-ast]))
           (_
-           (case (compile/forms cerl-ast (lists/append (get-context :options ctx0)
-                                                       [:from_core :binary]))
-             ({ok _ result}
+           (case (compile/forms cerl-ast
+                                (lists/append (get-context :options ctx0)
+                                              [:from_core
+                                               :binary
+                                               :return_errors
+                                               :return_warnings]))
+             ({ok [] result []}
               result)
              (error
               (erlang/throw error))))))))
     (_
-     (case (compile/forms cerl-ast [:debug_info :from_core :binary])
-       ({ok _ result}
+     (case (compile/forms cerl-ast [:debug_info
+                                    :from_core
+                                    :return_errors
+                                    :return_warnings
+                                    :binary])
+       ({ok [] result []}
         result)
        (error
         (erlang/throw error))))))

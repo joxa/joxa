@@ -11,9 +11,6 @@ given([a,module,that,has,a,'case',statement], _State, _) ->
                       (case {arg1 arg2}
                          ({:foo :bar}
                            (phash2 :bar))
-                         ((= four (= three :z))
-                            (when (erlang/is_atom three))
-                           (phash2 four))
                          (_z
                             :ok)))
                 (defn internal-test2 (arg1 arg2 arg3)

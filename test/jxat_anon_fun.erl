@@ -18,7 +18,7 @@ given([a,module,that,has,an,anonymous,function], _State, _) ->
                                 {:hello arg1 arg2})
                             a erlang/phash2/1
                             y (x 1 2))
-                           (do (== y (x 1 2))
+                           (do
                                 (apply internal-test/0)
                                 (apply x 1 2)
                                 (apply a 22)
