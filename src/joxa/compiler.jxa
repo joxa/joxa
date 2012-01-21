@@ -1915,15 +1915,15 @@
              (ctx1 (add-reference-to-scope-ctx var arity
                                                (push-scope-ctx ctx0)))
              (cerl-var (cerl/ann_c_fname annots var arity)))
-         (case (comp-expr (traverse-incr-path binding-path1) ctx1 expr)
+         (case (comp-expr (traverse-incr-path binding-path0) ctx1 expr)
            ({ctx3 cerl-expr}
-            (case (continuation body-path0 binding-path0 ctx3)
+            (case (continuation body-path0 (incr-path binding-path0) ctx3)
               ({ctx4 cerl-body}
                {(pop-scope-ctx ctx4) (cerl/ann_c_letrec annots
                                                         [{cerl-var cerl-expr}]
                                                         cerl-body)}))))))
       (_
-       (case (comp-expr (traverse-incr-path (traverse-path binding-path0))
+       (case (comp-expr (traverse-incr-path binding-path0)
                         ctx0
                         expr)
          ({ctx1 cerl-expr}
@@ -1931,7 +1931,7 @@
                        var
                        (get-expr-arity cerl-expr)
                        (push-scope-ctx ctx1))))
-            (case (continuation body-path0 binding-path0 ctx2)
+            (case (continuation  body-path0 (incr-path binding-path0) ctx2)
               ({ctx4 cerl-body}
                {(pop-scope-ctx ctx4) (cerl/ann_c_let annots
                                                      [ (cerl/ann_c_var annots var)]
@@ -1940,11 +1940,11 @@
 
 (defn make-let-bindings (body-path0 binding-path0 ctx0 bindings body)
   (case bindings
-    ([[var expr]]
+    ([var expr]
      (make-let-binding body-path0 binding-path0 ctx0 var expr
                        (fn (body-path1 binding-path1 ctx1)
                            (make-do body-path1  ctx1 body))))
-    (([var expr] . rest)
+    ((var . (expr . rest))
      (make-let-binding body-path0 binding-path0 ctx0 var expr
                        (fn (body-path1 binding-path1 ctx1)
                            (make-let-bindings body-path1
