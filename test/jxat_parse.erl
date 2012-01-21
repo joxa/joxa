@@ -23,11 +23,11 @@ test1_test() ->
                         {:hello arg1 arg2}))
 
                 (defn+ do-test ()
-                      (let ((z (internal-test))
-                            (x (fn (arg1 arg2)
-                                {:hello arg1 arg2}))
-                            (a erlang/phash2/1)
-                            (y (x 1 2)))
+                      (let (z (internal-test)
+                            x (fn (arg1 arg2)
+                                {:hello arg1 arg2})
+                            a erlang/phash2/1
+                            y (x 1 2))
                            (do (== y (x 1 2))
                                (apply internal-test/0)
                                 (apply x 1 2)

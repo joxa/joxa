@@ -13,13 +13,13 @@ given([a,module,that,has,a,function,that,contains,'\'let\''], _State, _) ->
                       [1 2 3 4 5 6 7 8])
 
                 (defn+ do-test ()
-                      (let ((foo 1)
-                            (z (erlang/phash2 22))
-                            (a 1)
-                            (a1 (internal-test))
-                            (bar [1 2 3 4 5]) ; This is a comment test
-                            (baz \"Hello World\")
-                            (bad-boy 'super-dooper))
+                      (let (foo 1
+                            z (erlang/phash2 22)
+                            a 1
+                            a1 (internal-test)
+                            bar [1 2 3 4 5] ; This is a comment test
+                            baz \"Hello World\"
+                            bad-boy 'super-dooper)
                            (do
                               ; as is this
                               (print \"~i ~p ~s ~p ~p~n\"

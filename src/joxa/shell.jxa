@@ -6,7 +6,7 @@
 
 
 (defn read (ctx)
-  (let ((input (io/get_line "joxa> ")))
+  (let (input (io/get_line "joxa> "))
     (joxa.compiler/parse "shell" (list_to_binary input))))
 
 (defn transform-module-expr-attr (type)
@@ -55,16 +55,16 @@
   (case parse
         ({annots ast (= rest {:parse-output _ path _ _})}
 
-         (let ((ast1 (transform-expr ast ctx))
-               (ctx1 (joxa.compiler/comp-forms (joxa.compiler/traverse-path path)
+         (let (ast1 (transform-expr ast ctx)
+               ctx1 (joxa.compiler/comp-forms (joxa.compiler/traverse-path path)
                                                (prepare-context
                                                 (joxa.compiler/set-context :annots annots ctx))
-                                               ast1)))
+                                               ast1))
            (case (joxa.compiler/compile-context ctx1 :intermediate)
                  ({ctx2 binary}
-                  (let ((_
-                         (code/load_binary (joxa.compiler/get-context :module-name ctx2) "shell" binary))
-                        (ctx3 (update-context ctx2)))
+                  (let (_
+                         (code/load_binary (joxa.compiler/get-context :module-name ctx2) "shell" binary)
+                        ctx3 (update-context ctx2))
                     (case ast1
                           ([:defn+ :__joxa_shell__ [] _]
                              {(erlang/apply (joxa.compiler/get-context :module-name ctx2) :__joxa_shell__ []) ;; result
@@ -77,8 +77,8 @@
 
 (defn loop (ctx)
   (do
-    (let ((r (read ctx))
-          (e (eval r ctx)))
+    (let (r (read ctx)
+          e (eval r ctx))
       (case e
             ({result ctx1}
                (do
@@ -89,7 +89,7 @@
   (joxa.compiler/new-context [{:module-name :joxa-shell}]))
 
 (defn+ start ()
-  (let ((ctx (initialize-context)))
+  (let (ctx (initialize-context))
     (do
       (io/format "Joxa 0.0.1~n~n")
       (loop ctx))))

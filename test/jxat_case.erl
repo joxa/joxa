@@ -29,8 +29,8 @@ given([a,module,that,has,a,'case',statement], _State, _) ->
                            (phash2 :bar))))
 
                 (defn+ do-test (arg1 arg2 arg3)
-                      (let ((z (internal-test arg1 arg2))
-                            (x (internal-test2 arg1 arg2 arg3)))
+                      (let (z (internal-test arg1 arg2)
+                            x (internal-test2 arg1 arg2 arg3))
                            {z x}))">>,
 
     {ok, Source}.

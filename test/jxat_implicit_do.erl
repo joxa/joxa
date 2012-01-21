@@ -8,7 +8,7 @@ given([a,module,that,has,an,anonymous,function], _State, _) ->
                        (require io))
 
                 (defn t1 ()
-                      (let ((a 1))
+                      (let (a 1)
                          (io/format \"~p\" [a])
                          :booha))
 
