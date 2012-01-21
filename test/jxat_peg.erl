@@ -452,7 +452,7 @@ ident_test() ->
                        joxa.compiler:ident(<<"Hello?">>, index()))),
     ?memo(?assertMatch({{ident, 'boo88', {1, _}}, <<>>, _},
                        joxa.compiler:ident(<<"boo88">>, index()))),
-    ?memo(?assertMatch({{ident, 'bock', {1, _}}, <<":">>, _},
+    ?memo(?assertMatch({{ident, 'bock:', {1, _}}, <<>>, _},
                        joxa.compiler:ident(<<"bock:">>, index()))),
     ?memo(?assertMatch({{ident, 'bock', {1, _}}, <<"{">>, _},
                        joxa.compiler:ident(<<"bock{">>, index()))),
@@ -462,7 +462,7 @@ ident_test() ->
                        joxa.compiler:ident(<<"bock(ee">>, index()))).
 
 symbol_test() ->
-    ?memo(?assertMatch({{quote,{ident,true,{1,2}},{1,1}},<<>>,{1,6}},
+    ?memo(?assertMatch({{quote,{ident,true,{1,1}},{1,1}},<<>>,{1,6}},
                        joxa.compiler:symbol(<<":true">>, index()))),
     ?memo(?assertMatch({{quote,{ident,false,{1,2}},{1,1}},<<>>,{1,7}},
                        joxa.compiler:symbol(<<":false">>, index()))),
@@ -507,8 +507,7 @@ fun_reference_test() ->
                                                      index()))),
     ?memo(?assertMatch({fail,{expected,{string,<<"/">>},{1,7}}},
                        joxa.compiler:'fun-reference'(<<"zoo_ma">>, index()))),
-    ?memo(?assertMatch({fail,{expected,{'at-least-one',
-                                        {'no-match',<<"/">>}},{1,1}}},
+    ?memo(?assertMatch({fail,{expected,{'no-match',<<"/">>},{1,1}}},
                        joxa.compiler:'fun-reference'(<<"/2">>, index()))).
 
 
@@ -732,7 +731,7 @@ value_test() ->
                        joxa.compiler:value(<<"Hello?">>, index()))),
     ?memo(?assertMatch({{ident, 'boo88', {1, _}}, <<>>, _},
                        joxa.compiler:value(<<"boo88">>, index()))),
-    ?memo(?assertMatch({{ident, 'bock', {1, _}}, <<":">>, _},
+    ?memo(?assertMatch({{ident, 'bock:', {1, _}}, <<>>, _},
                        joxa.compiler:value(<<"bock:">>, index()))),
     ?memo(?assertMatch({{ident, 'bock', {1, _}}, <<"{">>, _},
                        joxa.compiler:value(<<"bock{">>, index()))),
