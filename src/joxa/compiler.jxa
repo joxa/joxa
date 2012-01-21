@@ -246,9 +246,8 @@
                     ({match inp-rem new-index}
                      {(transform-fun match start-index)
                       inp-rem new-index})))
-       (do
-           (memoize start-index name result)
-           result)))))
+       (memoize start-index name result)
+       result))))
 
 (defn+ p (inp start-index name parse-fun)
   (p inp start-index name parse-fun (fn (n idx) n)))
@@ -798,12 +797,10 @@
 
 ;; These are mostly exponsed for testing purposes
 (defn+ intermediate-parse (input index)
-  (do
-      (setup-memo)
-      (let (result (value input index))
-        (do
-            (release-memo)
-            result))))
+  (setup-memo)
+  (let (result (value input index))
+    (release-memo)
+    result))
 
 (defn+ intermediate-parse (input)
   (intermediate-parse input {1,1}))
@@ -2918,9 +2915,8 @@
                          path (re/split (erlang/atom_to_list  module-name) "\\.")
                          out-path (filename/join (out-dir . path))
                          out-file (lists/flatten ((erlang/binary_to_list out-path)  . (get-extension options))))
-         (do
-             (filelib/ensure_dir out-path)
-             (file/write_file out-file binary)))))))
+         (filelib/ensure_dir out-path)
+         (file/write_file out-file binary))))))
 
 (defn+ do-compile (file-name options)
   (let (result
@@ -2943,9 +2939,8 @@
     ({:ok {options [target]}}
      (do-compile target options))
     (_
-     (do
-         (usage (option-spec-list))
-         :did-not-get-it))))
+     (usage (option-spec-list))
+     :did-not-get-it)))
 
 (defn+ main ()
   (main (init/get_plain_arguments)))
