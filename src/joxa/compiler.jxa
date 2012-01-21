@@ -1943,7 +1943,7 @@
     ([[var expr]]
      (make-let-binding body-path0 binding-path0 ctx0 var expr
                        (fn (body-path1 binding-path1 ctx1)
-                           (comp-expr (traverse-path body-path1)  ctx1 body))))
+                           (make-do body-path1  ctx1 body))))
     (([var expr] . rest)
      (make-let-binding body-path0 binding-path0 ctx0 var expr
                        (fn (body-path1 binding-path1 ctx1)
@@ -1958,7 +1958,7 @@
 (defn make-let (path0 ctx0 form)
   (let ((path1 (traverse-incr-path path0)))
     (case form
-      ([:let bindings body]
+      ((:let . (bindings . body))
        (make-let-bindings (incr-path 2 path0) path1 ctx0 bindings body))
       (_
        (erlang/throw {:invalid-form (idx-from-context [] path0 ctx0)})))))
@@ -2229,7 +2229,7 @@
   (let ((ctx1 (push-scope-ctx ctx0))
         (annots (annots-from-context [] path0 ctx0)))
     (case form
-      ([pattern [:when guards] body]
+      ((pattern . ([:when guards] . body))
        (case (make-pattern-element (traverse-path path0) ctx1 [] pattern)
          ({ctx2 pattern-guards cerl-pattern}
           (let ((guard-annots (annots-from-context []
@@ -2237,7 +2237,7 @@
                 (guard-idx (idx-from-context [] (traverse-incr-path path0) ctx2)))
             (case (comp-expr (traverse-incr-path (traverse-incr-path path0)) ctx2 guards)
               ({ctx3 cerl-guard}
-               (case (comp-expr (traverse-incr-path 2 path0) ctx3 body)
+               (case (make-do (incr-path 2 path0) ctx3 body)
                  ({ctx4 cerl-body}
                   {(pop-scope-ctx ctx4)
                    (cerl/ann_c_clause annots
@@ -2246,10 +2246,10 @@
                                                     (make-guards guard-annots
                                                                  (cerl-guard . pattern-guards)))
                                       cerl-body)}))))))))
-      ([pattern body]
+      ((pattern . body)
        (case (make-pattern-element (traverse-path path0) ctx1 [] pattern)
          ({ctx2 pattern-guards cerl-pattern}
-          (case (comp-expr (traverse-incr-path path0) ctx2 body)
+          (case (make-do (incr-path path0) ctx2 body)
             ({ctx3 cerl-body}
              {(pop-scope-ctx ctx3)
               (cerl/ann_c_clause annots
@@ -2303,7 +2303,7 @@
     ({_ ctx2 args1}
      {ctx2 (lists/reverse args1)})))
 
-(defn do-function-body (path0 ctx0 args0 expression)
+(defn do-function-body (path0 ctx0 args0 expressions)
   (case (lists/foldl (fn (el, acc0)
                          (let ((arg (case el
                                       ([_ arg]
@@ -2318,9 +2318,9 @@
     ({ctx2 args1}
      (case (gen-args (traverse-path path0) ctx2 (lists/reverse args1))
        ({ctx3 arg-list}
-        (case (comp-expr (traverse-incr-path path0) ctx3 expression)
-          ({ctx4 body}
-           {(pop-scope-ctx ctx4) arg-list body})))))))
+            (case (make-do (incr-path path0) ctx3 expressions)
+              ({ctx4 body}
+               {(pop-scope-ctx ctx4) arg-list body})))))))
 
 (defn comp-expr (path0 ctx0 form)
   (let ((annots (annots-from-context [] path0 ctx0)))
@@ -2374,7 +2374,7 @@
        (make-try path0 ctx0 form))
       ((:fn . fn-body)
        (case fn-body
-         ([args expression]
+         ((args . expression)
           (case (do-function-body (incr-path path0) ctx0 args expression)
             ({ctx1 arg-list body}
              {ctx1 (cerl/ann_c_fun annots arg-list body)})
@@ -2618,9 +2618,7 @@
      (let ((idx (idx-from-context [] path0 ctx0)))
        (erlang/throw {:invalid-type-definition idx})))))
 
-(defn comp-function1 (path0 ctx0 form)
-  (case form
-    ([return-type name args expression]
+(defn comp-function1 (path0 ctx0 return-type name args expressions)
      (let ((spec-args (lists/map (fn (arg)
                                      (case arg
                                        ([spec-arg _]
@@ -2628,20 +2626,20 @@
                                        (_
                                         (default-type)))) args))
            (ctx1 (comp-implicit-spec path0 ctx0 name spec-args return-type)))
-       (case (do-function-body (incr-path path0) ctx1 args expression)
+       (case (do-function-body (incr-path path0) ctx1 args expressions)
          ({ctx2 arg-list body}
-          {ctx2 name arg-list body}))))))
+          {ctx2 name arg-list body}))))
 
 (defn comp-function (path0 ctx0 form)
   (case form
-    ((= body  [name args _])
+    ((return-type . (name . (args . expressions)))
+     (when (erlang/and (erlang/is_atom name)
+                       (erlang/is_list args)))
+     (comp-function1 (incr-path path0) ctx0 return-type name args expressions))
+    ((name . (args . expressions))
      (when (and (erlang/is_list args)
                 (erlang/is_atom name)))
-     (comp-function1 path0 ctx0 ((default-type) . body)))
-    ((= body [_ name args _])
-     (when (and (erlang/is_list args)
-                (erlang/is_atom name)))
-     (comp-function1 (incr-path path0) ctx0 body))
+     (comp-function1 path0 ctx0 (default-type) name args expressions))
     (_
      (erlang/throw {:invalid-definition (idx-from-context [] path0 ctx0)}))))
 
@@ -2920,8 +2918,7 @@
        (let ((module-name (get-context :module-name ctx))
              (path (re/split (erlang/atom_to_list  module-name) "\\."))
              (out-path (filename/join (out-dir . path)))
-             (out-file (lists/flatten ((erlang/binary_to_list out-path)  . (get-extension options))))
-             (_ (io/format "writing ~p~n" [out-file])))
+             (out-file (lists/flatten ((erlang/binary_to_list out-path)  . (get-extension options)))))
          (do
              (filelib/ensure_dir out-path)
              (file/write_file out-file binary)))))))
