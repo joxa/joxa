@@ -1,4 +1,4 @@
-Feature: Joxa should support contains anonymous functions
+Feature: Joxa should support anonymous functions
   In order to allow a developer to do functional composition
   As an Joxa Developer
   I want to Joxa to be able to compile anonymous functions
