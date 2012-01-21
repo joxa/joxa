@@ -2,7 +2,7 @@
 %% application.
 {application, joxa,
   [{description, "Your Desc HERE"},
-   {vsn, "0.0.1"},
+   {vsn, "0.0.1a"},
    {modules, [joxa_app,
               joxa_sup]},
    {registered,[joxa_sup]},

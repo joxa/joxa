@@ -4,19 +4,4 @@ set -u
 set -o pipefail
 set -e
 
-BEAM_DIR=${SIN_joxa_DIR}/ebin
-JXA_OUT=$BEAM_DIR
-SRC_DIR=${SIN_joxa_DIR}/src
-
-if [ ! -d "${JXA_OUT}/joxa" ]; then
-    mkdir -p ${JXA_OUT}/joxa
-fi
-
-echo Building ${SIN_joxa_DIR}/src/joxa/compiler.jxa to ${JXA_OUT}
-
-erl -pa $BEAM_DIR -noshell -s jxa_bootstrap do_bootstrap \
-            "${JXA_OUT}/joxa/compiler.beam" -s init stop
-
-echo Building the compiler with itself
-erl -pa $BEAM_DIR -noshell -s joxa.compiler main -s init stop \
-      -extra  --bootstrap -o ${JXA_OUT} ${SIN_joxa_DIR}/src/joxa/compiler.jxa
+make -f Makefile.bootstrap

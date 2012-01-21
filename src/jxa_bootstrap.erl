@@ -2,11 +2,11 @@
 
 -export([do_bootstrap/1]).
 
-do_bootstrap(Output) ->
-    io:format("writing beam ~p~n", Output),
+do_bootstrap([Output, Name]) ->
+    io:format("writing beam ~p~n", [Output]),
     AST = {c_module,
            [11,{file,"./src/joxa/compiler.jxa"}],
-           {c_literal,[11,{file,"./src/joxa/compiler.jxa"}],'joxa.compiler'},
+           {c_literal,[11,{file,"./src/joxa/compiler.jxa"}], Name},
            [{c_var,[46,{file,"./src/joxa/compiler.jxa"}],{column,1}},
             {c_var,[131,{file,"./src/joxa/compiler.jxa"}],{'p-attempt',4}},
             {c_var,[2929,{file,"./src/joxa/compiler.jxa"}],{'do-compile',2}},
@@ -13733,7 +13733,7 @@ do_bootstrap(Output) ->
               {c_call,[],
                {c_literal,[],erlang},
                {c_literal,[],get_module_info},
-               [{c_literal,[],'joxa.compiler'}]}}},
+               [{c_literal,[],Name}]}}},
             {{c_var,[1967,{file,"./src/joxa/compiler.jxa"}],{'valid-guard',3}},
              {c_fun,
               [1967,{file,"./src/joxa/compiler.jxa"}],
@@ -14214,7 +14214,7 @@ do_bootstrap(Output) ->
                  [236,{file,"./src/joxa/compiler.jxa"}],
                  {c_literal,[236,{file,"./src/joxa/compiler.jxa"}],ets},
                  {c_literal,[236,{file,"./src/joxa/compiler.jxa"}],new},
-                 [{c_literal,[236,{file,"./src/joxa/compiler.jxa"}],'joxa.compiler'},
+                 [{c_literal,[236,{file,"./src/joxa/compiler.jxa"}],Name},
                   {c_literal,[236,{file,"./src/joxa/compiler.jxa"}],[set]}]}]}}},
             {{c_var,[2566,{file,"./src/joxa/compiler.jxa"}],{'comp-implicit-spec',5}},
              {c_fun,

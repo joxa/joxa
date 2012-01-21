@@ -1,0 +1,31 @@
+VSN=$(SIN_joxa_VSN)
+ERL=/usr/local/bin/erl
+APPDIR=$(abspath $(SIN_BUILD_DIR)/lib/joxa-$(VSN))
+SRCDIR=./src
+BEAMDIR=$(APPDIR)/ebin
+
+ERLFLAGS=-noshell -env ERL_LIBS ./deps -pa ./ebin \
+    	-pa ./_build/joxa/lib/*/ebin 
+
+BEAMS=$(BEAMDIR)/joxa/compiler.beam $(BEAMDIR)/joxa/shell.beam
+
+.SUFFIXES:
+.SUFFIXES:.jxa
+.PHONY:all bootstrap force
+
+all: bootstrap $(BEAMS)
+
+
+$(BEAMDIR)/joxa:
+	mkdir -p $(BEAMDIR)/joxa
+
+$(BEAMDIR)/bootstrap_compiler.beam: $(BEAMDIR)/joxa $(SRCDIR)/jxa_bootstrap.erl
+	$(ERL) $(ERLFLAGS) -s jxa_bootstrap do_bootstrap \
+	${BEAMDIR}/joxa/bootstrap_compiler.beam joxa.bootstrap_compiler -s init stop
+
+$(BEAMDIR)/joxa/compiler.beam:$(SRCDIR)/joxa/compiler.jxa $(BEAMDIR)/bootstrap_compiler.beam
+	$(ERL) $(ERLFLAGS) -s joxa.bootstrap_compiler main \
+	-s init stop -extra --bootstrap -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa 
+
+$(BEAMDIR)/joxa/%.beam: $(SRCDIR)/joxa/%.jxa
+	./bin/joxac -o $(BEAMDIR) $?
