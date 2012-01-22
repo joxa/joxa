@@ -515,7 +515,7 @@
 (defn+ binary (input index)
   (let (binary-contents (p-choose [integer/2
                                    char/2
-                                   symbol/2
+                                   ident/2
                                    list/2]))
     (p input index :binary
        (p-choose [(p-seq [(p-string "<<")
