@@ -27,7 +27,10 @@ given([a,module,that,has,a,binary,representatino], _State, _) ->
                 (defn+ do-test3 ()
                       (case (internal-test2)
                         (<<(d :size 16) e (f :binary)>>
-                           {d e f})))">>,
+                           {d e f})))
+
+               (defn+ do-test4 ()
+                   <<\"This is a test\">>)">>,
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
@@ -41,12 +44,14 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch([{'do-test1',0},
                   {'do-test2',0},
                   {'do-test3',0},
+                  {'do-test4',0},
                   {module_info,0},
                   {module_info,1}],
                  lists:sort('jxat-binary-test':module_info(exports))),
     ?assertMatch({97,98,99}, 'jxat-binary-test':'do-test1'()),
     ?assertMatch({1,17,42}, 'jxat-binary-test':'do-test2'()),
     ?assertMatch({273,0,<<"*">>}, 'jxat-binary-test':'do-test3'()),
+    ?assertMatch(<<"This is a test">>, 'jxat-binary-test':'do-test4'()),
 
     {ok, State}.
 

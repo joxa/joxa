@@ -782,6 +782,12 @@
                        :list idx
                        annotations1)
            (lists/reverse transform-list)}))))
+    ({:string result idx}
+     {(add-annots (path? path0) :string idx
+                  (add-annots (traverse-and-get-path path0)
+                              :ident idx
+                              annotations))
+           [:string, result]})
     ({type (= val {_ _ _}) idx}
      (let (result (transform-ast (traverse-incr-path path0)
                                  annotations val))
@@ -1154,9 +1160,6 @@
 (defn annots-from-context (actions path0 ctx)
   (thing-from-context actions path0 ctx get-line-annots/2))
 
-(defn type-from-context (actions path0 ctx)
-  (thing-from-context actions path0 ctx get-type-annots/2))
-
 
 ;; Module Compilation
 ;; ------------------
@@ -1481,20 +1484,19 @@
   (let (path1 (traverse-path path0))
     (case forms
       ((:module . (module-name . rest))
-       (case (type-from-context [] path1 ctx0)
-         (:ident
-          (let (annots (annots-from-context [] path0 ctx0)
-                       result (lists/foldl
-                               (fn (form acc)
-                                   (case acc
-                                     ({path2 ctx1}
-                                      (let (ctx2 (comp-module-body (traverse-path path2) ctx1 form))
-                                        {(incr-path path2) ctx2}))))
-                               {(incr-path 2 path0) (set-context :module-name module-name
-                                                                 (set-context :line annots ctx0))} rest))
-            (case result
-              ({_ ctx3}
-               ctx3))))))
+       (let (annots (annots-from-context [] path0 ctx0)
+                    result (lists/foldl
+                            (fn (form acc)
+                                (case acc
+                                  ({path2 ctx1}
+                                   (let (ctx2 (comp-module-body (traverse-path path2) ctx1 form))
+                                     {(incr-path path2) ctx2}))))
+                            {(incr-path 2 path0) (set-context :module-name module-name
+                                                              (set-context :line annots ctx0))} rest))
+         (case result
+           ({_ ctx3}
+            ctx3)))
+       )
       (_
        (let (idx (idx-from-context [] path1 ctx0))
          (erlang/throw {:invalid-module-declaration idx}))))))
@@ -1657,13 +1659,7 @@
              {ctx2 (cerl/ann_c_cons annots cerl-h cerl-t)}))))))))
 
 (defn make-call (path0 ctx0 val args)
-
   (let (annots (annots-from-context [] path0 ctx0))
-
-    (case (type-from-context [] path0 ctx0)
-      (:string
-       {ctx0 (cerl/ann_c_string annots (val . args))})
-      (:list
        (let (possible-arity (erlang/length args)
                             path1 (traverse-path path0)
                             call-annots (annots-from-context [] path1 ctx0))
@@ -1702,17 +1698,17 @@
                                           arg-list)})
                  (_
                   (erlang/throw {:invalid-reference val possible-arity
-                                                    (idx-from-context [] path0 ctx1)}))))))))))))
+                                                    (idx-from-context [] path0 ctx1)}))))))))))
 
 (defn+ gensym ()
- (let (x (erlang/phash2 {(erlang/node) (erlang/now ) (crypto/rand_bytes 16)})
-       bit-rep (lists/map (fn (el)
-                              (io_lib/format "~.16B" [el]))
-                          (erlang/binary_to_list
-                           (binary/encode_unsigned x))))
-       (erlang/list_to_atom
-        (lists/flatten
-         (io_lib/format "GENSYM_~s" [bit-rep])))))
+  (let (x (erlang/phash2 {(erlang/node) (erlang/now ) (crypto/rand_bytes 16)})
+          bit-rep (lists/map (fn (el)
+                                 (io_lib/format "~.16B" [el]))
+                             (erlang/binary_to_list
+                              (binary/encode_unsigned x))))
+    (erlang/list_to_atom
+     (lists/flatten
+      (io_lib/format "GENSYM_~s" [bit-rep])))))
 
 (defn make-try (path0 ctx0 form)
   (let (annots (annots-from-context [] path0 ctx0))
@@ -2183,6 +2179,9 @@
             ({ctx2 guards2 cerl-t}
              {ctx2 guards2 (cerl/ann_c_cons annots cerl-h cerl-t)}))))))))
 
+(defn make-literal-string (_path0 annots _ctx0 string)
+  (cerl/ann_c_string annots string))
+
 (defn make-pattern-element (path0 ctx0 guards0 arg0)
   (let (annots (annots-from-context [] path0 ctx0))
     (case arg0
@@ -2210,6 +2209,9 @@
                            ctx0 guards0 alias pattern))
       ([:quote args]
        (let (literal (make-literal (traverse-incr-path path0) ctx0 args))
+         {ctx0 guards0 literal}))
+      ([:string str0]
+       (let (literal (make-literal-string (traverse-incr-path path0) annots ctx0 str0))
          {ctx0 guards0 literal}))
       ((:binary . pairs)
        (make-binary-pattern path0 ctx0 guards0 pairs))
@@ -2375,6 +2377,9 @@
       ([:quote args]
        (let (literal (make-literal (traverse-incr-path path0) ctx0 args))
          {ctx0 literal}))
+      ([:string args]
+       (let (literal (make-literal-string (traverse-incr-path path0) annots ctx0 args))
+         {ctx0 literal}))
       ((:list . args)
        (make-list (incr-path path0) ctx0 args))
       ((:tuple . args)
@@ -2392,11 +2397,7 @@
       ((val . args)
        (make-call path0 ctx0 val args))
       (_
-       (case (type-from-context [] path0 ctx0)
-         (:string
-          {ctx0 (cerl/ann_c_string annots form)})
-         (_
-          (erlang/throw {:invalid-fn-form (idx-from-context [] path0 ctx0)})))))))
+       (erlang/throw {:invalid-fn-form (idx-from-context [] path0 ctx0)})))))
 
 (defspec comp-spec-expr ((path) (context) (erlang/term))
   {(context) (erlang/term)})
@@ -2679,8 +2680,6 @@
          (erlang/throw {:invalid-definition idx}))))))
 
 
-;; TMP COMPILATION
-
 (defn make-literal-list (path0 annots ctx0 list)
   (case list
     ([] (cerl/c_nil))
@@ -2688,9 +2687,6 @@
      (cerl/ann_c_cons annots
                       (make-literal (traverse-path path0) ctx0 h)
                       (make-literal-list (incr-path path0) annots ctx0 t)))))
-
-(defn make-literal-string (_path0 annots _ctx0 string)
-  (cerl/ann_c_string annots string))
 
 (defn make-literal-tuple (path0 annots ctx0 elements0)
   (let (result (lists/foldl (fn (element acc)
@@ -2704,39 +2700,29 @@
       ({_ elements1}
        (cerl/ann_c_tuple annots elements1)))))
 
-(defn make-literal (path0 ctx0 arg)
+(defn make-literal (path0 ctx0 arg0)
   (let (annots  (annots-from-context [] path0 ctx0))
-    (case arg
-      (arg
-       (when (erlang/is_binary arg))
-       (cerl/ann_make_data annots {:atomic arg} []))
-      (arg
-       (when (erlang/is_atom arg))
-       (cerl/ann_c_atom annots arg))
-      (arg
-       (when (erlang/is_tuple arg))
-       (make-literal-tuple path0 annots ctx0 arg))
-      (arg
-       (when (erlang/is_integer arg))
-       (case (type-from-context [] path0 ctx0)
-         (:integer
-          (cerl/ann_c_int annots arg))
-         (:char
-          (cerl/ann_c_char annots arg))))
-      (arg
-       (when (erlang/is_float arg))
-       (cerl/ann_c_float annots arg))
-      (arg
-       (when (erlang/is_list arg))
-       (let (type (type-from-context [] path0 ctx0))
-         (case type
-           (:list
-            (make-literal-list path0 annots ctx0 arg))
-           (:string
-            (make-literal-string path0 annots ctx0 arg))
-           (_
-            (let (idx (idx-from-context [] path0 ctx0))
-              (erlang/throw {:invalid-literal idx})))))))))
+    (case arg0
+      (arg1
+       (when (erlang/is_binary arg1))
+       (cerl/ann_make_data annots {:atomic arg1} []))
+      (arg1
+       (when (erlang/is_atom arg1))
+       (cerl/ann_c_atom annots arg1))
+      (arg1
+       (when (erlang/is_tuple arg1))
+       (make-literal-tuple path0 annots ctx0 arg1))
+      (arg1
+       (when (erlang/is_integer arg1))
+       (cerl/ann_c_int annots arg1))
+      (arg1
+       (when (erlang/is_float arg1))
+       (cerl/ann_c_float annots arg1))
+      ([:string str1]
+       (make-literal-string (traverse-incr-path path0) annots ctx0 str1))
+      (arg1
+       (when (erlang/is_list arg1))
+       (make-literal-list path0 annots ctx0 arg1)))))
 
 ;; Compilation Infrastructure
 (defn usage (os-list)
@@ -2809,7 +2795,7 @@
                                               [module-name])
                     ctx1 (add-exported-def-ctx [:compiler_generated] :module_info []
                                                argless-body ctx0)
-                    detail-var (joxa.core/gensym)
+                    detail-var (gensym)
                     var-name (cerl/c_var detail-var)
                     arg-body (cerl/c_call (cerl/c_atom :erlang)
                                           (cerl/c_atom :get_module_info)
