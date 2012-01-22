@@ -1,0 +1,16 @@
+%% THIS IS A GENERATED FILE, DO NOT EDIT DIRECTLY
+-module(jxa_bootstrap).
+
+-export([do_bootstrap/1]).
+
+do_bootstrap([Output, Name]) ->
+    io:format("writing beam ~p~n", [Output]),
+    AST =
+    <<<<REPLACE-THIS-WITH-AST>>>>
+       ,
+    case compile:forms(AST, [binary, from_core, return_errors, debug_info]) of
+        {ok , _, Result} ->
+            ok = file:write_file(Output, Result);
+        Error ->
+            erlang:throw(Error)
+    end.
