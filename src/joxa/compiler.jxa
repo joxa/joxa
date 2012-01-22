@@ -12,9 +12,10 @@
         (require init getopt file
                  lists unicode sets
                  re ets proplists filename
-                 re ec_dictionary ec_lists
+                 ec_dictionary ec_lists
                  filelib file cerl code core_pp
-                 compile joxa io io_lib)
+                 compile io io_lib
+                 crypto binary)
         (use (erlang :only (+/2
                             ==/2
                             and/2
@@ -1703,6 +1704,16 @@
                   (erlang/throw {:invalid-reference val possible-arity
                                                     (idx-from-context [] path0 ctx1)}))))))))))))
 
+(defn+ gensym ()
+ (let (x (erlang/phash2 {(erlang/node) (erlang/now ) (crypto/rand_bytes 16)})
+       bit-rep (lists/map (fn (el)
+                              (io_lib/format "~.16B" [el]))
+                          (erlang/binary_to_list
+                           (binary/encode_unsigned x))))
+       (erlang/list_to_atom
+        (lists/flatten
+         (io_lib/format "GENSYM_~s" [bit-rep])))))
+
 (defn make-try (path0 ctx0 form)
   (let (annots (annots-from-context [] path0 ctx0))
     (case form
@@ -1711,10 +1722,10 @@
                          (erlang/is_atom value)))
        (case (comp-expr (traverse-incr-path path0) ctx0 expr)
          ({ctx1 cerl-expr}
-          (let (try-var (cerl/ann_c_var (:compiler_generated . annots) (joxa/gensym))
+          (let (try-var (cerl/ann_c_var (:compiler_generated . annots) (gensym))
                         type-var (cerl/ann_c_var annots type)
                         value-var (cerl/ann_c_var annots value)
-                        ignore-var (cerl/ann_c_var (:compiler_generated . annots) (joxa/gensym))
+                        ignore-var (cerl/ann_c_var (:compiler_generated . annots) (gensym))
                         ctx2 (add-reference-to-scope-ctx type -1
                                                          (add-reference-to-scope-ctx value -1
                                                                                      (push-scope-ctx ctx1))))
@@ -2049,7 +2060,7 @@
       ({:reference var1 _}
        ;; The reference already exists. So we create a new variable and
        ;; add a guard for to test for equality
-       (let (gensym (joxa/gensym)
+       (let (gensym (gensym)
                     cerl-var (cerl/ann_c_var annots gensym)
                     guards1 ((cerl/ann_c_call annots
                                               (cerl/ann_c_atom [:compiler_generated]
@@ -2178,7 +2189,7 @@
             {ctx0 guards0 (cerl/ann_make_data annots {:atomic arg0} [])})
       (:_
        (let (gensym (erlang/list_to_atom (lists/append "_"
-                                                       (erlang/atom_to_list (joxa/gensym))))
+                                                       (erlang/atom_to_list (gensym))))
                     cerl-var (cerl/ann_c_var annots gensym)
                     ctx1 (add-reference-to-scope-ctx gensym -1 ctx0))
          {ctx1 guards0 cerl-var}))
@@ -2260,7 +2271,7 @@
   (case (make-pattern-clause-body (traverse-path path0) ctx0 clause)
     ({ctx1 actual-clause}
      (let (annots (:compiler_generated . (annots-from-context [] path0 ctx0))
-                  var (joxa/gensym))
+                  var (gensym))
        {ctx1
         actual-clause
         [(cerl/ann_c_clause annots
@@ -2797,7 +2808,7 @@
                                               [module-name])
                     ctx1 (add-exported-def-ctx [:compiler_generated] :module_info []
                                                argless-body ctx0)
-                    detail-var (joxa/gensym)
+                    detail-var (joxa.core/gensym)
                     var-name (cerl/c_var detail-var)
                     arg-body (cerl/c_call (cerl/c_atom :erlang)
                                           (cerl/c_atom :get_module_info)
