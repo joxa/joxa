@@ -515,7 +515,7 @@
 (defn+ binary (input index)
   (let (binary-contents (p-choose [integer/2
                                    char/2
-                                   ident/2
+                                   symbol/2
                                    list/2]))
     (p input index :binary
        (p-choose [(p-seq [(p-string "<<")
@@ -1770,7 +1770,7 @@
 (defn resolve-bitstring-defaults (idx value)
   (case value
     (:invalid
-     (erlang/throw {:invalid-bistring-spec idx}))
+     (erlang/throw {:invalid-bitstring-spec idx}))
     (_
      (let (annots '(compiler_generated)
                   size0 (get-bitstring :size value)
@@ -1801,7 +1801,8 @@
                              (:utf16 (cerl/ann_c_int annots :undefined))
                              (:utf32 (cerl/ann_c_int annots :undefined))))
                           (val
-                           val)))
+                           (when (erlang/is_integer val))
+                           (cerl/ann_c_int annots val))))
        (set-bitstring :size size1
                       (set-bitstring :unit unit1 value))))))
 
