@@ -4,4 +4,4 @@ set -u
 set -o pipefail
 set -e
 
-make -f Makefile.bootstrap
+make bootstrap
