@@ -1948,7 +1948,7 @@
   (let (binding-path1 (traverse-path binding-path0)
                       annots (annots-from-context [] binding-path1 ctx0))
     (case expr
-      ([:fn args _]
+      ((:fn . (args . _))
        ;; For letrecs the variable has to be available in the scope so
        ;; the function can call as needed
        (let (arity (erlang/length args)
