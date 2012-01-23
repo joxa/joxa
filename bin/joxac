@@ -1,6 +1,6 @@
 #! /bin/sh
 
-SCRIPTPATH=$(cd $(dirname $(readlink -f $0))/..; pwd)
+SCRIPTPATH=$(cd $(dirname $0)/..; pwd -P)
 JOXAPATH=${JOXAPATH:-$SCRIPTPATH}
 
 erl -noshell -env ERL_LIBS $JOXAPATH/deps -pa $JOXAPATH/ebin \
