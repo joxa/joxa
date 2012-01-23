@@ -1549,7 +1549,7 @@
     ({_ ctx3 body}
      {ctx3 (cerl/ann_c_tuple (annots-from-context [] path0 ctx3)
                              (lists/reverse body))})))
-(defn make-do (path0 ctx0 form)
+(defn make-seq (path0 ctx0 form)
   (let (annots (annots-from-context :traverse path0 ctx0))
     (case form
       ([arg1 arg2]
@@ -1563,11 +1563,11 @@
       ((arg1 . rest)
        (case (comp-expr (traverse-path path0) ctx0 arg1)
          ({ctx1 cerl-arg1}
-          (case (make-do (incr-path path0) ctx1 rest)
+          (case (make-seq (incr-path path0) ctx1 rest)
             ({ctx2 cerl-arg2}
              {ctx2 (cerl/ann_c_seq annots cerl-arg1 cerl-arg2)})))))
       ([]
-       (erlang/throw {:invalid-do-form (idx-from-context [] path0 ctx0)})))))
+       (erlang/throw {:invalid-sequence (idx-from-context [] path0 ctx0)})))))
 
 (defn make-cons (annots arg1-path arg2-path ctx0 arg1 arg2)
   (case (comp-expr arg1-path ctx0 arg1)
@@ -1983,7 +1983,7 @@
     ([var expr]
      (make-let-binding body-path0 binding-path0 ctx0 var expr
                        (fn (body-path1 binding-path1 ctx1)
-                           (make-do body-path1  ctx1 body))))
+                           (make-seq body-path1  ctx1 body))))
     ((var . (expr . rest))
      (make-let-binding body-path0 binding-path0 ctx0 var expr
                        (fn (body-path1 binding-path1 ctx1)
@@ -2295,7 +2295,7 @@
       ((pattern . body)
        (case (make-pattern-element (traverse-path path0) ctx1 [] pattern)
          ({ctx2 pattern-guards cerl-pattern}
-          (case (make-do (incr-path path0) ctx2 body)
+          (case (make-seq (incr-path path0) ctx2 body)
             ({ctx3 cerl-body}
              {(pop-scope-ctx ctx3)
               (cerl/ann_c_clause annots
@@ -2364,7 +2364,7 @@
     ({ctx2 args1}
      (case (gen-args (traverse-path path0) ctx2 (lists/reverse args1))
        ({ctx3 arg-list}
-        (case (make-do (incr-path path0) ctx3 expressions)
+        (case (make-seq (incr-path path0) ctx3 expressions)
           ({ctx4 body}
            {(pop-scope-ctx ctx4) arg-list body})))))))
 
@@ -2399,7 +2399,7 @@
             ({ctx2 cerl-clauses}
              {ctx2 (cerl/ann_c_case annots cerl-expr cerl-clauses)})))))
       ((:do . args)
-       (make-do (incr-path path0) ctx0 args))
+       (make-seq (incr-path path0) ctx0 args))
       ((:binary . _)
        (make-binary path0 ctx0 form))
       ([arg1 :. arg2]
