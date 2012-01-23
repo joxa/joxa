@@ -59,6 +59,11 @@
   (joxa.compiler/add-require-ctx
    (joxa.compiler/get-context :module-name ctx) ctx))
 
+(defn remove-joxa-shell (ctx)
+  (let (defs (joxa.compiler/get-context :definitions ctx)
+        new-defs (lists/keydelete {:__joxa_shell__ 0} 1 defs))
+    (joxa.compiler/set-context :definitions new-defs ctx)))
+
 (defn eval (parse ctx)
   (case parse
         ({annots ast (= rest {:parse-output _ path _ _})}
@@ -81,7 +86,7 @@
                              {(erlang/apply
                                (joxa.compiler/get-context
                                 :module-name ctx2) :__joxa_shell__ []) ;; result
-                              ctx3})
+                              (remove-joxa-shell ctx3)})
                           (_
                            {:ok ctx3})))))))))
 
