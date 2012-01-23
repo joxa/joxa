@@ -1695,45 +1695,45 @@
 
 (defn make-call (path0 ctx0 val args)
   (let (annots (annots-from-context [] path0 ctx0))
-       (let (possible-arity (erlang/length args)
-                            path1 (traverse-path path0)
-                            call-annots (annots-from-context [] path1 ctx0))
-         (case (eval-args (incr-path path0) ctx0 args)
-           ({ctx1 arg-list}
-            (case (resolve-reference-ctx val possible-arity ctx1)
+    (let (possible-arity (erlang/length args)
+                         path1 (traverse-path path0)
+                         call-annots (annots-from-context [] path1 ctx0))
+      (case (eval-args (incr-path path0) ctx0 args)
+        ({ctx1 arg-list}
+         (case (resolve-reference-ctx val possible-arity ctx1)
+           ({:reference var _}
+            {ctx1 (cerl/ann_c_apply annots
+                                    (cerl/set_ann var annots)
+                                    arg-list)})
+           ({:apply name arity}
+            {ctx1 (cerl/ann_c_apply annots
+                                    (cerl/ann_c_fname call-annots
+                                                      name
+                                                      arity)
+                                    arg-list)})
+           ({:remote module function possible-arity}
+            {ctx1 (cerl/ann_c_call annots
+                                   (cerl/ann_c_atom call-annots
+                                                    module)
+                                   (cerl/ann_c_atom call-annots
+                                                    function)
+                                   arg-list)})
+           ({:error error}
+            (erlang/throw {error (idx-from-context [] path0 ctx1)}))
+           (:not-a-reference
+            (when (erlang/is_list val))
+            (case (comp-expr (traverse-path path0) ctx0 val)
+              ({ctx1 cerl-val}
+               {ctx1 (cerl/ann_c_apply annots cerl-val arg-list)})))
+           (:not-a-reference
+            (case (resolve-reference-ctx val -1 ctx1)
               ({:reference var _}
                {ctx1 (cerl/ann_c_apply annots
                                        (cerl/set_ann var annots)
                                        arg-list)})
-              ({:apply name arity}
-               {ctx1 (cerl/ann_c_apply annots
-                                       (cerl/ann_c_fname call-annots
-                                                         name
-                                                         arity)
-                                       arg-list)})
-              ({:remote module function possible-arity}
-               {ctx1 (cerl/ann_c_call annots
-                                      (cerl/ann_c_atom call-annots
-                                                       module)
-                                      (cerl/ann_c_atom call-annots
-                                                       function)
-                                      arg-list)})
-              ({:error error}
-               (erlang/throw {error (idx-from-context [] path0 ctx1)}))
-              (:not-a-reference
-               (when (erlang/is_list val))
-               (case (comp-expr (traverse-path path0) ctx0 val)
-                 ({ctx1 cerl-val}
-                  {ctx1 (cerl/ann_c_apply annots cerl-val arg-list)})))
-              (:not-a-reference
-               (case (resolve-reference-ctx val -1 ctx1)
-                 ({:reference var _}
-                  {ctx1 (cerl/ann_c_apply annots
-                                          (cerl/set_ann var annots)
-                                          arg-list)})
-                 (_
-                  (erlang/throw {:invalid-reference val possible-arity
-                                                    (idx-from-context [] path0 ctx1)}))))))))))
+              (_
+               (erlang/throw {:invalid-reference val possible-arity
+                                                 (idx-from-context [] path0 ctx1)}))))))))))
 
 (defn+ gensym ()
   (let (x (erlang/phash2 {(erlang/node) (erlang/now ) (crypto/rand_bytes 16)})
