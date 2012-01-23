@@ -787,7 +787,7 @@
                   (add-annots (traverse-and-get-path path0)
                               :ident idx
                               annotations))
-           [:string, result]})
+      [:string, result]})
     ({type (= val {_ _ _}) idx}
      (let (result (transform-ast (traverse-incr-path path0)
                                  annotations val))
@@ -897,6 +897,7 @@
     (:uses (erlang/element 13 ctx))
     (:line (erlang/element 14 ctx))
     (:options (erlang/element 15 ctx))
+    (:rests (erlang/element 16 ctx))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ set-context (field value ctx)
@@ -915,6 +916,7 @@
     (:uses (erlang/setelement 13 ctx value))
     (:line (erlang/setelement 14 ctx value))
     (:options (erlang/setelement 15 ctx value))
+    (:rests (erlang/setelement 16 ctx value))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ new-context (key-values)
@@ -930,13 +932,14 @@
                 (sets/new) ; type-exports
                 [] ; scopes
                 [] ; type-scopes
-                (ec_dictionary/new :ec_dict) ; definitions
+                [] ; definitions
                 (ec_dictionary/new :ec_dict) ; types
                 (ec_dictionary/new :ec_dict) ; alias
                 (ec_dictionary/new :ec_dict) ; require
                 (ec_dictionary/new :ec_dict) ; use
                 :undefined ; line
                 [] ; context
+                [] ; rest functions
                 } key-values))
 
 (defn+ new-context (annots module-name)
@@ -971,21 +974,47 @@
                                           {target module} use)
                  ctx)))
 
-(defn+ add-def-ctx (annots name vars body ctx)
+(defn+ add-def-ctx (annots name vars body ctx replace)
   (let (arity (erlang/length vars)
               defs (get-context :definitions ctx)
               cerl-name (cerl/ann_c_fname annots name arity)
               cerl-body (cerl/ann_c_fun annots vars body))
-    (set-context :definitions (ec_dictionary/add {name arity}
-                                                 {cerl-name cerl-body}
-                                                 defs)
-                 ctx)))
 
-(defn+ add-exported-def-ctx (annots name vars body ctx)
+    (case replace
+      (:replace
+       (case (lists/keymember {name arity} 1 defs)
+         (:true
+          (set-context :definitions
+                       (lists/keyreplace {name arity} 1
+                                         defs
+                                         {{name arity} {cerl-name cerl-body}})
+                       ctx))
+         (:false
+           (set-context :definitions
+                        (lists/append defs
+                                      [{{name arity} {cerl-name cerl-body}}])
+                        ctx))))
+      (_
+       (lists/foreach (fn (el)
+                          (case el
+                            ({{name arity}, _}
+                             (erlang/throw {:function-exists name arity}))
+                            (_
+                             :ok))) defs)
+       (set-context :definitions
+                    (lists/append defs [{{name arity} {cerl-name cerl-body}}])
+                    ctx)))))
+
+(defn+ add-def-ctx (annots name vars body ctx)
+  (add-def-ctx annots name vars body ctx :no-replace))
+
+(defn+ add-exported-def-ctx (annots name vars body ctx replace)
   (let (arity (erlang/length vars))
     (add-export-ctx annots name arity
-                    (add-def-ctx annots name vars body ctx))))
+                    (add-def-ctx annots name vars body ctx replace))))
 
+(defn+ add-exported-def-ctx (annots name vars body ctx)
+  (add-exported-def-ctx annots name vars body ctx :no-replace))
 
 (defspec alias-ctx? ((erlang/atom) (erlang/atom)
                      (erlang/non_neg_integer) (erlang/term))
@@ -1041,7 +1070,13 @@
 
 (defn+ defined-used-function-ctx? (name possible-arity ctx)
   (let (defs (get-context :definitions ctx))
-    (case (ec_dictionary/has_key {name possible-arity} defs)
+    (case (lists/any (fn (el)
+                         (case el
+                           ({{name possible-arity} _}
+                            :true)
+                           (_
+                            :false)))
+                     defs)
       (:true
        {:apply name possible-arity})
       (:false
@@ -2248,7 +2283,7 @@
                              guard-idx (idx-from-context [] (traverse-incr-path path0) ctx2))
             (case (comp-expr (traverse-incr-path (traverse-incr-path path0)) ctx2 guards)
               ({ctx3 cerl-guard}
-               (case (make-do (incr-path 2 path0) ctx3 body)
+               (case (make-seq (incr-path 2 path0) ctx3 body)
                  ({ctx4 cerl-body}
                   {(pop-scope-ctx ctx4)
                    (cerl/ann_c_clause annots
@@ -2786,7 +2821,7 @@
                  (case el
                    ({_ value}
                     value)))
-             (ec_dictionary/to_list (get-context :definitions ctx0))))
+             (get-context :definitions ctx0)))
 
 (defn comp-module-info (ctx0)
   (let (module-name (cerl/c_atom (get-context :module-name ctx0))
@@ -2794,13 +2829,15 @@
                                               (cerl/c_atom :get_module_info)
                                               [module-name])
                     ctx1 (add-exported-def-ctx [:compiler_generated] :module_info []
-                                               argless-body ctx0)
+                                               argless-body ctx0
+                                               :replace)
                     detail-var (gensym)
                     var-name (cerl/c_var detail-var)
                     arg-body (cerl/c_call (cerl/c_atom :erlang)
                                           (cerl/c_atom :get_module_info)
                                           [module-name var-name]))
-    (add-exported-def-ctx [:compiler_generated] :module_info [var-name] arg-body ctx1)))
+    (add-exported-def-ctx [:compiler_generated] :module_info
+                          [var-name] arg-body ctx1 :replace)))
 
 (defn compile-types (ctx0)
   (let (exported-types (sets/to_list (get-context :type-exports ctx0))
