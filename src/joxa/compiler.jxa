@@ -399,13 +399,13 @@
            ([{:ident module _} _
              {:ident function _} _
              {:integer arity _}]
-            {:call {:__fun__ module function arity} idx})
+            {:call {:--fun module function arity} idx})
            ([{:ident function _} _
              {:integer arity _}]
-            {:call {:__fun__ function arity} idx})
+            {:call {:--fun function arity} idx})
            ([{:ident module _} _
              {:ident function _}]
-            {:call {:__fun__ module function} idx})))))
+            {:call {:--fun module function} idx})))))
 
 (defn+ string (input index)
   (p input index :string
@@ -1119,18 +1119,18 @@
 
 (defn+ resolve-reference-ctx (ref arity ctx)
   (case ref
-    ({:__fun__ _ arity}
+    ({:--fun _ arity}
      (when (erlang/is_integer arity))
      (defined-used-function-ctx? ref arity ctx))
-    ({:__fun__ module function}
+    ({:--fun module function}
      (when (and (erlang/is_atom module)
                 (erlang/is_atom function)))
      (remote-function-ctx? module function arity ctx))
-    ({:__fun__ fun invalid-arity}
+    ({:--fun fun invalid-arity}
      (erlang/throw {:mismatched-arity fun arity invalid-arity}))
-    ({:__fun__ module function arity}
+    ({:--fun module function arity}
      (remote-function-ctx? module function arity ctx))
-    ({:__fun__ module function invalid-arity}
+    ({:--fun module function invalid-arity}
      (erlang/throw {:mismatched-arity module function arity invalid-arity}))
     (name
      (when (erlang/is_atom name))
@@ -1236,7 +1236,7 @@
 
 (defn gather-fun-arity-pairs (idx fun-arity-list acc)
   (case fun-arity-list
-    (({:__fun__ fun arity} . rest)
+    (({:--fun fun arity} . rest)
      (gather-fun-arity-pairs idx rest ({fun arity} . acc)))
     ([] acc)
     (_
@@ -1244,7 +1244,7 @@
 
 (defn gather-fun-alias-pairs (idx fun-alias-pairs acc)
   (case fun-alias-pairs
-    (([{:__fun__ fun arity} alias] . rest)
+    (([{:--fun fun arity} alias] . rest)
      (when (erlang/is_atom alias))
      (gather-fun-alias-pairs idx rest ({{fun arity} alias} . acc)))
     ([]
@@ -1285,26 +1285,6 @@
 ;;
 ;; comp compiles the provided AST into a Joxa context. Later that context
 ;; must be compiled to core erlang.
-
-(defn gather-fun-alias-pairs (idx pairs acc)
-  (case pairs
-    (([{:__fun__ fun arity} alias] . rest)
-     (when (erlang/is_atom alias))
-     (gather-fun-alias-pairs idx rest ({{fun arity} alias} . acc)))
-    ([]
-     acc)
-    (_
-     (erlang/throw {:invalid-use :invalid-fun-spec idx}))))
-
-(defn gather-fun-arity-pairs (idx pairs acc)
-  (case pairs
-    (({:__fun__ fun arity} . rest)
-     (gather-fun-arity-pairs idx rest ({fun arity} . acc)))
-    ([]
-     acc)
-    (_
-     (erlang/throw {:invalid-use :invalid-fun-spec idx}))))
-
 (defn filter-imports-to-onlys (idx target-funs imports0)
   (let (fun-arity-pairs (gather-fun-arity-pairs idx target-funs '()))
     (lists/foldl (fn (el acc)
@@ -1618,7 +1598,7 @@
                                     (:false
                                      {ctx2 (cerl/ann_c_apply annots cerl-target cerl-arg-list)}))))))
     (case form
-      ((:apply . ((= ref  {:__fun__ module function _}) . args))
+      ((:apply . ((= ref  {:--fun module function _}) . args))
        (case (resolve-reference-ctx function (erlang/length args) ctx0)
          ({:remote module function arity}
           (case (eval-args (incr-path 2 path0) ctx0 args)
@@ -1630,7 +1610,7 @@
          (_
           (erlang/throw {:invalid-reference  ref (erlang/length args)
                                              (idx-from-context [] path0 ctx0)}))))
-      ((:apply . ((= ref {__fun__ function arity}) . args))
+      ((:apply . ((= ref {--fun function arity}) . args))
        (case (resolve-reference-ctx function (erlang/length args) ctx0)
          ({:apply function arity}
           (build-apply path0 ctx0 (cerl/ann_c_fname annots function arity) args))
@@ -1660,7 +1640,7 @@
 (defn make-fun (path0 ctx0 form)
   (let (annots (annots-from-context [] path0 ctx0))
     (case form
-      ({:__fun__ f a} (when (erlang/is_integer a))
+      ({:--fun f a} (when (erlang/is_integer a))
        (case (resolve-reference-ctx f a ctx0)
          ({:reference var _}
           (case (erlang/and (cerl/is_c_fname var)
@@ -1675,7 +1655,7 @@
          (_
           (let (idx (idx-from-context [] path0 ctx0))
             (erlang/throw {:invalid-reference {f a} idx})))))
-      ((= ref {:__fun__ _ _ a})
+      ((= ref {:--fun _ _ a})
        (when (erlang/is_integer a))
        (case (resolve-reference-ctx ref a ctx0)
          ({:reference _ _}
@@ -2418,7 +2398,7 @@
                 (erlang/throw {:invalid-reference e arg idx})))))
       (arg (when (erlang/and
                   (erlang/is_tuple arg)
-                  (== (erlang/element 1 arg) :__fun__)))
+                  (== (erlang/element 1 arg) :--fun)))
            (make-fun path0 ctx0 form))
       (arg (when (erlang/is_tuple arg))
            (make-tuple-expr path0 ctx0 (erlang/tuple_to_list arg)))
@@ -2470,7 +2450,7 @@
   {(context) (erlang/term)})
 
 (defn default-type ()
-  [{:__fun__ :erlang :any}])
+  [{:--fun :erlang :any}])
 
 (defn make-spec-tuple (line path0 ctx0 form)
   (case (lists/foldl (fn (el acc0)
@@ -2538,20 +2518,20 @@
 
 (defn comp-type-call-spec (line path0 ctx0 form)
   (case form
-    ([{:__fun__ :erlang :range} a1 a2]
+    ([{:--fun :erlang :range} a1 a2]
      (when (erlang/and (erlang/is_integer a1)
                        (erlang/is_integer a2)))
      (case (comp-spec-args (incr-path path0) ctx0 [a1 a2])
        ({ctx1 comp-args}
         {ctx1 {:type line :range
                      comp-args}})))
-    (({:__fun__ :erlang func} . args)
+    (({:--fun :erlang func} . args)
      ;; Things in erlang get treated a bit differently then things in
      ;; other modules. It sucks that they have to be special
      (case (comp-spec-args (incr-path path0) ctx0 args)
        ({ctx3 comp-args}
         {ctx3 {:type line func comp-args}})))
-    (({:__fun__ module func} . args)
+    (({:--fun module func} . args)
      (when (erlang/and (erlang/is_atom module)
                        (erlang/is_atom func)))
      (case (comp-spec-args (incr-path path0) ctx0 args)
@@ -2612,7 +2592,7 @@
        (comp-binary-spec line1 path0 ctx0 form))
       ((:fn . _)
        (comp-function-spec line1 path0 ctx0 form))
-      (({:__fun__ _ _} . _)
+      (({:--fun _ _} . _)
        (comp-type-call-spec line1 path0 ctx0 form))
       ([:list arg]
        (case (comp-spec-expr (traverse-incr-path path0) ctx0 arg)

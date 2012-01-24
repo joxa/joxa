@@ -56,15 +56,15 @@ test1_test() ->
                  joxa.compiler:'resolve-reference-ctx'(print, 2, Ctx7)),
 
     ?assertMatch({remote, lists, zipwith3, 4},
-                 joxa.compiler:'resolve-reference-ctx'({'__fun__', lists,
+                 joxa.compiler:'resolve-reference-ctx'({'--fun', lists,
                                                         zipwith3, 4}, 4, Ctx7)),
 
     ?assertMatch({remote, lists, zipwith3, 4},
-                 joxa.compiler:'resolve-reference-ctx'({'__fun__', bar,
+                 joxa.compiler:'resolve-reference-ctx'({'--fun', bar,
                                                         zipwith3, 4}, 4, Ctx7)),
 
     ?assertThrow({'mismatched-arity',bar,zipwith3,4,3},
-                 joxa.compiler:'resolve-reference-ctx'({'__fun__', bar,
+                 joxa.compiler:'resolve-reference-ctx'({'--fun', bar,
                                                         zipwith3, 3}, 4, Ctx7)).
 
 
