@@ -15,7 +15,10 @@ given([a,bare,module], _State, _) ->
 
 then([a,beam,binary,is,produced], State={_Ctx, Binary}, _) ->
     ?assertMatch(true, is_binary(Binary)),
-    ?assertMatch([{module_info,0},{module_info,1}],
+    ?assertMatch([{'--joxa-info',1},
+                  {'--joxa-info',2},
+                  {module_info,0},
+                  {module_info,1}],
                  lists:sort('my-module':module_info(exports))),
     ?assertMatch([],
                  'my-module':module_info(imports)),

@@ -898,6 +898,7 @@
     (:line (erlang/element 14 ctx))
     (:options (erlang/element 15 ctx))
     (:rests (erlang/element 16 ctx))
+    (:anon-fun-index (erlang/element 17 ctx))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ set-context (field value ctx)
@@ -917,6 +918,7 @@
     (:line (erlang/setelement 14 ctx value))
     (:options (erlang/setelement 15 ctx value))
     (:rests (erlang/setelement 16 ctx value))
+    (:anon-fun-index (erlang/setelement 17 ctx value))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ new-context (key-values)
@@ -940,17 +942,30 @@
                 :undefined ; line
                 [] ; context
                 [] ; rest functions
+                -1 ; anonymous function index
                 } key-values))
 
 (defn+ new-context (annots module-name)
   (new-context ([(:annots . annots)
                  (:module-name . module-name)])))
 
+(defn incr-fun-index-ctx (ctx)
+  (set-context :anon-fun-index (erlang/+ (get-context :anon-fun-index ctx) 1) ctx))
+
 (defn+ add-export-ctx (annots fun-name arity ctx)
   (let (exports (get-context :exports ctx))
     (set-context
      :exports (sets/add_element {fun-name arity annots} exports)
      ctx)))
+
+(defn add-rest-ctx (name arity ctx)
+  (let (rests (get-context :rests ctx))
+    (case (lists/any (fn (el)
+                         (erlang/== el name)) rests)
+      (:true
+       (erlang/throw {:rest-fun-exists name}))
+      (:false
+       (set-context :rests ({name arity}  . rests) ctx)))))
 
 (defn+ add-attr-ctx (key value ctx)
   (let (attrs (get-context :attrs ctx))
@@ -990,10 +1005,10 @@
                                          {{name arity} {cerl-name cerl-body}})
                        ctx))
          (:false
-           (set-context :definitions
-                        (lists/append defs
-                                      [{{name arity} {cerl-name cerl-body}}])
-                        ctx))))
+          (set-context :definitions
+                       (lists/append defs
+                                     [{{name arity} {cerl-name cerl-body}}])
+                       ctx))))
       (_
        (lists/foreach (fn (el)
                           (case el
@@ -2333,23 +2348,40 @@
        ({ctx1 clauses}
         (make-pattern (incr-path path0) ctx1 rest (clauses . acc)))))))
 
-(defn gen-args (path0 ctx0 args0)
-  (case (lists/foldl (fn (arg acc0)
-                         (case acc0
-                           ({path1 ctx1 acc1}
-                            (case arg
-                              (a (when (erlang/is_atom a))
-                                 (let (annots
-                                       (annots-from-context :traverse path1 ctx1))
-                                   {(incr-path path1) ctx1 ((cerl/ann_c_var annots arg) . acc1)}))
-                              (_
-                               (erlang/throw {:invalid-arg (idx-from-context []
-                                                                             (incr-path path1) ctx1)}))))))
-                     {path0 ctx0 []} args0)
-    ({_ ctx2 args1}
-     {ctx2 (lists/reverse args1)})))
+(defn gen-args (path0 ctx0 arg-list acc)
+  (let (annots
+        (annots-from-context :traverse path0 ctx0))
+    (case arg-list
+      ([:&rest rest-arg]
+       {ctx0 (lists/reverse ((cerl/ann_c_var annots rest-arg) . acc)) :true})
+      ((:&rest . rest-arg)
+       (erlang/throw {:invalid-arguments (idx-from-context [] path0 ctx0)}))
+      ((a . rest) (when (erlang/is_atom a))
+       (gen-args (incr-path path0) ctx0 rest ((cerl/ann_c_var annots a) . acc)))
+      ([]
+       {ctx0 (lists/reverse acc) :false}))))
 
-(defn do-function-body (path0 ctx0 args0 expressions)
+(defn make-fun-body (path0 ctx0 is-anon arg-list expressions)
+  (case (make-seq (incr-path path0) ctx0 expressions)
+    ({ctx1 body}
+     {(case is-anon
+        (:true (incr-fun-index-ctx (pop-scope-ctx ctx1) ))
+        (:false (pop-scope-ctx ctx1)))
+      arg-list body})))
+
+(defn make-rest-fun-body (path0 ctx0 is-anon name arg-list expressions)
+  (case (make-fun-body path0 ctx0 is-anon arg-list expressions)
+    ({ctx1 arg-list body}
+     (case is-anon
+       (:false
+        {(add-rest-ctx name (erlang/length arg-list) ctx1) arg-list body})
+       (:true
+        (let (index (get-context :anon-fun-index ctx1))
+          {(add-rest-ctx {:anon index} (erlang/length arg-list) ctx1)
+           arg-list
+           body}))))))
+
+(defn do-function-body (path0 ctx0 is-anon name args0 expressions)
   (case (lists/foldl (fn (el, acc0)
                          (let (arg (case el
                                      ([_ arg]
@@ -2362,11 +2394,11 @@
                                (arg . acc1)}))))
                      {(push-scope-ctx ctx0)  []} args0)
     ({ctx2 args1}
-     (case (gen-args (traverse-path path0) ctx2 (lists/reverse args1))
-       ({ctx3 arg-list}
-        (case (make-seq (incr-path path0) ctx3 expressions)
-          ({ctx4 body}
-           {(pop-scope-ctx ctx4) arg-list body})))))))
+     (case (gen-args (traverse-path path0) ctx2 (lists/reverse args1) [])
+       ({ctx3 arg-list :true}
+        (make-rest-fun-body path0 ctx3 is-anon name arg-list expressions))
+       ({ctx3 arg-list :false}
+        (make-fun-body path0 ctx3 is-anon arg-list expressions))))))
 
 (defn comp-expr (path0 ctx0 form)
   (let (annots (annots-from-context [] path0 ctx0))
@@ -2424,7 +2456,7 @@
       ((:fn . fn-body)
        (case fn-body
          ((args . expression)
-          (case (do-function-body (incr-path path0) ctx0 args expression)
+          (case (do-function-body (incr-path path0) ctx0 :true :anon args expression)
             ({ctx1 arg-list body}
              {ctx1 (cerl/ann_c_fun annots arg-list body)})
             (_
@@ -2671,7 +2703,7 @@
                                    (_
                                     (default-type)))) args)
                   ctx1 (comp-implicit-spec path0 ctx0 name spec-args return-type))
-    (case (do-function-body (incr-path path0) ctx1 args expressions)
+    (case (do-function-body (incr-path path0) ctx1 :false name args expressions)
       ({ctx2 arg-list body}
        {ctx2 name arg-list body}))))
 
@@ -2823,6 +2855,123 @@
                     value)))
              (get-context :definitions ctx0)))
 
+;; ### make-joxa-info-1 Function Set
+;;
+;; The make-joxa-info-1 set of functions creates a module level
+;; function that returns information sigficant to the joxa compilation
+;; system for each function. This set of functions builds a function,
+;; that if written in normal joxa would look like.
+;;
+;;    (defn __joxa_info (type)
+;;        (case type
+;;              (:rest
+;;                   <rest-info>...)
+;;              (:macro
+;;                   <macro-info>...)))
+;;
+;; more may be added to this over time.
+;; at the moment the <rest-info> looks as follows
+;;
+;; [{<fun-id> <restish-arity>}]
+;;
+;; Where <fun-id> is either the name of the function if it is a named
+;; module level function. Or the tuple {:anon index} in the case of an
+;; anonymous function where the index is the index of the fun in the
+;; modules function table.
+;;
+;; macros follow a similar senario with the exception that there are
+;; currently no anonymous macros. so macros are defined by function
+;; name and return :true or :false depending on if the function is a
+;; macro.
+;;
+(defn make-joxa-info-rest-1 (ctx0)
+  (let (annots [:compiler_generated]
+        rests (get-context :rests ctx0))
+    (cerl/ann_c_clause [:compiler_generated]
+                       [(cerl/ann_c_atom annots :rest)]
+                       (cerl/ann_c_atom annots :true)
+                       (cerl/ann_make_data annots
+                                           {:atomic rests} []))))
+
+(defn make-joxa-info-1 (ctx0)
+  (let (annots [:compiler_generated]
+        clauses [(make-joxa-info-rest-1 ctx0)]
+        detail-var (gensym)
+        var-name (cerl/c_var detail-var))
+    (add-exported-def-ctx annots :--joxa-info
+                          [var-name]
+                          (cerl/ann_c_case annots
+                                           var-name
+                                           clauses)
+                          ctx0
+                          :replace)))
+
+;; ### make-joxa-info-2 function set.
+;;
+;; The make-joxa-info-2 functions are similar to the
+;; make-joxa-info-1. However, they also take a function id as well as
+;; the type. this allows you to get information about a specific
+;; function. if written in normal joxa would look like.
+;;
+;;    (defn __joxa_info (type fun-id)
+;;        (case type
+;;              (:rest
+;;                 (case fun-id
+;;                     <fun-clauses>...))
+;;              (:macro
+;;                 (case fun-id
+;;                     <macro-clauses>...))
+;;
+;; more may be added to this over time.
+;;
+;; In this case the fun and macro clauses provide the same information
+;; as the single arg __joxa_info function, however just for the
+;; function specifid.
+;;
+(defn make-joxa-info-rest-2 (fun-var ctx0)
+  (let (annots [:compiler_generated]
+        rests (get-context :rests ctx0)
+        catch-all-var (cerl/ann_c_var [:compiler_generated] (gensym)))
+    (cerl/ann_c_case annots
+                     fun-var
+                     (lists/append
+                      (lists/map (fn (rest-el)
+                                     (case rest-el
+                                       ({fun-id, value}
+                                        (cerl/ann_c_clause annots
+                                                           [(cerl/ann_make_data annots
+                                                                                {:atomic fun-id} [])]
+                                                           (cerl/ann_c_atom annots :true)
+                                                           (cerl/ann_make_data annots
+                                                                               {:atomic value} [])))))
+                                 rests)
+                      [(cerl/ann_c_clause annots
+                                         [catch-all-var]
+                                         (cerl/ann_c_atom annots :true)
+                                         (cerl/ann_c_atom annots :false))]))))
+
+(defn make-joxa-info-2 (ctx0)
+  (let (annots [:compiler_generated]
+        type-var (cerl/c_var (gensym))
+        fun-id-var (cerl/c_var (gensym))
+        rest-clause (cerl/ann_c_clause annots
+                                       [(cerl/ann_c_atom annots :rest)]
+                                       (cerl/ann_c_atom annots :true)
+                                       (make-joxa-info-rest-2 fun-id-var ctx0))
+
+        clauses [rest-clause])
+    (add-exported-def-ctx [:compiler_generated] :--joxa-info
+                          [type-var fun-id-var]
+                          (cerl/ann_c_case [:compiler_generated]
+                                           type-var
+                                           clauses)
+                          ctx0
+                          :replace)))
+
+(defn make-joxa-info (ctx0)
+  (make-joxa-info-2
+   (make-joxa-info-1 ctx0)))
+
 (defn comp-module-info (ctx0)
   (let (module-name (cerl/c_atom (get-context :module-name ctx0))
                     argless-body (cerl/c_call (cerl/c_atom :erlang)
@@ -2849,8 +2998,8 @@
                        attr))) all-types))))
 
 (defn+ compile-context (ctx0 compile-type)
-  (let (ctx1 (comp-module-info ctx0)
-             annots (get-context :line ctx1)
+  (let (ctx1 (make-joxa-info (comp-module-info ctx0))
+        annots (get-context :line ctx1)
              module-name (cerl/ann_c_atom annots
                                           (get-context :module-name ctx1))
              exports (get-context-exports ctx1)

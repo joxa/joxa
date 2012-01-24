@@ -40,7 +40,9 @@ then([a,beam,binary,is,produced], State={_, Binary}, _) ->
       ?assertMatch(true, is_binary(Binary)),
     {ok, State};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
-    ?assertMatch([{'do-test',3},
+    ?assertMatch([{'--joxa-info',1},
+                  {'--joxa-info',2},
+                  {'do-test',3},
                   {module_info,0},
                   {module_info,1}],
                  lists:sort('jxat-case-test':module_info(exports))),

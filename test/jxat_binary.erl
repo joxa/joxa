@@ -41,7 +41,9 @@ then([a,beam,binary,is,produced], State={_, Binary}, _) ->
     ?assertMatch(true, is_binary(Binary)),
     {ok, State};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
-    ?assertMatch([{'do-test1',0},
+    ?assertMatch([{'--joxa-info',1},
+                  {'--joxa-info',2},
+                  {'do-test1',0},
                   {'do-test2',0},
                   {'do-test3',0},
                   {'do-test4',0},

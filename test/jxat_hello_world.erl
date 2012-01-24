@@ -17,7 +17,9 @@ given([a,module,that,has,a,function,that,calls,
 
 then([a,beam,binary,is,produced], State={_, Binary}, _) ->
     ?assertMatch(true, is_binary(Binary)),
-    ?assertMatch([{'hello-world',1},
+    ?assertMatch([{'--joxa-info',1},
+                  {'--joxa-info',2},
+                  {'hello-world',1},
                   {module_info,0},
                   {module_info,1}],
                  lists:sort(helloworld:module_info(exports))),

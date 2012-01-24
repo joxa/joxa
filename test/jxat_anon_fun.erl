@@ -34,7 +34,11 @@ then([a,beam,binary,is,produced], State = {_, Binary}, _) ->
     {ok, State};
 then([the,described,function,can,be,called,'and',works,correctly],
      State, _) ->
-    ?assertMatch([{'do-test',0},{module_info,0},{module_info,1}],
+    ?assertMatch([{'--joxa-info',1},
+                  {'--joxa-info',2},
+                  {'do-test',0},
+                  {module_info,0},
+                  {module_info,1}],
                  lists:sort('jxat-anon-fun':module_info(exports))),
     {ok, State}.
 
