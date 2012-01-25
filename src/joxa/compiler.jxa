@@ -1036,15 +1036,37 @@
                      (erlang/non_neg_integer) (erlang/term))
   (erlang/term))
 
+(defn get-joxa-info (type module fun-name)
+  (__try
+   (let (info-fun (erlang/make_fun module :--joxa-info 2))
+     (info-fun type fun-name))
+   (catch (type body)
+     (case {type body}
+       ({:error :undef}
+        :false)
+       (_
+        (erlang/raise type body (erlang/get_stacktrace)))))))
+
+(defn+ rest-reference-ctx? (module function possible-arity exports)
+  (case (get-joxa-info :rest module function)
+    (:false
+     :not-a-reference)
+    (arity (when (erlang/is_integer arity))
+           {:remote-rest module function arity})))
+
 (defn+ remote-function-ctx? (module function possible-arity ctx aliased)
   (__try
    (let (requires (get-context :requires ctx)
-                  exports (ec_dictionary/get module requires))
+         exports (ec_dictionary/get module requires))
      (case (lists/member {function possible-arity} exports)
        (:true
-        {:remote module function possible-arity})
+          (case (get-joxa-info module :rest function)
+             (:false
+               {:remote module function possible-arity})
+             (arity (when (erlang/is_integer arity))
+               {:remote-rest module function arity})))
        (:false
-        :not-a-reference)))
+         (rest-reference-ctx? module function possible-arity exports))))
    (catch (_type body)
      (case body
        (:not_found
@@ -1084,6 +1106,13 @@
       (:undefined
        (is-speced-ctx? name possible-arity ctx)))))
 
+(defn+ rest-defined-function-ctx? (module function)
+  (case (get-joxa-info :rest module function)
+    (:false
+     :not-a-reference)
+    (arity (when (erlang/is_integer arity))
+           {:apply-rest function arity})))
+
 (defn+ defined-used-function-ctx? (name possible-arity ctx)
   (let (defs (get-context :definitions ctx))
     (case (lists/any (fn (el)
@@ -1094,9 +1123,19 @@
                             :false)))
                      defs)
       (:true
-       {:apply name possible-arity})
+        (case (rest-defined-function-ctx? (get-context :module-name ctx)
+                                          name)
+          (:not-a-reference
+           {:apply name possible-arity})
+          (rest-apply
+           rest-apply)))
       (:false
-       (used-function-ctx? name possible-arity ctx)))))
+       (case (rest-defined-function-ctx? (get-context :module-name ctx)
+                                         name)
+         (:not-a-reference
+          (used-function-ctx? name possible-arity ctx))
+         (rest-apply
+          rest-apply))))))
 
 (defn+ push-scope-ctx (ctx)
   (let (scopes (get-context :scopes ctx))
@@ -1572,6 +1611,26 @@
        ({ctx2 cerl-arg2}
         {ctx2 (cerl/ann_c_cons annots cerl-arg1 cerl-arg2)})))))
 
+(defn args-to-list (args)
+  (case args
+    ([]
+     (cerl/ann_c_nil [:compiler_generated]))
+    ((arg . rest)
+     (cerl/ann_c_cons [:compiler_generated]
+                      arg
+                      (args-to-list rest)))))
+
+(defn args-to-arity (args0 count arity acc)
+  (case args0
+    ([]
+     (lists/reverse acc))
+    ((arg . rest)
+     (case (erlang/< count arity)
+       (:true
+         (args-to-arity rest (erlang/+ count 1) arity (arg . acc)))
+        (:false
+         (args-to-arity [] 0 arity ((args-to-list args0) . acc)))))))
+
 (defn eval-args (path0 ctx0 args0)
   (case (lists/foldl (fn (arg acc0)
                          (case acc0
@@ -1689,11 +1748,12 @@
             ({ctx2 cerl-t}
              {ctx2 (cerl/ann_c_cons annots cerl-h cerl-t)}))))))))
 
+
 (defn make-call (path0 ctx0 val args)
   (let (annots (annots-from-context [] path0 ctx0))
     (let (possible-arity (erlang/length args)
-                         path1 (traverse-path path0)
-                         call-annots (annots-from-context [] path1 ctx0))
+          path1 (traverse-path path0)
+          call-annots (annots-from-context [] path1 ctx0))
       (case (eval-args (incr-path path0) ctx0 args)
         ({ctx1 arg-list}
          (case (resolve-reference-ctx val possible-arity ctx1)
@@ -1707,13 +1767,26 @@
                                                       name
                                                       arity)
                                     arg-list)})
+           ({:apply-rest name arity}
+            {ctx1 (cerl/ann_c_apply annots
+                                    (cerl/ann_c_fname call-annots
+                                                      name
+                                                      arity)
+                                    (args-to-arity arg-list 1 arity []))})
            ({:remote module function possible-arity}
-            {ctx1 (cerl/ann_c_call annots
-                                   (cerl/ann_c_atom call-annots
-                                                    module)
-                                   (cerl/ann_c_atom call-annots
-                                                    function)
-                                   arg-list)})
+                 {ctx0 (cerl/ann_c_call annots
+                           (cerl/ann_c_atom call-annots
+                                            module)
+                           (cerl/ann_c_atom call-annots
+                                            function)
+                           arg-list)})
+            ({:remote-rest module function arity}
+                 {ctx0 (cerl/ann_c_call annots
+                           (cerl/ann_c_atom call-annots
+                                            module)
+                           (cerl/ann_c_atom call-annots
+                                            function)
+                            (args-to-arity arg-list 1 arity []))})
            ({:error error}
             (erlang/throw {error (idx-from-context [] path0 ctx1)}))
            (:not-a-reference
@@ -1727,8 +1800,8 @@
                {ctx1 (cerl/ann_c_apply annots
                                        (cerl/set_ann var annots)
                                        arg-list)})
-              (_
-               (erlang/throw {:invalid-reference val possible-arity
+              (A
+               (erlang/throw {:invalid-reference val possible-arity A
                                                  (idx-from-context [] path0 ctx1)}))))))))))
 
 (defn+ gensym ()
