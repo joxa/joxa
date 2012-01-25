@@ -1,0 +1,26 @@
+(module server
+        (require gen_server))
+
+
+(defn+ start_link ()
+  (gen_server/start_link {:local :server} :server [] []))
+
+;; gen_server callbacks
+
+(defn+ init (args)
+  {:ok {:state}})
+
+(defn+ handle_call (request from state)
+  {:reply :ok state})
+
+(defn+ handle_cast (msg state)
+  {:noreply state})
+
+(defn+ handle_info (info state)
+  {:noreply state})
+
+(defn+ terminate (reason state)
+  :ok)
+
+(defn+ code_change (old-vsn state extra)
+  {:ok state})
