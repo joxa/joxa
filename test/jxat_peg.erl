@@ -507,7 +507,7 @@ fun_reference_test() ->
                                                      index()))),
     ?memo(?assertMatch({fail,{expected,{string,<<"/">>},{1,7}}},
                        joxa.compiler:'fun-reference'(<<"zoo_ma">>, index()))),
-    ?memo(?assertMatch({fail,{expected,{'no-match',<<"/">>},{1,1}}},
+    ?memo(?assertMatch({fail,{expected,{'at-least-one',{'no-match',<<"/">>}},{1,1}}},
                        joxa.compiler:'fun-reference'(<<"/2">>, index()))).
 
 

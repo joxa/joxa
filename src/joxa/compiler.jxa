@@ -354,11 +354,12 @@
 
 (defn+ ident (input index)
   (p input index :ident
-     (p-seq [(p-not (p-charclass <<"[:;~`'\\\\,><{}/\t\n\s\r\\(\\)\\[\\]\"]">>))
-             (p-zero-or-more
-              (p-and [(p-not
-                       (p-charclass <<"[,\\\\><{}/\t\n\s\r\\(\\)\\[\\]\"]">>))
-                      (p-anything)]))])
+     (p-one-or-more
+      (p-and [(p-not
+               (p-choose [(p-string <<"<<">>)
+                          (p-string <<">>">>)
+                          (p-charclass <<"[,'\\\\{}/\t\n\s\r\\(\\)\\[\\]\"]">>)]))
+              (p-anything)]))
      (fn (node idx)
          (let (result
                (erlang/list_to_atom
@@ -547,15 +548,15 @@
      (p-seq [ignorable/2
              (p-choose [float/2
                         integer/2
+                        binary/2
+                        symbol/2
                         fun-reference/2
                         ident/2
-                        symbol/2
                         list/2
                         tuple/2
                         string/2
                         quote/2
-                        char/2
-                        binary/2])
+                        char/2])
              ignorable/2])
      (fn (node idx)
          (lists/nth 2 node))))
