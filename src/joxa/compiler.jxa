@@ -1149,17 +1149,14 @@
 (defspec idx-from-context ([(erlang/atom)] (path) (context)) {(erlang/non_neg_integer)
                                                               (erlang/non_neg_integer)})
 
-(defn+ add-reference-to-scope-ctx (name arity path0 ctx0 )
-  (let (scopes (get-context :scopes ctx0)
-        body (case arity
-               (-1 (cerl/c_var name))
-               (Arity (cerl/c_fname name arity))))
+(defn+ add-reference-to-scope-ctx (name arity cerl-var path0 ctx0 )
+  (let (scopes (get-context :scopes ctx0))
     (case scopes
       ((current . rest)
        (case (ec_dictionary/get name :not-in-scope current)
          (:not-in-scope
           (set-context :scopes
-                       ((ec_dictionary/add name {body arity} current) . rest) ctx0))
+                       ((ec_dictionary/add name {cerl-var arity} current) . rest) ctx0))
          (_
           (erlang/throw {:variable-redefinition name
                                                 (idx-from-context [] path0 ctx0)}))))
@@ -1705,6 +1702,10 @@
           (erlang/throw {:invalid-reference target (erlang/length args)
                                             (idx-from-context [] path0 ctx0)})))))))
 
+(defn add-to-annots (cerl-thing annots)
+  (let (old-annots (cerl/get_ann cerl-thing))
+    (cerl/set_ann cerl-thing (lists/append old-annots annots))))
+
 (defn+ gensym ()
   (let (x (erlang/phash2 {(erlang/node) (erlang/now ) (crypto/rand_bytes 16)})
         bit-rep (lists/map (fn (el)
@@ -1872,8 +1873,9 @@
                 ignore-var (cerl/ann_c_var (:compiler_generated . annots) (gensym))
                 ctx2 (add-reference-to-scope-ctx
                       type -1
+                      type-var
                       path0
-                      (add-reference-to-scope-ctx value -1
+                      (add-reference-to-scope-ctx value -1 value-var
                                                   path0 (push-scope-ctx ctx1))))
             (case (comp-expr (incr-path (traverse-incr-path 2 path0)) ctx2 catch-expr)
               ({ctx2 cerl-catch}
@@ -2059,31 +2061,44 @@
      (cerl/fun_arity expr))
     (_ -1)))
 
+(defn arg-arity (args count)
+  (case args
+    ([]
+     {[{:not-rest count}] count})
+    ((:&rest . _)
+     {[{:rest (+ count 1)}]  (+ count 1)})
+    ((_ . rest)
+     (arg-arity rest (+ count 1)))))
+
 (defn make-let-binding (body-path0 binding-path0 ctx0 var expr continuation)
   (let (binding-path1 (traverse-path binding-path0)
         annots (annots-from-context [] binding-path1 ctx0))
     (case expr
       ((:fn . (args . _))
-       ;; For letrecs the variable has to be available in the scope so
-       ;; the function can call as needed
-       (let (arity (erlang/length args)
-             ctx1 (add-reference-to-scope-ctx var arity
-                                              binding-path1
-                                              (push-scope-ctx ctx0))
-             cerl-var (cerl/ann_c_fname annots var arity))
-         (case (comp-expr (traverse-incr-path binding-path0) ctx1 expr)
-           ({ctx3 cerl-expr}
-            (case (continuation body-path0 (incr-path binding-path0) ctx3)
-              ({ctx4 cerl-body}
-               {(pop-scope-ctx ctx4) (cerl/ann_c_letrec annots
-                                                        [{cerl-var cerl-expr}]
-                                                        cerl-body)}))))))
+       (case (arg-arity args 0)
+         ({new-annots arity}
+          (let (fn-annots (lists/append annots new-annots)
+                cerl-var (cerl/ann_c_fname fn-annots var arity)
+                ctx1 (add-reference-to-scope-ctx
+                      var
+                      arity
+                      cerl-var
+                      binding-path1
+                      (push-scope-ctx ctx0)))
+            (case (comp-expr (traverse-incr-path binding-path0) ctx1 expr)
+              ({ctx3 cerl-expr}
+               (case (continuation body-path0 (incr-path binding-path0) ctx3)
+                 ({ctx4 cerl-body}
+                  {(pop-scope-ctx ctx4) (cerl/ann_c_letrec annots
+                                                           [{cerl-var cerl-expr}]
+                                                           cerl-body)}))))))))
       (_
        (case (comp-expr (traverse-incr-path binding-path0)
                         ctx0
                         expr)
          ({ctx1 cerl-expr}
           (let (ctx2 (add-reference-to-scope-ctx var (get-expr-arity cerl-expr)
+                                                 (cerl/ann_c_var annots var)
                                                  binding-path1
                                                  (push-scope-ctx ctx1)))
             (case (continuation  body-path0 (incr-path binding-path0) ctx2)
@@ -2225,7 +2240,7 @@
                          ;; The variable is not in the scope so we turn it to a
                          ;; variable
              cerl-var (cerl/ann_c_var annots-bare var0)
-             ctx1 (add-reference-to-scope-ctx var0 -1 path0 ctx0))
+             ctx1 (add-reference-to-scope-ctx var0 -1 cerl-var path0 ctx0))
          {ctx1 guards0 cerl-var})))))
 
 (defspec make-pattern-element ((path) (context) [(erlang/term)] (erlang/term))
@@ -2240,7 +2255,7 @@
       ({ctx1 guards1 cerl-pattern}
        (case (resolve-reference-ctx alias -1 ctx0)
          (:not-a-reference
-          {(add-reference-to-scope-ctx alias -1 alias-path ctx1)
+          {(add-reference-to-scope-ctx alias -1 alias-var alias-path ctx1)
            guards1
            (cerl/ann_c_alias alias-annots alias-var cerl-pattern)})
          (_
@@ -2341,7 +2356,7 @@
        (let (gensym (erlang/list_to_atom (lists/append "_"
                                                        (erlang/atom_to_list (gensym))))
              cerl-var (cerl/ann_c_var annots gensym)
-             ctx1 (add-reference-to-scope-ctx gensym -1 path0 ctx0))
+             ctx1 (add-reference-to-scope-ctx gensym -1 cerl-var path0 ctx0))
          {ctx1 guards0 cerl-var}))
       (arg0 (when (erlang/is_atom arg0))
             (make-pattern-var path0 ctx0 guards0 arg0))
@@ -2490,7 +2505,7 @@
                                       el)))
                            (case acc0
                              ({ctx1 acc1}
-                              {(add-reference-to-scope-ctx arg -1 path0 ctx1)
+                              {(add-reference-to-scope-ctx arg -1 (cerl/c_var arg) path0 ctx1)
                                (arg . acc1)}))))
                      {(push-scope-ctx ctx0)  []} args0)
     ({ctx2 args1}
