@@ -1052,7 +1052,7 @@
     (:false
      :not-a-reference)
     (arity (when (erlang/is_integer arity))
-           {:remote-rest module function arity})))
+           {:remote-rest {module function arity}})))
 
 (defn+ remote-function-ctx? (module function possible-arity ctx aliased)
   (__try
@@ -1062,9 +1062,9 @@
        (:true
           (case (get-joxa-info module :rest function)
              (:false
-               {:remote module function possible-arity})
+              {:remote {module function possible-arity}})
              (arity (when (erlang/is_integer arity))
-               {:remote-rest module function arity})))
+                    {:remote-rest {module function arity}})))
        (:false
          (rest-reference-ctx? module function possible-arity exports))))
    (catch (_type body)
@@ -1096,13 +1096,13 @@
       (:undefined
        :not-a-reference)
       (_
-       {:apply name possible-arity}))))
+       {:apply {name possible-arity}}))))
 
 (defn used-function-ctx? (name possible-arity ctx)
   (let (uses (get-context :uses ctx))
     (case (ec_dictionary/get {name possible-arity} :undefined uses)
       ({fun-name module-name}
-       {:remote module-name fun-name possible-arity})
+       {:remote {module-name fun-name possible-arity}})
       (:undefined
        (is-speced-ctx? name possible-arity ctx)))))
 
@@ -1111,7 +1111,7 @@
     (:false
      :not-a-reference)
     (arity (when (erlang/is_integer arity))
-           {:apply-rest function arity})))
+           {:apply-rest {function arity}})))
 
 (defn+ defined-used-function-ctx? (name possible-arity ctx)
   (let (defs (get-context :definitions ctx))
@@ -1126,7 +1126,7 @@
         (case (rest-defined-function-ctx? (get-context :module-name ctx)
                                           name)
           (:not-a-reference
-           {:apply name possible-arity})
+           {:apply {name possible-arity}})
           (rest-apply
            rest-apply)))
       (:false
@@ -1183,7 +1183,7 @@
                                        (:not_found
                                         :not_found))))) scopes)
          ({:ok var _}
-          {:reference var arity})
+          {:reference {var arity}})
          (:not_found
           (defined-used-function-ctx? name arity ctx)))))
     (_
@@ -1660,7 +1660,7 @@
     (case form
       ((:apply . ((= ref  {:--fun module function _}) . args))
        (case (resolve-reference-ctx function (erlang/length args) ctx0)
-         ({:remote module function arity}
+         ({:remote {module function arity}}
           (case (eval-args (incr-path 2 path0) ctx0 args)
             ({ctx1 arg-list}
              {ctx1 (cerl/ann_c_call annots
@@ -1672,7 +1672,7 @@
                                              (idx-from-context [] path0 ctx0)}))))
       ((:apply . ((= ref {--fun function arity}) . args))
        (case (resolve-reference-ctx function (erlang/length args) ctx0)
-         ({:apply function arity}
+         ({:apply {function arity}}
           (build-apply path0 ctx0 (cerl/ann_c_fname annots function arity) args))
          (_
           (erlang/throw {:invalid-reference ref (erlang/length args)
@@ -1680,7 +1680,7 @@
       ((:apply . (target . args))
        (when (erlang/is_atom target))
        (case (resolve-reference-ctx target (erlang/length args) ctx0)
-         ({:reference val _}
+         ({:reference {val _}}
           (build-apply path0 ctx0 (cerl/set_ann val annots) args))
          (:not-a-reference
           (case (comp-expr (traverse-path path0) ctx0 target)
@@ -1702,7 +1702,7 @@
     (case form
       ({:--fun f a} (when (erlang/is_integer a))
        (case (resolve-reference-ctx f a ctx0)
-         ({:reference var _}
+         ({:reference {var _}}
           (case (erlang/and (cerl/is_c_fname var)
                             (== (cerl/fname_arity var) a))
             (:true
@@ -1710,7 +1710,7 @@
             (:false
              (let (idx (idx-from-context [] path0 ctx0))
                (erlang/throw {:invalid-reference {f a} idx})))))
-         ({:apply name a}
+         ({:apply {name a}}
           {ctx0 (cerl/ann_c_fname annots name a)})
          (_
           (let (idx (idx-from-context [] path0 ctx0))
@@ -1718,9 +1718,9 @@
       ((= ref {:--fun _ _ a})
        (when (erlang/is_integer a))
        (case (resolve-reference-ctx ref a ctx0)
-         ({:reference _ _}
+         ({:reference {_ _}}
           (erlang/throw {:invalid-reference (idx-from-context [] path0 ctx0)}))
-         ({:remote module function arity}
+         ({:remote {module function arity}}
           (when (erlang/and (erlang/is_atom module)
                             (erlang/is_atom function)))
           {ctx0 (cerl/ann_c_call annots
@@ -1757,30 +1757,30 @@
       (case (eval-args (incr-path path0) ctx0 args)
         ({ctx1 arg-list}
          (case (resolve-reference-ctx val possible-arity ctx1)
-           ({:reference var _}
+           ({:reference {var _}}
             {ctx1 (cerl/ann_c_apply annots
                                     (cerl/set_ann var annots)
                                     arg-list)})
-           ({:apply name arity}
+           ({:apply {name arity}}
             {ctx1 (cerl/ann_c_apply annots
                                     (cerl/ann_c_fname call-annots
                                                       name
                                                       arity)
                                     arg-list)})
-           ({:apply-rest name arity}
+           ({:apply-rest {name arity}}
             {ctx1 (cerl/ann_c_apply annots
                                     (cerl/ann_c_fname call-annots
                                                       name
                                                       arity)
                                     (args-to-arity arg-list 1 arity []))})
-           ({:remote module function possible-arity}
+           ({:remote {module function possible-arity}}
                  {ctx0 (cerl/ann_c_call annots
                            (cerl/ann_c_atom call-annots
                                             module)
                            (cerl/ann_c_atom call-annots
                                             function)
                            arg-list)})
-            ({:remote-rest module function arity}
+           ({:remote-rest {module function arity}}
                  {ctx0 (cerl/ann_c_call annots
                            (cerl/ann_c_atom call-annots
                                             module)
@@ -1796,7 +1796,7 @@
                {ctx1 (cerl/ann_c_apply annots cerl-val arg-list)})))
            (:not-a-reference
             (case (resolve-reference-ctx val -1 ctx1)
-              ({:reference var _}
+              ({:reference {var _}}
                {ctx1 (cerl/ann_c_apply annots
                                        (cerl/set_ann var annots)
                                        arg-list)})
@@ -2158,7 +2158,7 @@
   (let (annots (:compiler_generated .
                                     (annots-from-context [] path0 ctx0)))
     (case (resolve-reference-ctx var0 -1 ctx0)
-      ({:reference var1 _}
+      ({:reference {var1 _}}
        ;; The reference already exists. So we create a new variable and
        ;; add a guard for to test for equality
        (let (gensym (gensym)
@@ -2465,7 +2465,7 @@
            {ctx0 (cerl/ann_c_float annots arg)})
       (arg (when (erlang/is_atom arg))
            (case (resolve-reference-ctx arg -1 ctx0)
-             ({:reference var _}
+             ({:reference {var _}}
               {ctx0 (cerl/set_ann var annots)})
              (e
               (let (idx (idx-from-context [] path0 ctx0))
