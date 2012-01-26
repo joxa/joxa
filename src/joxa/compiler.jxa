@@ -1047,7 +1047,7 @@
        (_
         (erlang/raise type body (erlang/get_stacktrace)))))))
 
-(defn+ rest-reference-ctx? (module function possible-arity exports)
+(defn+ rest-remote-reference-ctx? (module function possible-arity exports)
   (case (get-joxa-info :rest module function)
     (:false
      :not-a-reference)
@@ -1058,15 +1058,15 @@
   (__try
    (let (requires (get-context :requires ctx)
          exports (ec_dictionary/get module requires))
-     (case (lists/member {function possible-arity} exports)
-       (:true
-          (case (get-joxa-info module :rest function)
-             (:false
-              {:remote {module function possible-arity}})
-             (arity (when (erlang/is_integer arity))
-                    {:remote-rest {module function arity}})))
-       (:false
-         (rest-reference-ctx? module function possible-arity exports))))
+     (case (rest-remote-reference-ctx? module function possible-arity exports)
+       (:not-a-reference
+        (case (lists/member {function possible-arity} exports)
+          (:true
+           {:remote {module function possible-arity}})
+          (:false
+           :not-a-reference)))
+       (return-val
+        return-val)))
    (catch (_type body)
      (case body
        (:not_found
@@ -1705,6 +1705,44 @@
           (erlang/throw {:invalid-reference target (erlang/length args)
                                             (idx-from-context [] path0 ctx0)})))))))
 
+(defn+ gensym ()
+  (let (x (erlang/phash2 {(erlang/node) (erlang/now ) (crypto/rand_bytes 16)})
+        bit-rep (lists/map (fn (el)
+                               (io_lib/format "~.16B" [el]))
+                           (erlang/binary_to_list
+                            (binary/encode_unsigned x))))
+    (erlang/list_to_atom
+     (lists/flatten
+      (io_lib/format "GENSYM_~s" [bit-rep])))))
+
+(defn make-apply-rest-fun (ctx0 f-var arity rest-arity)
+  (let (arg-list (lists/map (fn (_)
+                                (cerl/ann_c_var [:compiler_generated]
+                                                (gensym)))
+                            (lists/seq 1 arity))
+        annots [:compiler_generated])
+
+    {(incr-fun-index-ctx ctx0)
+     (cerl/ann_c_fun annots arg-list
+                     (cerl/ann_c_apply annots
+                                     f-var
+                                     (args-to-arity arg-list 1 rest-arity [])))}))
+
+(defn make-remote-rest-fun (ctx0 module function arity rest-arity)
+  (let (arg-list (lists/map (fn (_)
+                                (cerl/ann_c_var [:compiler_generated]
+                                                (gensym)))
+                            (lists/seq 1 arity))
+                 annots [:compiler_generated])
+
+    {(incr-fun-index-ctx ctx0)
+     (cerl/ann_c_fun annots arg-list
+                     (cerl/ann_c_call annots
+                                      (cerl/ann_c_atom annots module)
+                                      (cerl/ann_c_atom annots function)
+                                      (args-to-arity arg-list 1 rest-arity [])))}))
+
+
 (defn make-fun (path0 ctx0 form)
   (let (annots (annots-from-context [] path0 ctx0))
     (case form
@@ -1720,6 +1758,10 @@
                (erlang/throw {:invalid-reference {f a} idx})))))
          ({:apply {name a}}
           {ctx0 (cerl/ann_c_fname annots name a)})
+         ({:apply-rest {name rest-arity}}
+          (make-apply-rest-fun ctx0
+                               (cerl/ann_c_fname annots name a)
+                               a rest-arity))
          (_
           (let (idx (idx-from-context [] path0 ctx0))
             (erlang/throw {:invalid-reference {f a} idx})))))
@@ -1739,6 +1781,10 @@
                                  [(cerl/ann_c_atom annots module)
                                   (cerl/ann_c_atom annots function)
                                   (cerl/ann_c_int annots arity)])})
+         ({:remote-rest {module function rest-arity}}
+          (when (erlang/and (erlang/is_atom module)
+                            (erlang/is_atom function)))
+          (make-remote-rest-fun ctx0 module function a rest-arity))
          (_
           (erlang/throw {:undefined-reference ref (idx-from-context [] path0 ctx0)}))))
       (_
@@ -1811,16 +1857,6 @@
               (_
                (erlang/throw {:invalid-reference val possible-arity
                                                  (idx-from-context [] path0 ctx1)}))))))))))
-
-(defn+ gensym ()
-  (let (x (erlang/phash2 {(erlang/node) (erlang/now ) (crypto/rand_bytes 16)})
-        bit-rep (lists/map (fn (el)
-                               (io_lib/format "~.16B" [el]))
-                           (erlang/binary_to_list
-                            (binary/encode_unsigned x))))
-    (erlang/list_to_atom
-     (lists/flatten
-      (io_lib/format "GENSYM_~s" [bit-rep])))))
 
 (defn make-try (path0 ctx0 form)
   (let (annots (annots-from-context [] path0 ctx0))
