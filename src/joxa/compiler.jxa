@@ -1800,8 +1800,8 @@
                {ctx1 (cerl/ann_c_apply annots
                                        (cerl/set_ann var annots)
                                        arg-list)})
-              (A
-               (erlang/throw {:invalid-reference val possible-arity A
+              (_
+               (erlang/throw {:invalid-reference val possible-arity
                                                  (idx-from-context [] path0 ctx1)}))))))))))
 
 (defn+ gensym ()
