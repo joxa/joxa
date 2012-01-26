@@ -35,7 +35,7 @@ test1_test() ->
     Ctx5 = joxa.compiler:'add-def-ctx'([], foo, [one, two], none, Ctx4),
     Ctx6 = joxa.compiler:'add-require-ctx'(lists,
                                            joxa.compiler:'add-alias-ctx'(bar, lists, Ctx5)),
-    Ctx7 = joxa.compiler:'add-reference-to-scope-ctx'(foo, -1, Ctx6),
+    Ctx7 = joxa.compiler:'add-reference-to-scope-ctx'(foo, -1, {1, [1]}, Ctx6),
 
     ?assertMatch({reference, {{c_var, [], foo}, -1}},
                  joxa.compiler:'resolve-reference-ctx'(foo, -1, Ctx7)),

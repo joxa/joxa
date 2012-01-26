@@ -1146,14 +1146,23 @@
     ((_ . scopes)
      (set-context :scopes scopes ctx))))
 
-(defn+ add-reference-to-scope-ctx (name arity ctx)
-  (let (scopes (get-context :scopes ctx)
-        body     (case arity
-                   (-1 (cerl/c_var name))
-                   (Arity (cerl/c_fname name arity))))
+(defspec idx-from-context ([(erlang/atom)] (path) (context)) {(erlang/non_neg_integer)
+                                                              (erlang/non_neg_integer)})
+
+(defn+ add-reference-to-scope-ctx (name arity path0 ctx0 )
+  (let (scopes (get-context :scopes ctx0)
+        body (case arity
+               (-1 (cerl/c_var name))
+               (Arity (cerl/c_fname name arity))))
     (case scopes
       ((current . rest)
-       (set-context :scopes ((ec_dictionary/add {name arity} body current) . rest) ctx))
+       (case (ec_dictionary/get name :not-in-scope current)
+         (:not-in-scope
+          (set-context :scopes
+                       ((ec_dictionary/add name {body arity} current) . rest) ctx0))
+         (_
+          (erlang/throw {:variable-redefinition name
+                                                (idx-from-context [] path0 ctx0)}))))
       ([]
        (erlang/throw :no-scope)))))
 
@@ -1177,14 +1186,15 @@
      (let (scopes (get-context :scopes ctx))
        (case (ec_lists/search (fn (scope)
                                   (__try
-                                   {:ok (ec_dictionary/get {name arity} scope)}
+                                   {:ok (ec_dictionary/get name scope)}
                                    (catch (_type body)
                                      (case body
                                        (:not_found
                                         :not_found))))) scopes)
-         ({:ok var _}
-          {:reference {var arity}})
-         (:not_found
+         ({:ok {var new-arity}  _} (when (erlang/or (erlang/== -1 arity)
+                                                    (erlang/== new-arity arity)))
+          {:reference {var new-arity}})
+         (_
           (defined-used-function-ctx? name arity ctx)))))
     (_
      :not-a-reference)))
@@ -1826,8 +1836,9 @@
                 ignore-var (cerl/ann_c_var (:compiler_generated . annots) (gensym))
                 ctx2 (add-reference-to-scope-ctx
                       type -1
+                      path0
                       (add-reference-to-scope-ctx value -1
-                                                  (push-scope-ctx ctx1))))
+                                                  path0 (push-scope-ctx ctx1))))
             (case (comp-expr (incr-path (traverse-incr-path 2 path0)) ctx2 catch-expr)
               ({ctx2 cerl-catch}
                {(pop-scope-ctx ctx2)
@@ -2021,6 +2032,7 @@
        ;; the function can call as needed
        (let (arity (erlang/length args)
              ctx1 (add-reference-to-scope-ctx var arity
+                                              binding-path1
                                               (push-scope-ctx ctx0))
              cerl-var (cerl/ann_c_fname annots var arity))
          (case (comp-expr (traverse-incr-path binding-path0) ctx1 expr)
@@ -2036,6 +2048,7 @@
                         expr)
          ({ctx1 cerl-expr}
           (let (ctx2 (add-reference-to-scope-ctx var (get-expr-arity cerl-expr)
+                                                 binding-path1
                                                  (push-scope-ctx ctx1)))
             (case (continuation  body-path0 (incr-path binding-path0) ctx2)
               ({ctx4 cerl-body}
@@ -2176,7 +2189,7 @@
                          ;; The variable is not in the scope so we turn it to a
                          ;; variable
              cerl-var (cerl/ann_c_var annots-bare var0)
-             ctx1 (add-reference-to-scope-ctx var0 -1 ctx0))
+             ctx1 (add-reference-to-scope-ctx var0 -1 path0 ctx0))
          {ctx1 guards0 cerl-var})))))
 
 (defspec make-pattern-element ((path) (context) [(erlang/term)] (erlang/term))
@@ -2191,7 +2204,7 @@
       ({ctx1 guards1 cerl-pattern}
        (case (resolve-reference-ctx alias -1 ctx0)
          (:not-a-reference
-          {(add-reference-to-scope-ctx alias -1 ctx1)
+          {(add-reference-to-scope-ctx alias -1 alias-path ctx1)
            guards1
            (cerl/ann_c_alias alias-annots alias-var cerl-pattern)})
          (_
@@ -2292,7 +2305,7 @@
        (let (gensym (erlang/list_to_atom (lists/append "_"
                                                        (erlang/atom_to_list (gensym))))
              cerl-var (cerl/ann_c_var annots gensym)
-             ctx1 (add-reference-to-scope-ctx gensym -1 ctx0))
+             ctx1 (add-reference-to-scope-ctx gensym -1 path0 ctx0))
          {ctx1 guards0 cerl-var}))
       (arg0 (when (erlang/is_atom arg0))
             (make-pattern-var path0 ctx0 guards0 arg0))
@@ -2441,7 +2454,7 @@
                                       el)))
                            (case acc0
                              ({ctx1 acc1}
-                              {(add-reference-to-scope-ctx arg -1 ctx1)
+                              {(add-reference-to-scope-ctx arg -1 path0 ctx1)
                                (arg . acc1)}))))
                      {(push-scope-ctx ctx0)  []} args0)
     ({ctx2 args1}
