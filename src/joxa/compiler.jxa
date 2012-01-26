@@ -1647,6 +1647,10 @@
     ({_ ctx3 args1}
      {ctx3 (lists/reverse args1)})))
 
+(defn add-to-annots (cerl-thing annots)
+  (let (old-annots (cerl/get_ann cerl-thing))
+    (cerl/set_ann cerl-thing (lists/append old-annots annots))))
+
 (defn make-apply (path0 ctx0 form)
   (let (annots (annots-from-context [] path0 ctx0)
         build-apply (fn (path1 ctx1 cerl-target args)
@@ -1686,7 +1690,7 @@
        (when (erlang/is_atom target))
        (case (resolve-reference-ctx target (erlang/length args) ctx0)
          ({:reference {val _}}
-          (build-apply path0 ctx0 (cerl/set_ann val annots) args))
+          (build-apply path0 ctx0 (add-to-annots val annots) args))
          (:not-a-reference
           (case (comp-expr (traverse-path path0) ctx0 target)
             ({ctx1 cerl-val}
@@ -1701,10 +1705,6 @@
          (_
           (erlang/throw {:invalid-reference target (erlang/length args)
                                             (idx-from-context [] path0 ctx0)})))))))
-
-(defn add-to-annots (cerl-thing annots)
-  (let (old-annots (cerl/get_ann cerl-thing))
-    (cerl/set_ann cerl-thing (lists/append old-annots annots))))
 
 (defn+ gensym ()
   (let (x (erlang/phash2 {(erlang/node) (erlang/now ) (crypto/rand_bytes 16)})
@@ -1753,7 +1753,7 @@
           (case (erlang/and (cerl/is_c_fname var)
                             (== (cerl/fname_arity var) a))
             (:true
-             {ctx0 (cerl/set_ann var annots)})
+             {ctx0 (add-to-annots var annots)})
             (:false
              (let (idx (idx-from-context [] path0 ctx0))
                (erlang/throw {:invalid-reference {f a} idx})))))
@@ -1814,7 +1814,7 @@
          (case (resolve-reference-ctx val possible-arity ctx1)
            ({:reference {var _}}
             {ctx1 (cerl/ann_c_apply annots
-                                    (cerl/set_ann var annots)
+                                    (add-to-annots var annots)
                                     arg-list)})
            ({:apply {name arity}}
             {ctx1 (cerl/ann_c_apply annots
@@ -1853,7 +1853,7 @@
             (case (resolve-reference-ctx val -1 ctx1)
               ({:reference {var _}}
                {ctx1 (cerl/ann_c_apply annots
-                                       (cerl/set_ann var annots)
+                                       (add-to-annots var annots)
                                        arg-list)})
               (_
                (erlang/throw {:invalid-reference val possible-arity
@@ -2229,7 +2229,7 @@
                                                         :erlang)
                                               (cerl/ann_c_atom annots
                                                                :=:=)
-                                              [cerl-var (cerl/set_ann var1 annots)])
+                                              [cerl-var (add-to-annots var1 annots)])
                       . guards0))
          ;; We don't add the generated variable to the scope as we
          ;; don't want it to be available to the user (The user really
@@ -2527,7 +2527,7 @@
       (arg (when (erlang/is_atom arg))
            (case (resolve-reference-ctx arg -1 ctx0)
              ({:reference {var _}}
-              {ctx0 (cerl/set_ann var annots)})
+              {ctx0 (add-to-annots var annots)})
              (e
               (let (idx (idx-from-context [] path0 ctx0))
                 (erlang/throw {:invalid-reference e arg idx})))))
