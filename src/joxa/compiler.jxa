@@ -1648,7 +1648,15 @@
      {ctx3 (lists/reverse args1)})))
 
 (defn add-to-annots (cerl-thing annots)
-  (let (old-annots (cerl/get_ann cerl-thing))
+  (let (old-annots (lists/filter (fn (el)
+                                     (case el
+                                       ({:rest _}
+                                        :true)
+                                       ({:not-rest _}
+                                        :true)
+                                       (_
+                                        :false)))
+                                 (cerl/get_ann cerl-thing)))
     (cerl/set_ann cerl-thing (lists/append old-annots annots))))
 
 (defn make-apply (path0 ctx0 form)
