@@ -2994,12 +2994,21 @@
    {:bootstrap \b "bootstrap" {:boolean :false}
                "Use the special limited bootstrap compiler"}])
 
-(defn+ comp-forms (path0 ctx0 form)
-  (case form
+(defn+ comp-forms (path0 ctx0 form0)
+  (case form0
+    ((:do . rest)
+     (case  (lists/foldl (fn (form1 acc)
+                             (case acc
+                               ({path1 ctx1}
+                                {(incr-path path1)
+                                 (comp-forms path1 ctx1 form1)})))
+                         {(traverse-incr-path  path0) ctx0} rest)
+       ({_ ctx2}
+        ctx2)))
     ((:module . _)
-     (comp-module path0 ctx0 form))
+     (comp-module path0 ctx0 form0))
     (_
-     (comp-definition path0 ctx0 form))))
+     (comp-definition path0 ctx0 form0))))
 
 (defn erl-comp (ctx0 cerl-ast type)
   (case type
