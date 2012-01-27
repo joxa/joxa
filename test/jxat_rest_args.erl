@@ -37,7 +37,7 @@ given([a,module,that,has,rest,arguments], _State, _) ->
                   (defn+ do-test0()
                     (jxat-rest-test1/do-test0 1 2 3 4 5 6 7 9 10))
 
-               (defspec internal-test0 ((erlang/term) &rest (erlang/term)) (erlang/term))
+                (defspec internal-test0 ((erlang/term) &rest (erlang/term)) (erlang/term))
 
                 (defn+ do-test0.5 ()
                     (internal-test0 1 2 3 4 5 6 7 9 10))

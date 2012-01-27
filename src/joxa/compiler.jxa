@@ -1935,7 +1935,7 @@
                       (add-reference-to-scope-ctx value -1 value-var
                                                   path0 (push-scope-ctx ctx1))))
             (case (comp-expr (incr-path (traverse-incr-path 2 path0)) ctx2 catch-expr)
-              ({ctx2 cerl-catch}
+              ({ctx3 cerl-catch}
                {(pop-scope-ctx ctx2)
                 (cerl/ann_c_try annots cerl-expr [try-var] try-var
                                 [type-var value-var ignore-var]
@@ -3189,23 +3189,56 @@
                       ({_ attr}
                        attr))) all-types))))
 
+
+(defn sort-fun-deps (dep state)
+  (case state
+    ({unresolved0 resolved0}
+     (case (sets/is_element dep resolved0)
+       (:true
+        state)
+       (:false
+        {(sets/add_element dep unresolved0) resolved0})))))
+
+(defn compilable? (ctx0)
+  (let (reqs (get-definitions ctx0)
+             result (lists/foldl (fn (el acc)
+                                     (case el
+                                       ({var _ deps}
+                                        (case acc
+                                          ({unresolved0 resolved0}
+                                           (let (element {(cerl/fname_id var) (cerl/fname_arity var)}
+                                                         resolved1 (sets/add_element element resolved0)
+                                                         unresolved1 (sets/del_element element unresolved0))
+                                             (lists/foldl sort-fun-deps/2 {unresolved1 resolved1} (sets/to_list deps))))))))
+                                 {(sets/new) (sets/new)} reqs))
+    (case result
+      ({unresolved _}
+       (erlang/== (sets/size unresolved) 0)))))
+
 (defn+ compile-context (ctx0 compile-type)
-  (let (ctx1 (make-joxa-info (comp-module-info ctx0))
-        annots (get-context :line ctx1)
-        module-name (cerl/ann_c_atom annots
-                                     (get-context :module-name ctx1))
-        exports (get-context-exports ctx1)
-        attrs (lists/append (get-context :attrs ctx1)
-                            (compile-types ctx1))
-        defs (lists/map (fn (def)
-                            (case def
-                              ({var body _}
-                               {var body})
-                              (else
-                               (erlang/throw else))))
-                        (get-definitions ctx1)))
-    {ctx1 (erl-comp ctx0 (cerl/ann_c_module annots module-name exports attrs defs)
-                    compile-type)}))
+  (case (compilable? ctx0)
+    (:true
+     (let (ctx1 (make-joxa-info (comp-module-info ctx0))
+                annots (get-context :line ctx1)
+                module-name (cerl/ann_c_atom annots
+                                             (get-context :module-name ctx1))
+                exports (get-context-exports ctx1)
+                attrs (lists/append (get-context :attrs ctx1)
+                                    (compile-types ctx1))
+                defs (lists/map (fn (def)
+                                    (case def
+                                      ({var body _}
+                                       {var body})
+                                      (else
+                                       (erlang/throw else))))
+                                (get-definitions ctx1)))
+       {ctx1 (erl-comp ctx0 (cerl/ann_c_module annots module-name exports attrs defs)
+                       compile-type)}))
+    (:false
+     (when (erlang/== compile-type :final))
+     (erlang/throw :unresolved-function-dependencies))
+    (:false
+     {ctx0 :uncompilable})))
 
 (defn parse-all (file-name input acc)
   (case (has-more-data-to-parse input)
@@ -3252,9 +3285,11 @@
     ({:ok binary}
      (let (result (bootstrap-comp file-name options binary))
        (case result
+         ({ctx0 :uncompilable}
+          (erlang/throw :unresolved-function-dependencies))
          ({ctx0 module-binary}
           (let (module-name (get-context :module-name ctx0)
-                load-result (code/load_binary module-name file-name module-binary))
+                            load-result (code/load_binary module-name file-name module-binary))
             (case load-result
               ({:module module-name}
                (compile-context ctx0 :final))
@@ -3274,6 +3309,8 @@
                                 (set-context :annots annots ctx0)
                                 ast0))
           (case (compile-context ctx1 :intermediate)
+            ((= ref {ctx2 :uncompilable})
+             (compile-form file-name rest ctx2 :uncompilable))
             ({ctx2 binary1}
              (let (module-name (get-context :module-name ctx2))
                (case (code/load_binary module-name file-name binary1)
