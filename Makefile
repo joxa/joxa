@@ -25,12 +25,22 @@ BEAMS= $(BEAMDIR)/joxa/compiler.beam $(BEAMDIR)/joxa/shell.beam \
 
 .SUFFIXES:
 .SUFFIXES:.jxa
-.PHONY:all bootstrap_test bootstrap_helper bootstrap
+.PHONY:all bootstrap_test bootstrap_helper bootstrap setup do-changeover
 
 all:
 	@$(COMMAND)
 
 bootstrap:  $(BEAMS)
+
+setup: 
+	sinan clean; \
+        sinan build
+	
+do-changeover: setup bootstrap_test bootstrap_helper
+	sinan cucumber; \
+	sinan eunit; \
+	sinan proper
+	
 
 $(TMPDIR)/bootstrap_test.jxa:
 	mkdir -p $(TMPDIR)
