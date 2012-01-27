@@ -900,6 +900,7 @@
     (:options (erlang/element 15 ctx))
     (:rests (erlang/element 16 ctx))
     (:anon-fun-index (erlang/element 17 ctx))
+    (:fun-deps (erlang/element 18 ctx))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ set-context (field value ctx)
@@ -920,6 +921,7 @@
     (:options (erlang/setelement 15 ctx value))
     (:rests (erlang/setelement 16 ctx value))
     (:anon-fun-index (erlang/setelement 17 ctx value))
+    (:fun-deps (erlang/setelement 18 ctx value))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ new-context (key-values)
@@ -944,6 +946,7 @@
                 [] ; context
                 [] ; rest functions
                 -1 ; anonymous function index
+                (sets/new) ; fun deps
                 } key-values))
 
 (defn+ new-context (annots module-name)
@@ -993,6 +996,7 @@
 (defn+ add-def-ctx (annots name vars body ctx replace)
   (let (arity (erlang/length vars)
         defs (get-context :definitions ctx)
+        fun-deps (get-context :fun-deps ctx)
         cerl-name (cerl/ann_c_fname annots name arity)
         cerl-body (cerl/ann_c_fun annots vars body))
 
@@ -1003,12 +1007,12 @@
           (set-context :definitions
                        (lists/keyreplace {name arity} 1
                                          defs
-                                         {{name arity} {cerl-name cerl-body}})
+                                         {{name arity} {cerl-name cerl-body fun-deps}})
                        ctx))
          (:false
           (set-context :definitions
                        (lists/append defs
-                                     [{{name arity} {cerl-name cerl-body}}])
+                                     [{{name arity} {cerl-name cerl-body fun-deps}}])
                        ctx))))
       (_
        (lists/foreach (fn (el)
@@ -1017,9 +1021,10 @@
                              (erlang/throw {:function-exists name arity}))
                             (_
                              :ok))) defs)
-       (set-context :definitions
-                    (lists/append defs [{{name arity} {cerl-name cerl-body}}])
-                    ctx)))))
+       (set-context :fun-deps (sets/new)
+                    (set-context :definitions
+                                 (lists/append defs [{{name arity} {cerl-name cerl-body fun-deps}}])
+                                 ctx))))))
 
 (defn+ add-def-ctx (annots name vars body ctx)
   (add-def-ctx annots name vars body ctx :no-replace))
@@ -1031,6 +1036,10 @@
 
 (defn+ add-exported-def-ctx (annots name vars body ctx)
   (add-exported-def-ctx annots name vars body ctx :no-replace))
+
+(defn add-fun-dep-ctx (name arity ctx)
+  (let (fun-deps (get-context :fun-deps ctx))
+    (set-context :fun-deps (sets/add_element {name arity} fun-deps) ctx)))
 
 (defspec alias-ctx? ((erlang/atom) (erlang/atom)
                      (erlang/non_neg_integer) (erlang/term))
@@ -1743,13 +1752,15 @@
                                     (cerl/ann_c_atom annots function)
                                     (args-to-arity arg-list 1 arity []))})
             ({:apply {function arity}}
-             {ctx1 (cerl/ann_c_apply annots
-                                     (cerl/ann_c_fname annots function arity)
-                                     arg-list)})
+             {(add-fun-dep-ctx function arity ctx1)
+              (cerl/ann_c_apply annots
+                                (cerl/ann_c_fname annots function arity)
+                                arg-list)})
             ({:apply-rest {function arity}}
-             {ctx1 (cerl/ann_c_apply annots
-                                     (cerl/ann_c_fname annots function arity)
-                                     (args-to-arity arg-list 1 arity []))})
+             {(add-fun-dep-ctx function arity ctx1)
+              (cerl/ann_c_apply annots
+                                (cerl/ann_c_fname annots function arity)
+                                (args-to-arity arg-list 1 arity []))})
 
             ({:reference {val _}}
              (make-rest-apply-var ctx1 annots val arg-list))
@@ -1805,9 +1816,10 @@
              (let (idx (idx-from-context [] path0 ctx0))
                (erlang/throw {:invalid-reference {f a} idx})))))
          ({:apply {name a}}
-          {ctx0 (cerl/ann_c_fname annots name a)})
+          {(add-fun-dep-ctx name a ctx0)
+           (cerl/ann_c_fname annots name a)})
          ({:apply-rest {name rest-arity}}
-          (make-apply-rest-fun ctx0
+          (make-apply-rest-fun (add-fun-dep-ctx name rest-arity ctx0)
                                (cerl/ann_c_fname annots name a)
                                a rest-arity))
          (_
@@ -1862,26 +1874,28 @@
            ({:reference {var _}}
             (make-rest-apply-var ctx1 annots (add-to-annots var annots) arg-list))
            ({:apply {name arity}}
-            {ctx1 (cerl/ann_c_apply annots
-                                    (cerl/ann_c_fname call-annots
-                                                      name
-                                                      arity)
-                                    arg-list)})
+            {(add-fun-dep-ctx name arity ctx1)
+             (cerl/ann_c_apply annots
+                               (cerl/ann_c_fname call-annots
+                                                 name
+                                                 arity)
+                               arg-list)})
            ({:apply-rest {name arity}}
-            {ctx1 (cerl/ann_c_apply annots
-                                    (cerl/ann_c_fname call-annots
-                                                      name
-                                                      arity)
-                                    (args-to-arity arg-list 1 arity []))})
+            {(add-fun-dep-ctx name arity ctx1)
+             (cerl/ann_c_apply annots
+                               (cerl/ann_c_fname call-annots
+                                                 name
+                                                 arity)
+                               (args-to-arity arg-list 1 arity []))})
            ({:remote {module function possible-arity}}
-                 {ctx0 (cerl/ann_c_call annots
+                 {ctx1 (cerl/ann_c_call annots
                            (cerl/ann_c_atom call-annots
                                             module)
                            (cerl/ann_c_atom call-annots
                                             function)
                            arg-list)})
            ({:remote-rest {module function arity}}
-                 {ctx0 (cerl/ann_c_call annots
+                 {ctx1 (cerl/ann_c_call annots
                            (cerl/ann_c_atom call-annots
                                             module)
                            (cerl/ann_c_atom call-annots
@@ -1891,9 +1905,9 @@
             (erlang/throw {error (idx-from-context [] path0 ctx1)}))
            (:not-a-reference
             (when (erlang/is_list val))
-            (case (comp-expr (traverse-path path0) ctx0 val)
-              ({ctx1 cerl-val}
-               (make-rest-apply-var ctx1 annots (add-to-annots cerl-val annots) arg-list))))
+            (case (comp-expr (traverse-path path0) ctx1 val)
+              ({ctx2 cerl-val}
+               (make-rest-apply-var ctx2 annots (add-to-annots cerl-val annots) arg-list))))
            (:not-a-reference
             (case (resolve-reference-ctx val -1 ctx1)
               ({:reference {var _}}
@@ -3183,7 +3197,13 @@
         exports (get-context-exports ctx1)
         attrs (lists/append (get-context :attrs ctx1)
                             (compile-types ctx1))
-        defs (get-definitions ctx1))
+        defs (lists/map (fn (def)
+                            (case def
+                              ({var body _}
+                               {var body})
+                              (else
+                               (erlang/throw else))))
+                        (get-definitions ctx1)))
     {ctx1 (erl-comp ctx0 (cerl/ann_c_module annots module-name exports attrs defs)
                     compile-type)}))
 
