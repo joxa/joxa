@@ -1,0 +1,21 @@
+(module joxa.std
+        (require erlang lists))
+
+(defn+ +(&rest args)
+  (case args
+    ([x y]
+     (erlang/+ x y))
+    ((a . b)
+     (lists/sum args))
+    (arg
+     arg)))
+     
+(defn+ -(&rest args)
+  (case args
+    ([x y]
+     (erlang/- x y))
+    ((a . b)
+     (lists/sum (lists/map (fn (x) (erlang/- 0 x)) args)))
+    (arg
+     arg)))
+     
