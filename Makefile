@@ -20,7 +20,8 @@ else
 	COMMAND=$(SINAN) build
 endif
 
-BEAMS= $(BEAMDIR)/joxa/compiler.beam $(BEAMDIR)/joxa/shell.beam 
+BEAMS= $(BEAMDIR)/joxa/compiler.beam $(BEAMDIR)/joxa/shell.beam \
+       $(BEAMDIR)/joxa/core.beam
 
 .SUFFIXES:
 .SUFFIXES:.jxa
