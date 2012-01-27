@@ -1,4 +1,4 @@
-(module joxa.std
+(module joxa.core
         (require erlang lists))
 
 (defn+ +(&rest args)
@@ -9,13 +9,19 @@
      (lists/sum args))
     (arg
      arg)))
-     
+
+
+(defn - (num-list acc)
+  (case num-list
+    ([]
+     acc)
+    ((a . rest)
+     (- rest  (erlang/- acc a)))))
+
 (defn+ -(&rest args)
   (case args
-    ([x y]
-     (erlang/- x y))
-    ((a . b)
-     (lists/sum (lists/map (fn (x) (erlang/- 0 x)) args)))
-    (arg
-     arg)))
-     
+    ([a]
+     (erlang/- 0 a))
+    ((a . rest)
+     (- rest a))))
+
