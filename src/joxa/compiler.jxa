@@ -1090,6 +1090,19 @@
        (:not_found
         :not-a-reference)))))
 
+(defn is-local-rest-fun (name possible-arity ctx)
+  (let (rests (get-context :rests ctx))
+    (lists/foldl (fn (el acc)
+                     (case acc
+                       (:false
+                        (case el
+                          ({name arity} (when (erlang/>= possible-arity arity))
+                           {:true arity})
+                          (_
+                           :false)))
+                       (_
+                        acc))) :false rests)))
+
 (defn is-speced-ctx? (name possible-arity ctx)
   (let (types (get-context :types ctx))
     (case (ec_dictionary/get {name possible-arity} :undefined types)
@@ -1098,44 +1111,58 @@
       (_
        {:apply {name possible-arity}}))))
 
+(defn rest-used-function? (name uses)
+  (lists/foldl (fn (el acc)
+                   (case acc
+                     (:not-a-reference
+                      (case el
+                        ({{name _} {real-fun module}}
+                         (case (get-joxa-info :rest module real-fun)
+                           (:false
+                            :not-a-reference)
+                           (arity (when (erlang/is_integer arity))
+                                  {:remote-rest {module real-fun arity}})))
+                        (_
+                         :not-a-reference)))
+                     (_
+                      acc))) :not-a-reference (ec_dictionary/to_list  uses)))
+
 (defn used-function-ctx? (name possible-arity ctx)
   (let (uses (get-context :uses ctx))
-    (case (ec_dictionary/get {name possible-arity} :undefined uses)
-      ({fun-name module-name}
-       {:remote {module-name fun-name possible-arity}})
-      (:undefined
-       (is-speced-ctx? name possible-arity ctx)))))
+    (case (rest-used-function? name uses)
+      (:not-a-reference
+       (case (ec_dictionary/get {name possible-arity} :undefined uses)
+         ({fun-name module-name}
+          {:remote {module-name fun-name possible-arity}})
+         (:undefined
+          (is-speced-ctx? name possible-arity ctx))))
+      (result
+       result))))
 
-(defn+ rest-defined-function-ctx? (module function)
-  (case (get-joxa-info :rest module function)
-    (:false
-     :not-a-reference)
-    (arity (when (erlang/is_integer arity))
-           {:apply-rest {function arity}})))
+(defn+ rest-defined-function-ctx? (function possible-arity ctx)
+  (case (is-local-rest-fun function possible-arity ctx)
+    ({:true arity}
+     {:apply-rest {function arity}})
+    (_
+     :not-a-reference)))
 
 (defn+ defined-used-function-ctx? (name possible-arity ctx)
-  (let (defs (get-context :definitions ctx))
-    (case (lists/any (fn (el)
-                         (case el
-                           ({{name possible-arity} _}
-                            :true)
-                           (_
-                            :false)))
-                     defs)
-      (:true
-        (case (rest-defined-function-ctx? (get-context :module-name ctx)
-                                          name)
-          (:not-a-reference
-           {:apply {name possible-arity}})
-          (rest-apply
-           rest-apply)))
-      (:false
-       (case (rest-defined-function-ctx? (get-context :module-name ctx)
-                                         name)
-         (:not-a-reference
-          (used-function-ctx? name possible-arity ctx))
-         (rest-apply
-          rest-apply))))))
+  (case (rest-defined-function-ctx? name possible-arity ctx)
+    (:not-a-reference
+     (let (defs (get-context :definitions ctx))
+       (case (lists/any (fn (el)
+                            (case el
+                              ({{name possible-arity} _}
+                               :true)
+                              (_
+                               :false)))
+                        defs)
+         (:true
+          {:apply {name possible-arity}})
+         (:false
+          (used-function-ctx? name possible-arity ctx)))))
+    (rest-apply
+     rest-apply)))
 
 (defn+ push-scope-ctx (ctx)
   (let (scopes (get-context :scopes ctx))
@@ -1230,7 +1257,7 @@
 
 (defn add-type-ctx (type-name arity body ctx0)
   (let (types (get-context :types ctx0))
-    (set-context :types  (ec_dictionary/add {type-name arity} body types) ctx0)))
+    (set-context :types  (ec_dictionary/add {type-name arity}  body types) ctx0)))
 
 ;; #### Context Helper Functions
 ;;
@@ -2771,14 +2798,34 @@
        (let (idx (idx-from-context [] path0 ctx0))
          (erlang/throw {:invalid-type-reference idx}))))))
 
+(defn rewrite-spec-args (args acc)
+  (case args
+    ((:&rest . arg)
+     (lists/reverse  ([arg] . acc)))
+    ([]
+     (lists/reverse acc))
+    ((arg . rest)
+     (rewrite-spec-args rest (arg . acc)))))
+
 (defn comp-implicit-spec (path0 ctx0 name args expr)
   (let (annots (annots-from-context [] path0 ctx0)
-        arity (erlang/length args))
-    (case (def-anon-function-spec (incr-path 2 path0) ctx0 args expr)
-      ({ctx1 body}
+        arity (erlang/length args)
+        is-rest (lists/member :&rest args)
+        new-args (case is-rest
+                   (:true
+                    (rewrite-spec-args args []))
+                   (:false
+                    args))
+        ctx1 (case is-rest
+               (:true
+                (add-rest-ctx name (erlang/length new-args) ctx0))
+               (:false ctx0)))
+
+    (case (def-anon-function-spec (incr-path 2 path0) ctx1 args expr)
+      ({ctx2 body}
        (add-type-ctx name arity {{:c_literal annots :spec}
                                  {:c_literal annots [{{name arity}
-                                                      [body]}]}} ctx1)))))
+                                                      [body]}]}} ctx2)))))
 
 (defn def-top-level-function-spec (path0 ctx0 name args expression)
   (let (line1 (case (idx-from-context [] path0 ctx0)
