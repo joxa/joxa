@@ -9,9 +9,19 @@
                  "> "
                 ]))
 
-(defn read (ctx)
+(defn do-read (ctx)
   (let (input (io/get_line (prompt ctx)))
     (joxa.compiler/parse "shell" (list_to_binary input))))
+
+(defn read (ctx)
+  (__try
+   (do-read ctx)
+   (catch (type body)
+     (case {type body}
+           (_
+            (io/format "PARSE ERROR: ~p~n" [body])
+            ""
+            )))))
 
 
 (defn transform-module-expr-attr (type)
@@ -64,7 +74,7 @@
         new-defs (lists/keydelete {:__joxa_shell__ 0} 1 defs))
     (joxa.compiler/set-context :definitions new-defs ctx)))
 
-(defn eval (parse ctx)
+(defn do-eval (parse ctx)
   (case parse
         ({annots ast (= rest {:parse-output _ path _ _})}
 
@@ -90,13 +100,30 @@
                           (_
                            {:ok ctx3})))))))))
 
+(defn eval (parse ctx)
+  (__try
+   (do-eval parse ctx)
+   (catch (type body) 
+     (case {type body}
+           ({:throw {:invalid-reference reference _ _}}
+                  (io/format "ERROR: Invalid reference: ~p~n" [reference])
+                  {:error ctx})
+           ({:throw {:invalid-definition _}}
+                  (io/format "ERROR: Invalid definition~n")
+                  {:error ctx})
+           (_ 
+            (io/format "ERROR: ~p~n" [{type body}]) 
+            {:error ctx})))))
+    
+   
+
 (defn print (data ctx)
      (io/format "~p~n" [data]))
 
 (defn loop (ctx)
   (do
     (let (r (read ctx)
-          e (eval r ctx))
+          e (case r ("" {:ok ctx}) (_ (eval r ctx))))
       (case e
             ({result ctx1}
                (do
