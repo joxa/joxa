@@ -8,6 +8,12 @@ to_string({ident, Ident, _}) ->
     atom_to_list(Ident);
 to_string({quote, Value, _}) ->
    "'" ++ to_string(Value);
+to_string({quasiquote, Value, _}) ->
+   "`" ++ to_string(Value);
+to_string({unquote, Value, _}) ->
+   "~" ++ to_string(Value);
+to_string({'unquote-splicing', Value, _}) ->
+   "~@" ++ to_string(Value);
 to_string({binary, Values, _}) ->
    "<<" ++ lists:flatten([to_string(Value) || Value <- Values]) ++ ">>";
 to_string({fun_ref, {Module, Fun, Arity}, _}) ->
@@ -48,6 +54,12 @@ compare({binary, V1, _}, {binary, V2, _}) ->
                       compare(I1, I2)
               end, lists:zip(V1, V2));
 compare({quote, Value1, _}, {quote, Value2, _}) ->
+    compare(Value1, Value2);
+compare({quasiquote, Value1, _}, {quasiquote, Value2, _}) ->
+    compare(Value1, Value2);
+compare({unquote, Value1, _}, {unquote, Value2, _}) ->
+    compare(Value1, Value2);
+compare({'unquote-splicing', Value1, _}, {'unquote-splicing', Value2, _}) ->
     compare(Value1, Value2);
 compare({tuple, V1, _}, {tuple, V2, _}) ->
     lists:all(fun({I1, I2}) ->
@@ -94,8 +106,8 @@ ident_character() ->
            integer(35, 38),
            integer(42, 43),
            integer(45, 46),
-           integer(45, 46),
-           integer(63, 90),
+           63,
+           integer(65, 90),
            integer(94, 95),
            integer(97, 122)]).
 
@@ -162,6 +174,21 @@ jxa_quote(0) ->
 jxa_quote(Size) ->
     {quote, value(Size div 4), {1,1}}.
 
+jxa_quasiquote(0) ->
+    {list, [], {1,1}};
+jxa_quasiquote(Size) ->
+    {quasiquote, value(Size div 4), {1,1}}.
+
+jxa_unquote(0) ->
+    {list, [], {1,1}};
+jxa_unquote(Size) ->
+    {unquote, value(Size div 4), {1,1}}.
+
+jxa_unquote_splicing(0) ->
+    {list, [], {1,1}};
+jxa_unquote_splicing(Size) ->
+    {'unquote-splicing', value(Size div 4), {1,1}}.
+
 jxa_bitstring(0) ->
     [bitstring_body()];
 jxa_bitstring(Size) ->
@@ -186,6 +213,9 @@ jxa_binary(Size) ->
 
 value(Size) ->
     union([jxa_quote(Size),
+           jxa_quasiquote(Size),
+           jxa_unquote(Size),
+           jxa_unquote_splicing(Size),
            jxa_tuple(Size),
            jxa_list(Size),
            jxa_literal_list(Size),
