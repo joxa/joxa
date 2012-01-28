@@ -8,27 +8,24 @@ given([a,module,that,contains,macros], _State, _) ->
                     (require erlang))
 
                 (defmacro+ test1 (foo a)
-                    :ok)
-;                   `(defun+ ~foo ()
-;                        (erlang/+ 22 ~a))
+                   `(defun+ ~foo ()
+                        (erlang/+ 22 ~a)))
 
                 (defmacro+ test2 ()
-                    :ok)
-;                   `(do (test1 gen-test1 22)
-;                        (defn gen-test2 ()
-;                            :ok)))
+                   `(do (test1 gen-test1 22)
+                        (defn gen-test2 ()
+                            :ok)))
 
 ;               (test2)
 
                  (defmacro+ when (test &rest body)
-                   :ok)
-;                       `(case ~test
-;                           (:true
-;                               ~@body)
-;                           (:false
-;                               :ok)
-;                           (_
-;                                (erlang/throw :invalid-when))))
+                       `(case ~test
+                           (:true
+                               ~@body)
+                           (:false
+                               :ok)
+                           (_
+                                (erlang/throw :invalid-when))))
 
                 (defn+ test3 ()
                     (when :true
@@ -58,7 +55,18 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch(true, 'jxat-macro-test':'--joxa-info'(macro, {test2, 0})),
     ?assertMatch(true, 'jxat-macro-test':'--joxa-info'(macro, {'when', 2})),
     ?assertMatch(false, 'jxat-macro-test':'--joxa-info'(macro, {test3, 0})),
-%    ?assertMatch(44, 'jxat-macro-test':'gen-test1'()),
+    ?assertMatch(['defun+',hello,[],[{'--fun',erlang,'+'},22,23]],
+                 'jxat-macro-test':test1(hello, 23)),
+    ?assertMatch([do,
+                  [test1,'gen-test1',22],
+                  [defn,'gen-test2',[],[quote,ok]]],
+                 'jxat-macro-test':test2()),
+    ?assertMatch(['case',hello,
+                  [[quote,true],one,two,three],
+                  [[quote,false],[quote,ok]],
+                  ['_',[{'--fun',erlang,throw},[quote,'invalid-when']]]],
+                 'jxat-macro-test':'when'(hello, [one, two, three])),
+
 %    ?assertMatch(ok, 'jxat-macro-test':'gen-test2'()),
 %    ?assertMatch('got-it', 'jxat-macro-test':'do-test1'()),
     {ok, State}.

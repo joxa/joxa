@@ -2615,6 +2615,70 @@
        ({ctx3 arg-list :false}
         (make-fun-body path0 ctx3 is-anon arg-list expressions))))))
 
+(defspec make-quasi-element ((path) (context) (erlang/term)) {(context) (cerl/cerl)})
+(defspec make-quasi ((path) (context) (erlang/term)) {(context) (cerl/cerl)})
+(defn make-quasi-tuple (path0 ctx0 arg0)
+  (let (annots  (annots-from-context [] path0 ctx0)
+                result (lists/foldl (fn (element acc)
+                                        (case acc
+                                          ({path1 ctx1 acc0}
+                                           (case (make-quasi-element (traverse-path path1) ctx1 element)
+                                             ({ctx2 cerl-el}
+                                              {(incr-path path1)
+                                               ctx2
+                                               ( cerl-el .  acc0)})))))
+                                    {path0 ctx0 []} (erlang/tuple_to_list arg0)))
+    (case result
+      ({_ ctx3 elements1}
+       {ctx3 (cerl/ann_c_tuple annots (lists/reverse  elements1))}))))
+
+(defn make-quasi-element (path0 ctx0 arg0)
+  (let (annots  (annots-from-context [] path0 ctx0))
+    (case arg0
+      (arg1
+       (when (erlang/is_binary arg1))
+       {ctx0 (cerl/ann_make_data annots {:atomic arg1} [])})
+      (arg1
+       (when (erlang/is_atom arg1))
+       {ctx0 (cerl/ann_c_atom annots arg1)})
+      (arg1
+       (when (erlang/is_tuple arg1))
+       (make-quasi-tuple path0 ctx0 arg1))
+      (arg1
+       (when (erlang/is_integer arg1))
+       {ctx0  (cerl/ann_c_int annots arg1)})
+      (arg1
+       (when (erlang/is_float arg1))
+       {ctx0  (cerl/ann_c_float annots arg1)})
+      ([:unquote arg1]
+       (comp-expr (traverse-incr-path path0) ctx0 arg1))
+      (arg1
+       (when (erlang/is_list arg1))
+       (make-quasi (traverse-path path0) ctx0 arg1)))))
+
+(defn make-quasi (path0 ctx0 arg0)
+  (let (annots  (annots-from-context [] path0 ctx0))
+    (case arg0
+      ([]
+       {ctx0 (cerl/ann_c_nil annots)})
+      (([:unquote-splicing arg1] . t)
+       (case (comp-expr (traverse-incr-path (traverse-path path0)) ctx0 arg1)
+         ({ctx1 cerl-h}
+          (case (make-quasi (incr-path path0) ctx1 t)
+            ({ctx2 cerl-t}
+             {ctx2  (cerl/ann_c_call annots
+                                     (cerl/ann_c_atom annots :lists)
+                                     (cerl/ann_c_atom annots :append)
+                                     [cerl-h cerl-t])})))))
+      ((h . t)
+       (case (make-quasi-element (traverse-path path0) ctx0 h)
+         ({ctx1 cerl-h}
+          (case (make-quasi (incr-path path0) ctx1 t)
+            ({ctx2 cerl-t}
+             {ctx2 (cerl/ann_c_cons annots
+                                     cerl-h
+                                     cerl-t)}))))))))
+
 (defn comp-expr (path0 ctx0 form)
   (let (annots (annots-from-context [] path0 ctx0))
     (case form
@@ -2659,6 +2723,8 @@
       ([:quote args]
        (let (literal (make-literal (traverse-incr-path path0) ctx0 args))
          {ctx0 literal}))
+      ([:quasiquote args]
+       (make-quasi (traverse-incr-path path0) ctx0 args))
       ([:string args]
        (let (literal (make-literal-string (traverse-incr-path path0) annots ctx0 args))
          {ctx0 literal}))
