@@ -42,7 +42,7 @@ test1_test() ->
     ?assertMatch({reference, {{c_var, [], foo}, -1}},
                  joxa.compiler:'resolve-reference-ctx'(foo, -1, Ctx7)),
 
-    ?assertMatch({apply, {foo, 2}},
+    ?assertMatch({apply, 'not-rest', 'not-macro', {foo, 2}},
                  joxa.compiler:'resolve-reference-ctx'(foo, 2, Ctx7)),
 
     ?assertMatch('not-a-reference',
@@ -51,17 +51,17 @@ test1_test() ->
     ?assertMatch('not-a-reference',
                  joxa.compiler:'resolve-reference-ctx'(foo, 1, Ctx7)),
 
-    ?assertMatch({apply, {foo, 0}},
+    ?assertMatch({apply, 'not-rest', 'not-macro', {foo, 0}},
                  joxa.compiler:'resolve-reference-ctx'(foo, 0, Ctx7)),
 
-    ?assertMatch({remote, {io, format, 2}},
+    ?assertMatch({remote, 'not-rest', 'not-macro', {io, format, 2}},
                  joxa.compiler:'resolve-reference-ctx'(print, 2, Ctx7)),
 
-    ?assertMatch({remote, {lists, zipwith3, 4}},
+    ?assertMatch({remote, 'not-rest', 'not-macro', {lists, zipwith3, 4}},
                  joxa.compiler:'resolve-reference-ctx'({'--fun', lists,
                                                         zipwith3, 4}, 4, Ctx7)),
 
-    ?assertMatch({remote, {lists, zipwith3, 4}},
+    ?assertMatch({remote, 'not-rest', 'not-macro', {lists, zipwith3, 4}},
                  joxa.compiler:'resolve-reference-ctx'({'--fun', bar,
                                                         zipwith3, 4}, 4, Ctx7)),
 
