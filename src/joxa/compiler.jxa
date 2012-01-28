@@ -932,6 +932,7 @@
     (:rests (erlang/element 16 ctx))
     (:anon-fun-index (erlang/element 17 ctx))
     (:fun-deps (erlang/element 18 ctx))
+    (:macros (erlang/element 19 ctx))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ set-context (field value ctx)
@@ -953,6 +954,7 @@
     (:rests (erlang/setelement 16 ctx value))
     (:anon-fun-index (erlang/setelement 17 ctx value))
     (:fun-deps (erlang/setelement 18 ctx value))
+    (:macros (erlang/setelement 19 ctx value))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ new-context (key-values)
@@ -978,6 +980,7 @@
                 [] ; rest functions
                 -1 ; anonymous function index
                 (sets/new) ; fun deps
+                [] ; macros functions
                 } key-values))
 
 (defn+ new-context (annots module-name)
@@ -1001,6 +1004,15 @@
        (erlang/throw {:rest-fun-exists name}))
       (:false
        (set-context :rests ({name arity}  . rests) ctx)))))
+
+(defn add-macro-ctx (name arity ctx)
+  (let (macros (get-context :macros ctx))
+    (case (lists/any (fn (el)
+                         (erlang/== el {name arity})) macros)
+      (:true
+       (erlang/throw {:macro-exists name}))
+      (:false
+       (set-context :macros ({name arity}  . macros) ctx)))))
 
 (defn+ add-attr-ctx (key value ctx)
   (let (attrs (get-context :attrs ctx))
@@ -2959,6 +2971,16 @@
          (case (comp-function (incr-path path0) ctx0 details)
            ({ctx1 name arg-list body}
             (add-def-ctx annots name arg-list body ctx1)))))
+      ((:defmacro+ . details)
+       (case (comp-function (incr-path path0) ctx0 details)
+         ({ctx1 name arg-list body}
+          (add-macro-ctx name (erlang/length arg-list)
+                         (add-exported-def-ctx annots name arg-list body ctx1)))))
+      ((:defmacro . details)
+       (case (comp-function (incr-path path0) ctx0 details)
+         ({ctx1 name arg-list body}
+          (add-macro-ctx name (erlang/length arg-list)
+                         (add-def-ctx annots name arg-list body ctx1)))))
       ((:deftype+ . _)
        (comp-spec path0 ctx0 form))
       ((:deftype . _)
@@ -3125,9 +3147,18 @@
                        (cerl/ann_make_data annots
                                            {:atomic rests} []))))
 
+(defn make-joxa-info-macro-1 (ctx0)
+  (let (annots [:compiler_generated]
+        macros (get-context :macros ctx0))
+    (cerl/ann_c_clause [:compiler_generated]
+                       [(cerl/ann_c_atom annots :macro)]
+                       (cerl/ann_c_atom annots :true)
+                       (cerl/ann_make_data annots
+                                           {:atomic macros} []))))
 (defn make-joxa-info-1 (ctx0)
   (let (annots [:compiler_generated]
-        clauses [(make-joxa-info-rest-1 ctx0)]
+        clauses [(make-joxa-info-rest-1 ctx0)
+                 (make-joxa-info-macro-1 ctx0)]
         detail-var (gensym)
         var-name (cerl/c_var detail-var))
     (add-exported-def-ctx annots :--joxa-info
@@ -3182,6 +3213,24 @@
                                          (cerl/ann_c_atom annots :true)
                                          (cerl/ann_c_atom annots :false))]))))
 
+(defn make-joxa-info-macro-2 (fun-var ctx0)
+  (let (annots [:compiler_generated]
+       macros (get-context :macros ctx0)
+       catch-all-var (cerl/ann_c_var [:compiler_generated] (gensym)))
+    (cerl/ann_c_case annots
+                     fun-var
+                     (lists/append
+                      (lists/map (fn (macro-el)
+                                     (cerl/ann_c_clause annots
+                                                        [(cerl/ann_make_data annots
+                                                                             {:atomic macro-el} [])]
+                                                        (cerl/ann_c_atom annots :true)
+                                                        (cerl/ann_c_atom annots :true)))
+                                 macros)
+                      [(cerl/ann_c_clause annots
+                                          [catch-all-var]
+                                          (cerl/ann_c_atom annots :true)
+                                          (cerl/ann_c_atom annots :false))]))))
 (defn make-joxa-info-2 (ctx0)
   (let (annots [:compiler_generated]
         type-var (cerl/c_var (gensym))
@@ -3190,8 +3239,13 @@
                                        [(cerl/ann_c_atom annots :rest)]
                                        (cerl/ann_c_atom annots :true)
                                        (make-joxa-info-rest-2 fun-id-var ctx0))
+        macro-clause (cerl/ann_c_clause annots
+                                        [(cerl/ann_c_atom annots :macro)]
+                                        (cerl/ann_c_atom annots :true)
+                                        (make-joxa-info-macro-2  fun-id-var ctx0))
 
-        clauses [rest-clause])
+        clauses [rest-clause macro-clause])
+
     (add-exported-def-ctx [:compiler_generated] :--joxa-info
                           [type-var fun-id-var]
                           (cerl/ann_c_case [:compiler_generated]
