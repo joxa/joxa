@@ -934,6 +934,8 @@
     (:fun-deps (erlang/element 18 ctx))
     (:macros (erlang/element 19 ctx))
     (:unexported-macros (erlang/element 20 ctx))
+    (:warnings (erlang/element 21 ctx))
+    (:errors (erlang/element 22 ctx))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ set-context (field value ctx)
@@ -957,6 +959,8 @@
     (:fun-deps (erlang/setelement 18 ctx value))
     (:macros (erlang/setelement 19 ctx value))
     (:unexported-macros (erlang/setelement 20 ctx value))
+    (:warnings (erlang/setelement 21 ctx value))
+    (:errors (erlang/setelement 22 ctx value))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ new-context (key-values)
@@ -984,11 +988,27 @@
                 (sets/new) ; fun deps
                 [] ; macros functions
                 [] ; unexported macros
+                [] ; warnings
+                [] ; Errors
                 } key-values))
 
 (defn+ new-context (annots module-name)
   (new-context ([(:annots . annots)
                  (:module-name . module-name)])))
+
+(defn add-warning (warning ctx)
+  (let (warnings (get-context :warnings ctx))
+    (set-context :warnings (warning . warnings) ctx)))
+
+(defn add-error (error ctx)
+  (let (errors (get-context :error ctx))
+    (set-context :errors (error . errors) ctx)))
+
+(defn has-errors (ctx)
+  (erlang/length (get-context :errors ctx)))
+
+(defn has-warnings (ctx)
+  (erlang/length (get-context :warnings ctx)))
 
 (defn incr-fun-index-ctx (ctx)
   (set-context :anon-fun-index (erlang/+ (get-context :anon-fun-index ctx) 1) ctx))
@@ -3504,10 +3524,39 @@
     (set-context :exports exports1 ctx0)))
 
 
+(defn format-detail (message)
+  (case message
+    (_
+     (io_lib/format "~p" [message]))))
+;; The goal with compiler messages to print them out in a well
+;; understood format. Taking the approach specified by the GNU Coding
+;; standards and understood by emacs makes good sense.
+;;
+;;     sourcefile:lineno:column: message
+;;
+;; http://www.gnu.org/prep/standards/html_node/Errors.html
+(defn print-compiler-message (type message)
+  (case message
+    ({detail {file-name {line column}}}
+     (io/format "~s:~i:~i *~p* ~s~n" [file-name line column type (format-detail detail)]))
+    (msg
+     (io/format "UNKNOWN_TYPE ~p~n" [msg]))))
+
+(defn report-errors-warnings (ctx0)
+  (let (warnings (get-context :warnings ctx0)
+        errors (get-context :errors ctx0))
+    (lists/foreach (fn (message)
+                       (print-compiler-message :warning message))
+                   warnings)
+    (lists/foreach (fn (message)
+                       (print-compiler-message :warning message))
+                   errors)
+    ctx0))
+
 (defn post-processing (compile-type ctx0)
   (case compile-type
     (:final
-     (post-process-macros ctx0))
+     (report-errors-warnings (post-process-macros ctx0)))
     (_
      ctx0)))
 
