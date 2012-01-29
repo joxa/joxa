@@ -933,6 +933,7 @@
     (:anon-fun-index (erlang/element 17 ctx))
     (:fun-deps (erlang/element 18 ctx))
     (:macros (erlang/element 19 ctx))
+    (:unexported-macros (erlang/element 20 ctx))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ set-context (field value ctx)
@@ -955,6 +956,7 @@
     (:anon-fun-index (erlang/setelement 17 ctx value))
     (:fun-deps (erlang/setelement 18 ctx value))
     (:macros (erlang/setelement 19 ctx value))
+    (:unexported-macros (erlang/setelement 20 ctx value))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ new-context (key-values)
@@ -981,6 +983,7 @@
                 -1 ; anonymous function index
                 (sets/new) ; fun deps
                 [] ; macros functions
+                [] ; unexported macros
                 } key-values))
 
 (defn+ new-context (annots module-name)
@@ -1013,6 +1016,11 @@
        (erlang/throw {:macro-exists name}))
       (:false
        (set-context :macros ({name arity}  . macros) ctx)))))
+
+(defn add-unexported-macro-ctx (name arity ctx)
+  (let (unexported-macros (get-context :unexported-macros ctx))
+    (set-context :unexported-macros ({name arity}  . unexported-macros)
+                 (add-macro-ctx name arity ctx))))
 
 (defn+ add-attr-ctx (key value ctx)
   (let (attrs (get-context :attrs ctx))
@@ -3126,8 +3134,13 @@
       ((:defmacro . details)
        (case (comp-function (incr-path path0) ctx0 details)
          ({ctx1 name arg-list body}
-          (add-macro-ctx name (erlang/length arg-list)
-                         (add-def-ctx annots name arg-list body ctx1)))))
+          ;; Initially all macros have to be exported, since the
+          ;; caller is the compiler and not the module
+          ;; itself. However, we keep a list of macros that need to be
+          ;; hidden so that after the fact we can roll through the
+          ;; list unexporting things that do not need to be exported.
+           (add-unexported-macro-ctx name (erlang/length arg-list)
+                            (add-exported-def-ctx annots name arg-list body ctx1)))))
       ((:deftype+ . _)
        (comp-spec path0 ctx0 form))
       ((:deftype . _)
@@ -3476,24 +3489,44 @@
       ({unresolved _}
        (erlang/== (sets/size unresolved) 0)))))
 
+
+(defn post-process-macros (ctx0)
+  (let (unexported-macros (get-context :unexported-macros ctx0)
+        exports0 (get-context :exports ctx0)
+        exports1 (sets/filter (fn (export)
+                                  (case export
+                                    ({fun arity _}
+                                     (erlang/not (lists/member {fun arity}
+                                                               unexported-macros)))))
+                              exports0))
+    (set-context :exports exports1 ctx0)))
+
+
+(defn post-processing (compile-type ctx0)
+  (case compile-type
+    (:final
+     (post-process-macros ctx0))
+    (_
+     ctx0)))
+
 (defn+ compile-context (ctx0 compile-type)
   (case (compilable? ctx0)
     (:true
-     (let (ctx1 (make-joxa-info (comp-module-info ctx0))
-                annots (get-context :line ctx1)
-                module-name (cerl/ann_c_atom annots
-                                             (get-context :module-name ctx1))
-                exports (get-context-exports ctx1)
-                attrs (lists/append (get-context :attrs ctx1)
-                                    (compile-types ctx1))
-                defs (lists/map (fn (def)
-                                    (case def
-                                      ({var body _}
-                                       {var body})
-                                      (else
-                                       (erlang/throw else))))
-                                (get-definitions ctx1)))
-       {ctx1 (erl-comp ctx0 (cerl/ann_c_module annots module-name exports attrs defs)
+     (let (ctx1 (make-joxa-info (comp-module-info (post-processing compile-type ctx0)))
+           annots (get-context :line ctx1)
+           module-name (cerl/ann_c_atom annots
+                                        (get-context :module-name ctx1))
+           exports (get-context-exports ctx1)
+           attrs (lists/append (get-context :attrs ctx1)
+                               (compile-types ctx1))
+           defs (lists/map (fn (def)
+                               (case def
+                                 ({var body _}
+                                  {var body})
+                                 (else
+                                  (erlang/throw else))))
+                           (get-definitions ctx1)))
+       {ctx1 (erl-comp ctx1 (cerl/ann_c_module annots module-name exports attrs defs)
                        compile-type)}))
     (:false
      (when (erlang/== compile-type :final))
@@ -3541,28 +3574,47 @@
       ({_ ctx2}
        (compile-context ctx2 :intermediate)))))
 
+(defn should-load? (options)
+  (case (proplists/get_value :ast options)
+    (:undefined
+     (case (proplists/get_value :to-core options)
+       (:undefined :true)
+       (_ :false)))
+    (_
+     :false)))
+
+(defn do-final-comp (file-name options ctx0)
+  (case  (compile-context ctx0 :final)
+    ({ctx1 :uncompilable}
+     (erlang/throw :unresolved-function-dependencies))
+    ({ctx1 module-binary}
+     (case (should-load? options)
+       (:true
+        (let (module-name (get-context :module-name ctx1)
+                          load-result (code/load_binary module-name file-name module-binary))
+          (case load-result
+            ({:module module-name}
+             {ctx1 module-binary})
+            (_
+             (erlang/throw {:unable-to-load file-name})))))
+       (:false
+        {ctx1 module-binary})))))
+
 (defn+ bootstrap-comp (file-name options)
   (case (file/read_file file-name)
     ({:ok binary}
-     (let (result (bootstrap-comp file-name options binary))
-       (case result
-         ({ctx0 :uncompilable}
-          (erlang/throw :unresolved-function-dependencies))
-         ({ctx0 module-binary}
-          (let (module-name (get-context :module-name ctx0)
-                            load-result (code/load_binary module-name file-name module-binary))
-            (case load-result
-              ({:module module-name}
-               (compile-context ctx0 :final))
-              (_
-               (erlang/throw {:unable-to-load file-name}))))))))
+     (case (bootstrap-comp file-name options binary)
+       ({ctx0 :uncompilable}
+        (erlang/throw :unresolved-function-dependencies))
+       ({ctx0 _}
+        (do-final-comp file-name options ctx0))))
     ({:error reason}
      (erlang/throw {:file-access reason file-name}))))
 
 (defn compile-form (file-name input ctx0 binary)
   (case (has-more-data-to-parse input)
     (:false
-     (compile-context ctx0 :final))
+     ctx0)
     (:true
      (case (parse file-name input)
        ({annots ast0 (= rest {:parse-output _ path _ _})}
@@ -3576,11 +3628,15 @@
              (let (module-name (get-context :module-name ctx2))
                (case (code/load_binary module-name file-name binary1)
                  ({:module module-name}
-                  (compile-form file-name rest ctx2 binary1))))))))))))
+                  (compile-form file-name rest ctx2 binary1))
+                 (_
+                  (erlang/throw {:unable-to-load file-name}))))))))))))
 
 (defn+ forms (file-name binary options)
-  (compile-form file-name binary
-                (new-context [{:options (convert-options options [])}]) <<>>))
+  (do-final-comp file-name options
+                 (compile-form
+                  file-name binary
+                  (new-context [{:options (convert-options options [])}]) <<>>)))
 
 (defn get-extension (options)
   (case (proplists/get_value :ast options)

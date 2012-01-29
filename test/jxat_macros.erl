@@ -32,7 +32,7 @@ given([a,module,that,contains,macros], _State, _) ->
                         :got-it))
 
 
-                (defmacro+ pattern-mac (super)
+                (defmacro pattern-mac (super)
                       `{~super})
 
                 (defn+ test4 (some)
@@ -58,7 +58,6 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
                   {'gen-test2',0},
                   {module_info,0},
                   {module_info,1},
-                  {'pattern-mac',1},
                   {'test1',2},
                   {'test2',0},
                   {'test3',1},
