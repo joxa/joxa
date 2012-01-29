@@ -1934,9 +1934,7 @@
             ({ctx2 cerl-t}
              {ctx2 (cerl/ann_c_cons annots cerl-h cerl-t)}))))))))
 
-
 (defn call-macro (module function args)
-  (io/format "~p:~p:~p~n" [module function args])
   (erlang/apply module function args))
 
 (defn make-call (path0 ctx0 val args macro-only?)
@@ -2555,6 +2553,28 @@
                                       ctx1 guards1 arg2)
             ({ctx2 guards2 cerl-arg2}
              {ctx2 guards2 (cerl/ann_c_cons annots cerl-arg1 cerl-arg2)})))))
+      ((var . args)
+       (case (resolve-reference-ctx var (erlang/length args) ctx0)
+         ({:apply :not-rest :macro {function arity}}
+          (make-pattern-element path0 ctx0 guards0
+                                (call-macro (get-context :module-name ctx0)
+                                            function
+                                            args)))
+         ({:apply :rest :macro {function arity}}
+          (make-pattern-element path0 ctx0 guards0
+                                (call-macro (get-context :module-name ctx0) function
+                                            (runtime-args-to-arity args 1 arity []))))
+         ({:remote :not-rest :macro {module function arity}}
+          (make-pattern-element path0 ctx0 guards0
+                                (call-macro  module function
+                                             args)))
+         ({:remote :rest :macro {module function arity}}
+          (make-pattern-element path0 ctx0 guards0
+                                (call-macro module function
+                                            (runtime-args-to-arity args 1 arity []))))
+         (_
+          (let (idx (idx-from-context [] path0 ctx0))
+            (erlang/throw {:invalid-definition idx})))))
       (_
        (erlang/throw {:invalid-pattern (idx-from-context [] path0 ctx0)})))))
 
@@ -2734,7 +2754,9 @@
             ({ctx2 cerl-t}
              {ctx2 (cerl/ann_c_cons annots
                                      cerl-h
-                                     cerl-t)}))))))))
+                                     cerl-t)})))))
+      (else
+       (make-quasi-element path0 ctx0 else)))))
 
 (defn comp-expr (path0 ctx0 form)
   (let (annots (annots-from-context [] path0 ctx0))

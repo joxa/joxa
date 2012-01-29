@@ -29,7 +29,19 @@ given([a,module,that,contains,macros], _State, _) ->
 
                 (defn+ test3 (a)
                     (when a
-                        :got-it)) ">>,
+                        :got-it))
+
+
+                (defmacro+ pattern-mac (super)
+                      `{~super})
+
+                (defn+ test4 (some)
+                     (case {:foo}
+                       ((pattern-mac some)
+                           some)
+                       (_
+                          :other)))
+">>,
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
@@ -46,12 +58,14 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
                   {'gen-test2',0},
                   {module_info,0},
                   {module_info,1},
+                  {'pattern-mac',1},
                   {'test1',2},
                   {'test2',0},
                   {'test3',1},
+                  {'test4',1},
                   {'when',2}],
                  lists:sort('jxat-macro-test':module_info(exports))),
-    ?assertMatch([{test1,2}, {test2,0}, {'when',2}],
+    ?assertMatch([{'pattern-mac',1}, {test1,2}, {test2,0}, {'when',2}],
     lists:sort('jxat-macro-test':'--joxa-info'(macro))),
     ?assertMatch(true, 'jxat-macro-test':'--joxa-info'(macro, {test1, 2})),
     ?assertMatch(true, 'jxat-macro-test':'--joxa-info'(macro, {test2, 0})),
@@ -74,5 +88,7 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertThrow('invalid-when', 'jxat-macro-test':'test3'(something)),
     ?assertMatch(44, 'jxat-macro-test':'gen-test1'()),
     ?assertMatch(ok, 'jxat-macro-test':'gen-test2'()),
+    ?assertMatch(foo, 'jxat-macro-test':'test4'(foo)),
+    ?assertMatch(other, 'jxat-macro-test':'test4'(bar)),
     {ok, State}.
 
