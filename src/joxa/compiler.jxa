@@ -1902,9 +1902,9 @@
           (make-apply-rest-fun (add-fun-dep-ctx name rest-arity ctx0)
                                (cerl/ann_c_fname annots name a)
                                a rest-arity))
-         (a
+         (_
           (let (idx (idx-from-context [] path0 ctx0))
-            (erlang/throw {:invalid-reference a{f a} idx})))))
+            (erlang/throw {:invalid-reference {f a} idx})))))
       ((= ref {:--fun _ _ a})
        (when (erlang/is_integer a))
        (case (resolve-reference-ctx ref a ctx0)
