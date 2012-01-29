@@ -3593,7 +3593,7 @@
      (case (should-load? options)
        (:true
         (let (module-name (get-context :module-name ctx1)
-                          load-result (code/load_binary module-name file-name module-binary))
+              load-result (code/load_binary module-name file-name module-binary))
           (case load-result
             ({:module module-name}
              {ctx1 module-binary})
@@ -3609,7 +3609,9 @@
        ({ctx0 :uncompilable}
         (erlang/throw :unresolved-function-dependencies))
        ({ctx0 _}
-        (do-final-comp file-name options ctx0))))
+        ;; For the bootstrap we *do not* load the module. It is simple
+        ;; output to/saved
+        (compile-context ctx0 :final))))
     ({:error reason}
      (erlang/throw {:file-access reason file-name}))))
 
