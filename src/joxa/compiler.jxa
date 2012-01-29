@@ -2659,7 +2659,9 @@
       ((a . rest) (when (erlang/is_atom a))
        (gen-args (incr-path path0) ctx0 rest ((cerl/ann_c_var annots a) . acc)))
       ([]
-       {ctx0 (lists/reverse acc) :false}))))
+       {ctx0 (lists/reverse acc) :false})
+      (_
+       (erlang/throw {:invalid-arg-list (idx-from-context [] path0 ctx0)})))))
 
 (defn make-fun-body (path0 ctx0 is-anon arg-list expressions)
   (case (make-seq (incr-path path0) ctx0 expressions)
