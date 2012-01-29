@@ -3,6 +3,13 @@ layout: default
 title: Joxa
 ---
 
+News
+----
+
+Joxa is not yet ready for release. However, we should be releasing an
+alpha in the next few days. In the mean time yo can review the source
+[here](https://github.com/erlware/joxa).
+
 
 What is Joxa
 ------------
