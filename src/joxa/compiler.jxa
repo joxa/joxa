@@ -996,18 +996,18 @@
   (new-context ([(:annots . annots)
                  (:module-name . module-name)])))
 
-(defn add-warning (warning ctx)
+(defn add-warning-ctx (warning ctx)
   (let (warnings (get-context :warnings ctx))
     (set-context :warnings (warning . warnings) ctx)))
 
-(defn add-error (error ctx)
+(defn add-error-ctx (error ctx)
   (let (errors (get-context :error ctx))
     (set-context :errors (error . errors) ctx)))
 
-(defn has-errors (ctx)
+(defn has-errors-ctx (ctx)
   (erlang/length (get-context :errors ctx)))
 
-(defn has-warnings (ctx)
+(defn has-warnings-ctx (ctx)
   (erlang/length (get-context :warnings ctx)))
 
 (defn incr-fun-index-ctx (ctx)
@@ -1381,6 +1381,9 @@
 (defn annots-from-context (actions path0 ctx)
   (thing-from-context actions path0 ctx get-line-annots/2))
 
+(defn error-location-from-context (actions path0 ctx)
+  (let (file-name (ec_dictionary/get :__filename__ (get-context :annots ctx)))
+    {file-name (idx-from-context actions path0 ctx)}))
 
 ;; Module Compilation
 ;; ------------------
@@ -1396,7 +1399,7 @@
 ;;
 ;; comp compiles the provided AST into a Joxa context. Later that context
 ;; must be compiled to core erlang.
-(defn get-exports (module idx)
+(defn get-exports (module)
   (let (mod-info (erlang/make_fun module :module_info 1)
         exports (mod-info :exports))
     (lists/map (fn (el)
@@ -1405,23 +1408,25 @@
                       {{fun arity} fun})))
                exports)))
 
-(defn gather-fun-arity-pairs (idx fun-arity-list acc)
-  (case fun-arity-list
-    (({:--fun fun arity} . rest)
-     (gather-fun-arity-pairs idx rest ({fun arity} . acc)))
-    ([] acc)
-    (_
-     (erlang/throw {:invalid-use :invalid-fun-spec idx}))))
+(defn gather-fun-arity-pairs (erri fun-arity-list acc0)
+  (case acc0
+    ({ctx0 acc1}
+     (case fun-arity-list
+       (({:--fun fun arity} . rest)
+        (gather-fun-arity-pairs erri rest {ctx0 ({fun arity} . acc1)}))
+       ([] acc0)
+       (_
+        (erlang/throw {{:invalid-use :invalid-fun-spec} erri}))))))
 
-(defn gather-fun-alias-pairs (idx fun-alias-pairs acc)
+(defn gather-fun-alias-pairs (erri fun-alias-pairs acc)
   (case fun-alias-pairs
     (([{:--fun fun arity} alias] . rest)
      (when (erlang/is_atom alias))
-     (gather-fun-alias-pairs idx rest ({{fun arity} alias} . acc)))
+     (gather-fun-alias-pairs erri rest ({{fun arity} alias} . acc)))
     ([]
      acc)
     (_
-     (erlang/throw {:invalid_use :invalid_fun_spec idx}))))
+     (erlang/throw {:invalid_use :invalid_fun_spec erri}))))
 
 (defn populate-use-into-context (module-name imports ctx0)
   (case imports
@@ -1456,34 +1461,42 @@
 ;;
 ;; comp compiles the provided AST into a Joxa context. Later that context
 ;; must be compiled to core erlang.
-(defn filter-imports-to-onlys (idx target-funs imports0)
-  (let (fun-arity-pairs (gather-fun-arity-pairs idx target-funs '()))
-    (lists/foldl (fn (el acc)
-                     (case el
-                       ({fun arity}
-                        (let (new-el {{fun arity} fun})
-                          (case (lists/member new-el imports0)
-                            (:true
-                             (new-el . acc))
-                            (:false
-                             (erlang/throw {:invalid-use :non-existant-fun-name {fun arity} idx})))))))
-                 [] fun-arity-pairs)))
+(defn filter-imports-to-onlys (ctx0 erri target-funs imports0)
+  (case (gather-fun-arity-pairs erri target-funs {ctx0 '()})
+    ({ctx1 fun-arity-pairs}
+     (lists/foldl (fn (el acc0)
+                      (case acc0
+                        ({ctx2 acc1}
+                         (case el
+                             ({fun arity}
+                              (let (new-el {{fun arity} fun})
+                                (case (lists/member new-el imports0)
+                                  (:true
+                                   {ctx2 (new-el . acc1)})
+                                  (:false
+                                   {(add-error-ctx
+                                      {{:invalid-use :non-existant-fun-name {fun arity}} erri} ctx0)
+                                    acc1}))))))))
+                  {ctx1 []} fun-arity-pairs))))
 
-(defn exclude-specific-funs (idx excluded-funs imports0)
-  (let (fun-arity-pairs (gather-fun-arity-pairs idx excluded-funs []))
-    (lists/foldl (fn (el acc)
-                     (case el
-                       ({{fun arity} _}
-                        (let (new-el {{fun arity} fun})
-                          (case (lists/member {fun arity} fun-arity-pairs)
-                            (:true
-                             acc)
-                            (:false
-                             (new-el . acc)))))))
-                 [] imports0)))
+(defn exclude-specific-funs (ctx0 erri excluded-funs imports0)
+  (case  (gather-fun-arity-pairs erri excluded-funs {ctx0 []})
+    ({ctx1 fun-arity-pairs}
+     (lists/foldl (fn (el acc0)
+                      (case acc0
+                        ({ctx2 acc1}
+                         (case el
+                           ({{fun arity} _}
+                            (let (new-el {{fun arity} fun})
+                              (case (lists/member {fun arity} fun-arity-pairs)
+                                (:true
+                                 {ctx2  acc1})
+                                (:false
+                                 {ctx2 (new-el . acc1)}))))))))
+                  {ctx1 []} imports0))))
 
-(defn rename-funs (idx renames imports0)
-  (let (fun-alias-pairs (gather-fun-alias-pairs idx renames []))
+(defn rename-funs (erri renames imports0)
+  (let (fun-alias-pairs (gather-fun-alias-pairs erri renames []))
     (lists/foldl (fn (el exports1)
                      (case el
                        ({{fun arity} alias}
@@ -1494,30 +1507,32 @@
 (defspec comp-use ((index) (context) (erlang/term) (erlang/atom) (erlang/list))
   (context))
 
-(defn handle-use-clauses (idx ctx0 forms module-name imports0)
+(defn handle-use-clauses (erri ctx0 forms module-name imports0)
   (case forms
     ([]
      (populate-use-into-context module-name imports0 ctx0))
     (('(quote as) . (alias-name . rest))
      (let (ctx1 (add-alias-ctx alias-name module-name ctx0))
-       (handle-use-clauses idx ctx1 rest module-name imports0)))
+       (handle-use-clauses erri ctx1 rest module-name imports0)))
     (('(quote only) . (target-funs . rest))
      (when (and (erlang/is_atom module-name)
                 (erlang/is_list target-funs)))
-     (let (imports1 (filter-imports-to-onlys idx target-funs imports0))
-       (handle-use-clauses idx ctx0 rest module-name imports1)))
+     (case (filter-imports-to-onlys ctx0 erri target-funs imports0)
+       ({ctx1 imports1}
+        (handle-use-clauses erri ctx1 rest module-name imports1))))
     (('(quote exclude) . (target-funs . rest))
      (when (and (erlang/is_atom module-name)
                 (erlang/is_list target-funs)))
-     (let (imports1 (exclude-specific-funs idx target-funs imports0))
-       (handle-use-clauses idx ctx0 rest module-name imports1)))
+     (case (exclude-specific-funs ctx0 erri target-funs imports0)
+       ({ctx1 imports1}
+        (handle-use-clauses erri ctx1 rest module-name imports1))))
     (('(quote rename) . (target-funs . rest))
      (when (and (erlang/is_atom module-name)
                 (erlang/is_list target-funs)))
-     (let (imports1 (rename-funs idx target-funs imports0))
-       (handle-use-clauses idx ctx0 rest module-name imports1)))
+     (let (imports1 (rename-funs erri target-funs imports0))
+       (handle-use-clauses erri ctx0 rest module-name imports1)))
     (probably-more-uses
-     (comp-use idx ctx0 probably-more-uses module-name imports0))))
+     (comp-use erri ctx0 probably-more-uses module-name imports0))))
 
 (defn module-exists? (mod-name)
   (case (code/ensure_loaded mod-name)
@@ -1560,7 +1575,7 @@
 ;;
 ;; This would be perfectly valid and could use occur in any order at all.
 
-(defn+ comp-use (idx ctx0 form module-name imports)
+(defn+ comp-use (erri ctx0 form module-name imports)
   (case form
     ([]
      (populate-use-into-context module-name imports ctx0))
@@ -1569,17 +1584,17 @@
      (case (module-exists? use-module-name)
        (:true
         (let (ctx1 (add-require-ctx use-module-name ctx0)
-              imports (get-exports use-module-name idx)
-              ctx2 (handle-use-clauses idx ctx1
+              imports (get-exports use-module-name)
+              ctx2 (handle-use-clauses erri ctx1
                                        clause-body use-module-name imports))
-          (comp-use idx ctx2 rest :undefined '())))
+          (comp-use erri ctx2 rest :undefined '())))
        (:false
-        (erlang/throw {:invalid-use-clause {:bad-module use-module-name} idx}))))
+        (add-error-ctx {{:invalid-use-clause {:bad-module use-module-name}} erri} ctx0))))
     ((use-module-name . rest)
      (when (erlang/is_atom use-module-name))
-     (let (imports (get-exports use-module-name idx))
-       (comp-use idx (populate-use-into-context
-                      use-module-name imports ctx0) rest :undefined '())))))
+     (let (imports (get-exports use-module-name))
+       (comp-use erri (populate-use-into-context
+                       use-module-name imports ctx0) rest :undefined '())))))
 
 
 ;; Attribute Clauses
@@ -1675,8 +1690,8 @@
     ((:attr . body)
      (comp-attr (incr-path path0) ctx0 body))
     ((:use . body)
-     (let (idx (idx-from-context [] path0 ctx0))
-       (comp-use idx ctx0 body :undefined [])))
+     (let (erri (error-location-from-context [] path0 ctx0))
+       (comp-use erri ctx0 body :undefined [])))
     (_
      (let (idx (idx-from-context [] path0 ctx0))
        (erlang/throw {:invalid-form idx})))))
