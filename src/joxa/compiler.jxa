@@ -23,6 +23,67 @@
                             is_list/1
                             is_binary/1))))
 
+;; defspecs
+;; --------
+;;
+;; Forward declarations for functions that will be defined
+;; later. Defspecs serve as descriptions for a function to tools like
+;; dialyzer. However, they also serve as forward declarations in the
+;; joxa language. In the language, functions have to be defined before
+;; they are called. so you end up defining all the dependent functions
+;; before you define the function that calls those. For functions that
+;; are mutually recursive, this is a a problem. So defspecs serve to
+;; document yoru intent to define a function as well as to document
+;; the types of that function. of course, if you define a def spec and
+;; then do not call it it will result in a compile time error. All the
+;; types and specs for the joxa compiler are defined here.
+
+(deftype+ index () {(erlang/non_neg_integer) (erlang/non_neg_integer)})
+(deftype path () {(erlang/non_neg_integer) [(erlang/non_neg_integer)]})
+
+(deftype context ()
+  {:context,
+   (erlang/atom)
+   (erlang/list)
+   (erlang/term)
+   (erlang/term)
+   (erlang/term)
+   (erlang/term)
+   (erlang/term)
+   (erlang/term)
+   (erlang/term)
+   (erlang/term)
+   (erlang/term)})
+
+(defspec value ((binary) (index)) {:fail (erlang/any)})
+(defspec transform-ast ((erlang/any) (erlang/any) (erlang/any))
+  {(erlang/any) (erlang/list)})
+
+(defspec make-literal ((path) (context) (erlang/term)) (cerl/cerl))
+
+(defspec alias-ctx? ((erlang/atom) (erlang/atom)
+                     (erlang/non_neg_integer) (erlang/term))
+  (erlang/term))
+
+(defspec idx-from-context ([(erlang/atom)] (path) (context)) {(erlang/non_neg_integer)
+                                                              (erlang/non_neg_integer)})
+
+(defspec comp-use ((index) (context) (erlang/term) (erlang/atom) (erlang/list))
+  (context))
+
+(defspec comp-expr ((path) (context) (erlang/term)) {(context) (cerl/cerl)})
+
+(defspec make-pattern-element ((path) (context) [(erlang/term)] (erlang/term))
+  {(context) (erlang/term) (cerl/cerl)})
+
+(defspec make-quasi-element ((path) (context) (erlang/term)) {(context) (cerl/cerl)})
+(defspec make-quasi ((path) (context) (erlang/term)) {(context) (cerl/cerl)})
+
+(defspec comp-spec-expr ((path) (context) (erlang/term))
+  {(context) (erlang/term)})
+
+(defspec comp-forms ((path) (context) (erlang/term)) (context))
+
 ;; The Lexer and Parser
 ;; --------------------
 ;;
@@ -35,9 +96,6 @@
 ;; prefixed with a 'p-' and represent parts of the Joxa grammer it
 ;; self. These are public because it is expected that they will be
 ;; used for reader macros.
-
-(deftype index () {(erlang/non_neg_integer)
-                   (erlang/non_neg_integer)})
 
 (defn+ line (index)
   (case index
@@ -448,10 +506,6 @@
                           result (erlang/binary_to_list (erlang/iolist_to_binary convert)))
               {:string result idx}))))))
 
-;; A forward declaration to support the mutually recursive types
-;; in the parser
-(deftype+ index () {(erlang/non_neg_integer) (erlang/non_neg_integer)})
-(defspec value ((binary) (index)) {:fail (erlang/any)})
 
 (defn+ quote (input index)
   (p input index :quote
@@ -634,7 +688,6 @@
 ;; point in the graph be the closest point in the list so that we can
 ;; push onto the list as we go forward. The actual path in the example
 ;; above would be [2, 4, 1] and built up each time we see a list.
-(deftype path () {(erlang/non_neg_integer) [(erlang/non_neg_integer)]})
 
 (defn+ new-path ()
   {1, []})
@@ -725,9 +778,6 @@
 ;; this very first initial transformation happens here. Turning the
 ;; marked up AST into an annotated lisp AST where the annotations are
 ;; hidden unless requested.
-
-(defspec transform-ast ((erlang/any) (erlang/any) (erlang/any))
-  {(erlang/any) (erlang/list)})
 
 (definline convert-list-ast (path0 annotations0 elements idx)
   (let (transformed
@@ -893,24 +943,8 @@
 ;; scope management and variable lookup.
 
 
-;; ### The Context
-
-(deftype context ()
-  {:context,
-   (erlang/atom)
-   (erlang/list)
-   (erlang/term)
-   (erlang/term)
-   (erlang/term)
-   (erlang/term)
-   (erlang/term)
-   (erlang/term)
-   (erlang/term)
-   (erlang/term)
-   (erlang/term)})
-
-;; ### Specifications for broadly used compilation functions
-(defspec make-literal ((path) (context) (erlang/term)) (cerl/cerl))
+;; The Context
+;; -----------
 
 ;; ### Context Implementation
 (defn+ get-context (field ctx)
@@ -1112,9 +1146,6 @@
   (let (fun-deps (get-context :fun-deps ctx))
     (set-context :fun-deps (sets/add_element {name arity} fun-deps) ctx)))
 
-(defspec alias-ctx? ((erlang/atom) (erlang/atom)
-                     (erlang/non_neg_integer) (erlang/term))
-  (erlang/term))
 
 (defn get-joxa-info (type module fun-name)
   (__try
@@ -1252,9 +1283,6 @@
   (case (get-context :scopes ctx)
     ((_ . scopes)
      (set-context :scopes scopes ctx))))
-
-(defspec idx-from-context ([(erlang/atom)] (path) (context)) {(erlang/non_neg_integer)
-                                                              (erlang/non_neg_integer)})
 
 (defn+ add-reference-to-scope-ctx (name arity cerl-var path0 ctx0 )
   (let (scopes (get-context :scopes ctx0))
@@ -1491,9 +1519,6 @@
                                           {{fun arity} alias}))))
                  imports0 fun-alias-pairs)))
 
-(defspec comp-use ((index) (context) (erlang/term) (erlang/atom) (erlang/list))
-  (context))
-
 (defn handle-use-clauses (idx ctx0 forms module-name imports0)
   (case forms
     ([]
@@ -1700,8 +1725,6 @@
       (_
        (let (idx (idx-from-context [] path1 ctx0))
          (erlang/throw {:invalid-module-declaration idx}))))))
-
-(defspec comp-expr ((path) (context) (erlang/term)) {(context) (cerl/cerl)})
 
 (defn make-tuple-expr (path0 ctx0 values)
   (case (lists/foldl (fn (val acc0)
@@ -2426,9 +2449,6 @@
              ctx1 (add-reference-to-scope-ctx var0 -1 cerl-var path0 ctx0))
          {ctx1 guards0 cerl-var})))))
 
-(defspec make-pattern-element ((path) (context) [(erlang/term)] (erlang/term))
-  {(context) (erlang/term) (cerl/cerl)})
-
 (defn make-pattern-alias (alias-path pattern-path ctx0 guards0 alias pattern)
   (let (alias-annots (annots-from-context [] alias-path ctx0)
         pattern-annots (annots-from-context [] pattern-path ctx0)
@@ -2722,8 +2742,6 @@
        ({ctx3 arg-list :false}
         (make-fun-body path0 ctx3 is-anon arg-list expressions))))))
 
-(defspec make-quasi-element ((path) (context) (erlang/term)) {(context) (cerl/cerl)})
-(defspec make-quasi ((path) (context) (erlang/term)) {(context) (cerl/cerl)})
 (defn make-quasi-tuple (path0 ctx0 arg0)
   (let (annots  (annots-from-context [] path0 ctx0)
                 result (lists/foldl (fn (element acc)
@@ -2855,9 +2873,6 @@
        (make-call path0 ctx0 val args :false))
       (_
        (erlang/throw {:invalid-fn-form (idx-from-context [] path0 ctx0)})))))
-
-(defspec comp-spec-expr ((path) (context) (erlang/term))
-  {(context) (erlang/term)})
 
 (defn default-type ()
   [{:--fun :erlang :any}])
@@ -3130,7 +3145,6 @@
     (_
      (erlang/throw {:invalid-definition (idx-from-context [] path0 ctx0)}))))
 
-(defspec comp-forms ((path) (context) (erlang/term)) (context))
 
 (defn+ comp-definition (path0 ctx0 form)
   (let (annots (annots-from-context :traverse  path0 ctx0))
