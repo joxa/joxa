@@ -21,7 +21,7 @@ bad_arity_test() ->
                                 (result
                                    result))))">>,
 
-    ?assertThrow({'invalid-reference', _, _, _},
+    ?assertThrow({{'invalid-reference', _, _}, _},
                  joxa.compiler:forms("", Source, [])).
 
 bad_call_test() ->
@@ -30,7 +30,7 @@ bad_call_test() ->
                 (defn+ invalid-code-test ()
                       (let (x 1)
                            -x))">>,
-    ?assertThrow({'invalid-reference', 'not-a-reference', _, _},
+    ?assertThrow({{'invalid-reference', 'not-a-reference'}, _},
                  joxa.compiler:forms("", Source, [])).
 
 
