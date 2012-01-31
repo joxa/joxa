@@ -65,6 +65,6 @@ test1_test() ->
                  joxa.compiler:'resolve-reference-ctx'({'--fun', bar,
                                                         zipwith3, 4}, 4, Ctx7)),
 
-    ?assertThrow({'mismatched-arity',bar,zipwith3,4,3},
+    ?assertMatch('not-a-reference',
                  joxa.compiler:'resolve-reference-ctx'({'--fun', bar,
                                                         zipwith3, 3}, 4, Ctx7)).
