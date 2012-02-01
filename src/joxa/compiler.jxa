@@ -3279,6 +3279,14 @@
     (_
      (comp-definition path0 ctx0 form0))))
 
+(defn print-erl-errors-or-warnings (errs)
+  (lists/foreach (fn (err)
+                     (case err
+                       ({_ module error-descriptor}
+                        (let (p-fun (erlang/make_fun module :format_error 1))
+                          (io/format "~p~n" [(p-fun error-descriptor)])))))
+                 errs))
+
 (defn erl-comp (ctx0 cerl-ast type)
   (case type
     (:final
@@ -3298,15 +3306,21 @@
                                                :return_warnings]))
              ({ok [] result []}
               result)
-             (error
-              (erlang/throw error))))))))
+             ({ok errors result warnings}
+              (print-erl-errors-or-warnings errors)
+              (print-erl-errors-or-warnings warnings)
+              result)
+             ({error errors warnings}
+              (print-erl-errors-or-warnings errors)
+              (print-erl-errors-or-warnings warnings)
+              (erlang/throw :error))))))))
     (_
      (case (compile/forms cerl-ast [:debug_info
                                     :from_core
                                     :return_errors
                                     :return_warnings
                                     :binary])
-       ({ok [] result []}
+       ({ok _ result _}
         result)
        (error
         (erlang/throw error))))))
