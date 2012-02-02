@@ -33,9 +33,9 @@ then([the,joxa,context,for,a,featureful,module,is,correctly,formed], State={Ctx0
     validate_lists(Ctx0),
     validate_file(Ctx0),
     validate_filename(Ctx0),
-    Required = joxa.compiler:'get-context'(requires, Ctx0),
-    Alias = joxa.compiler:'get-context'(aliases, Ctx0),
-    _Attrs = joxa.compiler:'get-context'(attrs, Ctx0),
+    Required = joxa.compiler:'internal-get-context'(requires, Ctx0),
+    Alias = joxa.compiler:'internal-get-context'(aliases, Ctx0),
+    _Attrs = joxa.compiler:'internal-get-context'(attrs, Ctx0),
     ?assertMatch(true, ec_dictionary:has_key(proplists, Required)),
     ?assertMatch(true, ec_dictionary:has_key(erlang, Required)),
     ?assertMatch(true, ec_dictionary:has_key(code, Required)),
@@ -55,7 +55,7 @@ validate_module(Module, Ctx0) ->
     Exports = [El || El={Fun, _}
                          <- Module:module_info(exports),
                      Fun =/= module_info],
-    Used = joxa.compiler:'get-context'(uses, Ctx0),
+    Used = joxa.compiler:'internal-get-context'(uses, Ctx0),
     lists:foreach(fun(Export={Fun, _}) ->
                           ?assertMatch({Fun, Module},
                                        ec_dictionary:get(Export, Used))
@@ -68,7 +68,7 @@ validate_lists(Ctx0) ->
                      Fun =/= module_info],
     FilteredExports = [FunArity || FunArity <- Exports,
                                    not lists:member(FunArity, Required)],
-    Used = joxa.compiler:'get-context'(uses, Ctx0),
+    Used = joxa.compiler:'internal-get-context'(uses, Ctx0),
     lists:foreach(fun(Export={Fun, _}) ->
                           ?assertMatch({Fun, lists},
                                        ec_dictionary:get(Export, Used))
@@ -93,7 +93,7 @@ validate_file(Ctx0) ->
                                                     [{delete, 1},
                                                      {change_group, 2},
                                                      {change_mode, 2}])],
-    Used = joxa.compiler:'get-context'(uses, Ctx0),
+    Used = joxa.compiler:'internal-get-context'(uses, Ctx0),
     lists:foreach(fun({Export, Target}) ->
                           ?assertMatch({Target, file},
                                        ec_dictionary:get(Export, Used))
@@ -115,7 +115,7 @@ validate_filename(Ctx0) ->
     FilteredExports = [FunArity || FunArity <- Exports,
                                    not lists:member(FunArity,
                                                     DescExclude)],
-    Used = joxa.compiler:'get-context'(uses, Ctx0),
+    Used = joxa.compiler:'internal-get-context'(uses, Ctx0),
     lists:foreach(fun(Export={Target, _}) ->
                           ?assertMatch({Target, filename},
                                        ec_dictionary:get(Export, Used))
