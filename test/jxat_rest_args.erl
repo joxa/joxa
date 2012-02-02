@@ -21,8 +21,6 @@ given([a,module,that,has,rest,arguments], _State, _) ->
 
                  (defn+ do-test3 ()
                   (do-t do-test0/3))
-
-
                  ">>,
 
      Source2 = <<"(module jxat-rest-test2
