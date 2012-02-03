@@ -84,7 +84,7 @@
 (defspec comp-spec-expr ((path) (context) (erlang/term))
   {(context) (erlang/term)})
 
-(defspec comp-forms ((path) (context) (erlang/term)) (context))
+(defspec make-forms ((path) (context) (erlang/term)) (context))
 
 (defspec traverse-path ((path)) (path))
 (defspec incr-path ((path)) (path))
@@ -133,6 +133,7 @@
     (:unexported-macros (erlang/element 20 ctx))
     (:warnings (erlang/element 21 ctx))
     (:errors (erlang/element 22 ctx))
+    (:binary (erlang/element 23 ctx))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ internal-set-context (field value ctx)
@@ -158,6 +159,7 @@
     (:unexported-macros (erlang/setelement 20 ctx value))
     (:warnings (erlang/setelement 21 ctx value))
     (:errors (erlang/setelement 22 ctx value))
+    (:binary (erlang/setelement 23 ctx value))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ internal-new-context (key-values)
@@ -3357,18 +3359,18 @@
       ((var . args)
        (case (resolve-reference-ctx path0 ctx var (erlang/length args))
          ({:apply :not-rest :macro {function arity}}
-          (comp-forms path0 ctx
+          (make-forms path0 ctx
                      (call-macro (module-name-ctx ctx) function args)))
          ({:apply :rest :macro {function arity}}
-          (comp-forms path0 ctx
+          (make-forms path0 ctx
                      (call-macro (module-name-ctx ctx) function
                                  (runtime-args-to-arity args 1 arity []))))
          ({:remote :not-rest :macro {module function arity}}
-          (comp-forms path0 ctx
+          (make-forms path0 ctx
                      (call-macro  module function
                                   args)))
          ({:remote :rest :macro {module function arity}}
-          (comp-forms path0 ctx
+          (make-forms path0 ctx
                      (call-macro module function
                                  (runtime-args-to-arity args 1 arity []))))
          (_
@@ -3429,11 +3431,11 @@
 ;; compiler. Organizing the compilation and adding various metadata
 ;; functions.
 
-(defn+ comp-forms (path0 ctx form0)
+(defn+ make-forms (path0 ctx form0)
   (case form0
     ((:do . rest)
      (lists/foldl (fn (form1 path1)
-                      (comp-forms path1 ctx form1)
+                      (make-forms path1 ctx form1)
                       (incr-path path1))
                   (traverse-incr-path path0)  rest))
     ((:module . _)
@@ -3830,7 +3832,7 @@
                       [{:options (convert-options options [])}
                        {:annots annots}])
      (lists/foldl (fn (def path)
-                      (comp-forms (traverse-path path)
+                      (make-forms (traverse-path path)
                                   ctx def)
                       (incr-path path))
                   (new-path)  ast)
@@ -3863,18 +3865,21 @@
        (:false
         module-binary)))))
 
-(defn+ bootstrap-comp (ctx file-name options)
-  (case (file/read_file file-name)
-    ({:ok binary}
-     (case (bootstrap-comp ctx file-name options binary)
-       (:uncompilable
-        (erlang/throw :unresolved-function-dependencies))
-       (_
+(defn+ bootstrap-comp (file-name options)
+  (case (start-context)
+    ({:ok ctx}
+     (case (file/read_file file-name)
+       ({:ok binary}
+        (case (bootstrap-comp ctx file-name options binary)
+          (:uncompilable
+           (erlang/throw :unresolved-function-dependencies))
+          (_
         (do-final-comp file-name options ctx))))
-     ({:error reason}
-      (erlang/throw {:file-access reason file-name}))))
+       ({:error reason}
+        (erlang/throw {:file-access reason file-name})))
+     (stop-context ctx))))
 
-(defn compile-form (file-name input ctx binary)
+(defn internal-forms (file-name input ctx binary)
   (case (has-more-data-to-parse input)
     (:false
      :ok)
@@ -3882,29 +3887,24 @@
      (case (parse file-name input)
        ({annots ast0 (= rest {:parse-output _ path _ _})}
         (annots-ctx ctx annots)
-        (comp-forms (traverse-path path)
-                    ctx
-                    ast0)
+        (make-forms (traverse-path path) ctx ast0)
         (case (compile-context ctx :intermediate)
           (:uncompilable
-           (compile-form file-name rest ctx :uncompilable))
+           (internal-forms file-name rest ctx :uncompilable))
           (binary1
            (let (module-name (module-name-ctx ctx))
              (case (code/load_binary module-name file-name binary1)
                ({:module module-name}
-                (compile-form file-name rest ctx binary1))
+                (internal-forms file-name rest ctx binary1))
                (_
                 (erlang/throw {:unable-to-load file-name})))))))))))
-
-(defn forms (ctx file-name binary options)
-  (set-context-all-ctx ctx [{:options (convert-options options [])}])
-  (compile-form file-name binary ctx <<>>)
-  (do-final-comp file-name options ctx))
 
 (defn+ forms (file-name binary options)
   (case (start-context)
     ({:ok ctx}
-     (forms ctx file-name binary options))))
+     (set-context-all-ctx ctx [{:options (convert-options options [])}])
+     (internal-forms file-name binary ctx <<>>)
+     (do-final-comp file-name options ctx))))
 
 (defn+ forms (binary options)
   (forms "" binary options))
@@ -3926,7 +3926,7 @@
       (:undefined
        :ok)
       (out-dir
-       (let (module-name (module-name-ctx ctx)
+       (let (module-name (internal-get-context :module-name ctx)
              path (re/split (erlang/atom_to_list  module-name) "\\.")
              out-path (filename/join (out-dir . path))
              out-file (lists/flatten ((erlang/binary_to_list out-path)
@@ -3935,28 +3935,31 @@
          (file/write_file out-file binary))))))
 
 (defn+ do-compile (file-name options)
-  (case (start-context)
-    ({:ok ctx}
-     (let (result
-           (case (proplists/get_value :bootstrap options :false)
-             (:true
-              (bootstrap-comp ctx file-name options))
-             (:false
-              (case (file/read_file file-name)
-                ({:ok binary}
-                 (forms ctx file-name binary options))
-                ({:error reason}
-                 (erlang/throw {:file-access reason file-name}))))))
-       (case result
-         ({_ binary}
-          (save-output options binary ctx)
-          (stop-context ctx)
-          result))))))
+  (let (result
+        (case (proplists/get_value :bootstrap options :false)
+          (:true
+           (bootstrap-comp file-name options))
+          (:false
+           (case (file/read_file file-name)
+             ({:ok binary}
+              (forms file-name binary options))
+             ({:error reason}
+              (erlang/throw {:file-access reason file-name}))))))
+    (case result
+      ({ctx binary}
+       (save-output options binary ctx)
+       result))))
 
-;; Compilation Infrastructure
+;; Command Line Interface
+;; ----------------------
+;;
+;; This set of functions represents the command line interface and its
+;; description to Joxa.
+;;
 (defn usage (os-list)
   (getopt/usage os-list "" "[option1 option2 ...] <joxa-file>"
                 '()))
+
 (defn+ option-spec-list ()
   [{:ast \a "ast" {:boolean :false} "compile to core ast"}
    {:to-core \c "to-core" {:boolean :false} "compile to core erlang"}
