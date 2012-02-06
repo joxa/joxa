@@ -1,22 +1,29 @@
 ;;; The Joxa Compiler
 ;;; =================
-;;; *author: Eric Merritt*
-;;; *copyright: Erlware, LLC 2011 - 2012
+;;; * author: Eric Merritt
+;;; * copyright: Erlware, LLC 2011 - 2012
+;;;
+;;; Licensed under the Apache License, Version 2.0 you may not use
+;;; this file except in compliance with the License.  You may obtain a
+;;; copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+;;;
+;;; Introduction
+;;; ------------
 ;;;
 ;;; This provides the base compiler for the Joxa language. Due to the
 ;;; way code loading works on the Erlang VM it needs to be all in the
 ;;; same module, using no macros or external Joxa resources. While
 ;;; this severely restricts the syntax you can use in the compler, it
 ;;; does ensure that only a very minimal base language is supported.
+;;;
 (module joxa.compiler
         (require init getopt file
                  lists unicode sets
-                 re ets proplists
-                 filename ec_dictionary ec_lists
-                 filelib file cerl
-                 code core_pp compile
-                 io io_lib crypto
-                 binary gen_server)
+                 re ets proplists filename
+                 ec_dictionary ec_lists
+                 filelib file cerl code core_pp
+                 compile io io_lib
+                 crypto binary)
         (use (erlang :only (+/2
                             ==/2
                             and/2
