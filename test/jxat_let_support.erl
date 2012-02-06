@@ -33,9 +33,9 @@ given([a,module,that,has,a,function,that,contains,'\'let\''], _State, _) ->
     {ok, Result}.
 
 
-then([a,beam,binary,is,produced], State={_, Binary}, _) ->
-    ?assertMatch(true, is_binary(Binary)),
-    {ok, State};
+then([a,beam,binary,is,produced], Ctx, _) ->
+    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx))),
+    {ok, Ctx};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch([{'--joxa-info',1},
                   {'--joxa-info',2},
