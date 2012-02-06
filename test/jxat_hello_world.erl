@@ -15,15 +15,15 @@ given([a,module,that,has,a,function,that,calls,
 'when'([joxa,is,called,on,this,module], Source, _) ->
   {ok, joxa.compiler:forms(Source, [])}.
 
-then([a,beam,binary,is,produced], State={_, Binary}, _) ->
-    ?assertMatch(true, is_binary(Binary)),
+then([a,beam,binary,is,produced], Ctx, _) ->
+    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx))),
     ?assertMatch([{'--joxa-info',1},
                   {'--joxa-info',2},
                   {'hello-world',1},
                   {module_info,0},
                   {module_info,1}],
                  lists:sort(helloworld:module_info(exports))),
-    {ok, State};
+    {ok, Ctx};
 then([the,described,function,can,be,called,'and',works,correctly],
      State, _) ->
     ?assertMatch(ok, helloworld:'hello-world'("Hello World")),

@@ -24,10 +24,10 @@ given([a,featureful,module], _State, _) ->
     Result = joxa.compiler:forms(State, []),
     {ok, Result}.
 
-then([a,beam,binary,is,produced], State={_, Binary}, _) ->
-    ?assertMatch(true, is_binary(Binary)),
-    {ok, State};
-then([the,joxa,context,for,a,featureful,module,is,correctly,formed], State={Ctx0, _}, _) ->
+then([a,beam,binary,is,produced], Ctx, _) ->
+    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx))),
+    {ok, Ctx};
+then([the,joxa,context,for,a,featureful,module,is,correctly,formed], Ctx0, _) ->
     validate_module(string, Ctx0),
     validate_module(code, Ctx0),
     validate_lists(Ctx0),
@@ -48,7 +48,7 @@ then([the,joxa,context,for,a,featureful,module,is,correctly,formed], State={Ctx0
     ?assertMatch(123,
                  proplists:get_value(sfoo,
                                      'jxat-featureful':module_info(attributes))),
-    {ok, State}.
+    {ok, Ctx0}.
 
 validate_module(Module, Ctx0) ->
     %% module_info causes problems and is mostly ignored

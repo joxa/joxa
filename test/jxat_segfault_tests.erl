@@ -69,8 +69,8 @@ segfault_test() ->
                       (erlang/throw {:invalid-reference :ok
                                                    {3 3}}))))))))">>,
 
-    {_, Binary} = joxa.compiler:forms(Source, []),
-    ?assertMatch(true, is_binary(Binary)),
+    Ctx = joxa.compiler:forms(Source, []),
+    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx))),
     ?assertThrow({'invalid-reference', ok, _},
                  'jxat-invalid-arity-test2':'test-case'({ok, 'not-a-reference'})).
 

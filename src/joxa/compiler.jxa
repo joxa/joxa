@@ -22,7 +22,7 @@
                  re ets proplists filename
                  ec_dictionary ec_lists
                  filelib file cerl code core_pp
-                 compile io io_lib
+                 compile io io_lib gen_server
                  crypto binary)
         (use (erlang :only (+/2
                             ==/2
@@ -140,7 +140,7 @@
     (:unexported-macros (erlang/element 20 ctx))
     (:warnings (erlang/element 21 ctx))
     (:errors (erlang/element 22 ctx))
-    (:binary (erlang/element 23 ctx))
+    (:result (erlang/element 23 ctx))
     (:filename (erlang/element 24 ctx))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
@@ -167,7 +167,7 @@
     (:unexported-macros (erlang/setelement 20 ctx value))
     (:warnings (erlang/setelement 21 ctx value))
     (:errors (erlang/setelement 22 ctx value))
-    (:binary (erlang/setelement 23 ctx value))
+    (:result (erlang/setelement 23 ctx value))
     (:filename (erlang/setelement 24 ctx value))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
@@ -523,7 +523,9 @@
                         (_
                          :true)))))})
           (:get-raw-context
-           {ctx ctx})))
+           {ctx ctx})
+          (:result
+           {ctx (get-context :result ctx)})))
      (case result
        ({ctx1 reply}
         {:reply reply ctx1}))))
@@ -634,6 +636,8 @@
                                    ({field value}
                                     (set-context field value ctx1))))
                              ctx args)})
+    ({:result result}
+     {:noreply (set-context :result result ctx)})
      (:stop-context
       {:stop :normal ctx})))
 
@@ -717,11 +721,17 @@
 (defn error-count-ctx (ctx)
   (gen_server/call ctx :error-count))
 
-(defn annots-ctx (ctx)
+(defn+ annots-ctx (ctx)
   (gen_server/call ctx :annots))
 
-(defn annots-ctx (ctx annots)
+(defn+ annots-ctx (ctx annots)
   (gen_server/cast ctx {:annots annots}))
+
+(defn result-ctx (ctx)
+  (gen_server/call ctx :result))
+
+(defn result-ctx (ctx result)
+  (gen_server/cast ctx {:result result}))
 
 (defn filename-ctx (ctx)
   (gen_server/call ctx :filename))
@@ -3830,9 +3840,10 @@
                                   {var body})
                                  (else
                                   (erlang/throw else))))
-                           (get-definitions ctx)))
-       (erl-comp ctx (cerl/ann_c_module annots module-name exports attrs defs)
-                 compile-type)))
+                           (get-definitions ctx))
+           result (erl-comp ctx (cerl/ann_c_module annots module-name exports attrs defs)
+                            compile-type))
+       (result-ctx ctx result)))
     (:false
      (when (erlang/== compile-type :final))
      (erlang/throw :unresolved-function-dependencies))
@@ -3853,22 +3864,26 @@
   (case  (compile-context ctx :final)
     (:uncompilable
      (erlang/throw :unresolved-function-dependencies))
-    (module-binary
+    (:ok
      (case (should-load? options)
        (:true
         (let (module-name (module-name-ctx ctx)
               filename (filename-ctx ctx)
-              load-result (code/load_binary module-name filename module-binary))
+              load-result (code/load_binary module-name filename (result-ctx ctx)))
           (case load-result
             ({:module module-name}
-             (let (raw-ctx (get-raw-context ctx))
-               {raw-ctx module-binary}))
+             :ok)
             (_
              (erlang/throw {:unable-to-load filename})))))
        (:false
-        module-binary)))))
+        :ok)))))
 
-;; Normal Iterative Compilation
+;; Iterative Compilation
+;; ---------------------
+;;
+;; This is the primary interface for users of the joxa system. It
+;; implements the normal iterative approach to compilation that allows
+;; the full use of the language.
 
 (defn convert-options (options acc)
   (case options
@@ -3883,7 +3898,7 @@
     ((_ . tail)
      (convert-options tail acc))))
 
-(defn internal-forms (ctx input binary)
+(defn internal-forms (ctx input)
   (case (has-more-data-to-parse input)
     (:false
      :ok)
@@ -3893,20 +3908,21 @@
         (make-forms (traverse-path path) ctx ast0)
         (case (compile-context ctx :intermediate)
           (:uncompilable
-           (internal-forms ctx rest :uncompilable))
-          (binary1
+           (internal-forms ctx rest))
+          (:ok
            (let (module-name (module-name-ctx ctx)
                  filename (filename-ctx ctx))
-             (case (code/load_binary module-name filename binary1)
+             (case (code/load_binary module-name filename (result-ctx ctx))
                ({:module module-name}
-                (internal-forms ctx rest binary1))
+                (internal-forms ctx rest))
                (_
                 (erlang/throw {:unable-to-load filename})))))))))))
 
 (defn forms (ctx binary options)
   (set-context-all-ctx ctx [{:options (convert-options options [])}])
-  (internal-forms ctx binary <<>>)
-  (do-final-comp options ctx))
+  (internal-forms ctx binary)
+  (do-final-comp options ctx)
+  (get-raw-context ctx))
 
 (defn+ forms (binary options)
   (case (start-context)
@@ -3916,6 +3932,12 @@
        result))))
 
 ;; Bootsrap Compilation
+;; --------------------
+;;
+;; Infrastructure for non-iterative compilation. This really should
+;; only be used by the compiler itself as it removes the ability to
+;; have macros and the like. So generally, if you are not working on
+;; the compiler you should ignore this interface.
 
 (defn parse-all (ctx input acc)
   (case (has-more-data-to-parse input)
@@ -3929,11 +3951,10 @@
         (parse-all ctx rest (ast0 . acc)))))))
 
 (defn intermediate-bootstrap-comp (ctx binary options)
+  (set-context-all-ctx ctx
+                       [{:options (convert-options options [])}])
   (case (parse-all ctx binary [])
-    ({annots ast}
-     (set-context-all-ctx ctx
-                          [{:options (convert-options options [])}
-                           {:annots annots}])
+    (ast
      (lists/foldl (fn (def path)
                       (make-forms (traverse-path path)
                                   ctx def)
@@ -3946,10 +3967,14 @@
     (:uncompilable
      (erlang/throw :unresolved-function-dependencies))
     (_
-     (do-final-comp options ctx))))
+     (do-final-comp options ctx)
+     (get-raw-context ctx))))
 
-
-;; Compilation type framework
+;; Compilation Dispatch Framework
+;; ------------------------------
+;;
+;; This provides a means by which the correct compilation module and
+;; result 'saving' module might be found.
 
 (defn get-extension (options)
   (case (proplists/get_value :ast options)
@@ -3987,12 +4012,11 @@
                 (:true
                  (bootstrap-comp ctx binary options))
                 (:false
-                 (forms ctx binary options))))
-          (case result
-            ({raw-ctx binary}
-             (save-output options binary raw-ctx)
-             (stop-context ctx)
-             result))))
+                 (forms ctx binary options)))
+              raw-ctx (get-raw-context ctx))
+          (stop-context ctx)
+          (save-output options (get-context :result raw-ctx) raw-ctx)
+          raw-ctx))
        ({:error reason}
         (erlang/throw {:file-access reason filename}))))))
 

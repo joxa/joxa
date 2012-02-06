@@ -41,11 +41,11 @@ given([a,module,that,declares,types], _State, _) ->
     Result = joxa.compiler:forms(Source, []),
     {ok, Result}.
 
-then([a,beam,binary,is,produced], State = {_, Binary},  _) ->
-    ?assertMatch(true, is_binary(Binary)),
-    {ok, State};
+then([a,beam,binary,is,produced], Ctx,  _) ->
+    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx))),
+    {ok, Ctx};
 then([the,described,function,can,be,called,'and',works,correctly],
-     State = {_, _Binary}, _) ->
+     State, _) ->
     ?assertMatch([{'--joxa-info',1},
                   {'--joxa-info',2},
                   {'do-test1',0},
