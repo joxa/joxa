@@ -4,10 +4,8 @@
         (use (erlang :only (atom_to_list/1 list_to_binary/1 apply/3))))
 
 (defn prompt (ctx)
-  (lists/concat [
-                 (atom_to_list (joxa.compiler/get-context :module-name ctx))
-                 "> "
-                ]))
+  (lists/concat [(atom_to_list (joxa.compiler/get-context :module-name ctx))
+                 "> "]))
 
 (defn do-read (ctx)
   (let (input (io/get_line (prompt ctx)))
@@ -20,9 +18,7 @@
      (case {type body}
            (_
             (io/format "PARSE ERROR: ~p~n" [body])
-            ""
-            )))))
-
+            "")))))
 
 (defn transform-module-expr-attr (type)
   (case type
@@ -37,7 +33,6 @@
                          (joxa.compiler/get-context
                           (transform-module-expr-attr type) ctx))
                         expr]))])
-
 
 (defn transform-expr (ast ctx)
   (case ast
@@ -109,7 +104,7 @@
 (defn eval (parse ctx)
   (__try
    (do-eval parse ctx)
-   (catch (type body) 
+   (catch (type body)
      (case {type body}
            ({:throw {:invalid-reference reference _ _}}
                   (io/format "ERROR: Invalid reference: ~p~n" [reference])
@@ -117,11 +112,9 @@
            ({:throw {:invalid-definition _}}
                   (io/format "ERROR: Invalid definition~n")
                   {:error ctx})
-           (_ 
-            (io/format "ERROR: ~p~n" [{type body}]) 
+           (_
+            (io/format "ERROR: ~p~n" [{type body}])
             {:error ctx})))))
-    
-   
 
 (defn print (data ctx)
      (io/format "~p~n" [data]))
@@ -129,7 +122,11 @@
 (defn loop (ctx)
   (do
     (let (r (read ctx)
-          e (case r ("" {:ok ctx}) (_ (eval r ctx))))
+          e (case r
+              (""
+               {:ok ctx})
+              (_
+               (eval r ctx))))
       (case e
             ({result ctx1}
                (do
