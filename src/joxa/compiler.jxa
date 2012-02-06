@@ -667,10 +667,10 @@
 (defn add-error-ctx (error ctx)
   (gen_server/cast ctx {:error error}))
 
-(defn module-name-ctx (ctx)
+(defn+ module-name-ctx (ctx)
   (gen_server/call ctx :module-name))
 
-(defn module-name-ctx (ctx module-name)
+(defn+ module-name-ctx (ctx module-name)
   (gen_server/cast ctx {:module-name module-name}))
 
 (defn anon-fun-index-ctx (ctx)
@@ -1990,7 +1990,7 @@
 ;;  The module body may consist of any number of require, use are attribute
 ;;  clauses in any order. Each clause starts with a (require ...)
 ;;  (use ....) or (attr ...)
-;;b
+;;
 (defn+ make-module-body (path0 ctx form)
   (case form
     ([]
@@ -3769,7 +3769,7 @@
       ({unresolved _}
        (erlang/> (sets/size unresolved) 0)))))
 
-(defn compilable? (ctx)
+(defn+ compilable? (ctx)
   (erlang/not (erlang/or (has-unresolved-dependencies? ctx)
                           (has-errors-or-warnings? ctx))))
 
@@ -3930,6 +3930,93 @@
      (let (result (forms ctx binary options))
        (stop-context ctx)
        result))))
+
+;; Interactive Compilation
+;; -----------------------
+;;
+;; This section describes interactive compilation. That is the
+;; compilation as it is designed be used in something like joxa.shell
+;; or the eventual swank implementation for joxa. It is probably not
+;; of interest to your average coder.
+;;
+;; Interactive basically takes the iterative approach and splits it up
+;; into an API that can be called externally by tha user.
+
+(defn+ start-interactive ()
+  (case (start-context)
+    ({:ok ctx}
+     ctx)))
+
+(defn make-interactive-fun (ctx name ast)
+  (case (make-function (new-path) ctx ast)
+    ({name arg-list body}
+     (add-exported-def-ctx (new-path) ctx [] name arg-list body :replace))))
+
+(defn make-dispatch (ctx interactive-name ast)
+  (let (dispatchables
+        '(
+          defn+
+          defn
+          definline
+          deftype
+          deftype+
+          defspec
+          module
+          defmacro
+          do
+          ))
+    (case ast
+      ((element . rest)
+       (case (lists/member element dispatchables)
+         (:true
+          (make-definition (new-path) ctx ast))
+         (:false
+          (case element
+            (:require
+             (make-require (new-path) ctx rest)
+             :defn)
+            (:use
+             (make-use {0 0} ctx rest :undefined [])
+             :defn)
+            (_
+             (make-interactive-fun ctx interactive-name [interactive-name [] ast])
+             :expr)))))
+      (_
+       (make-interactive-fun ctx interactive-name  [interactive-name [] ast])
+       :expr))))
+
+(defn internal-comp-interactive (ctx interactive-name input result0)
+  (case (has-more-data-to-parse input)
+    (:false
+     result0)
+    (:true
+     (case (parse ctx input)
+       ({ast0 (= rest {:parse-output _ path _})}
+        (let (result1 (case  (make-dispatch ctx interactive-name ast0)
+                        (:expr
+                         :expr)
+                        (_
+                         result0)))
+          (case (compile-context ctx :intermediate)
+            (:uncompilable
+             (internal-comp-interactive ctx interactive-name rest result1))
+            (:ok
+             (let (module-name (module-name-ctx ctx)
+                   filename (filename-ctx ctx))
+               (case (code/load_binary module-name filename (result-ctx ctx))
+                 ({:module module-name}
+                  (internal-comp-interactive ctx interactive-name rest result1))
+                 (_
+                  (erlang/throw {:unable-to-load filename}))))))))))))
+
+(defn+ comp-interactive (ctx interactive-name input options)
+  (set-context-all-ctx ctx [{:options (convert-options options [])}])
+  (internal-comp-interactive ctx interactive-name input :defn))
+
+(defn+ stop-interactive (ctx)
+  (let (raw-ctx (get-raw-context ctx))
+    (stop-context ctx)
+    raw-ctx))
 
 ;; Bootsrap Compilation
 ;; --------------------
