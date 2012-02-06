@@ -22,7 +22,7 @@ bad_arity_test() ->
                                    result))))">>,
 
     ?assertThrow({'invalid-reference', _, _, _},
-                 joxa.compiler:forms("", Source, [])).
+                 joxa.compiler:forms(Source, [])).
 
 bad_call_test() ->
     Source = <<" (module jxat-invalid-arity-test1)
@@ -31,7 +31,7 @@ bad_call_test() ->
                       (let (x 1)
                            -x))">>,
     ?assertThrow({'invalid-reference', 'not-a-reference', _, _},
-                 joxa.compiler:forms("", Source, [])).
+                 joxa.compiler:forms(Source, [])).
 
 
 segfault_test() ->
@@ -69,7 +69,7 @@ segfault_test() ->
                       (erlang/throw {:invalid-reference :ok
                                                    {3 3}}))))))))">>,
 
-    {_, Binary} = joxa.compiler:forms("", Source, []),
+    {_, Binary} = joxa.compiler:forms(Source, []),
     ?assertMatch(true, is_binary(Binary)),
     ?assertThrow({'invalid-reference', ok, _},
                  'jxat-invalid-arity-test2':'test-case'({ok, 'not-a-reference'})).

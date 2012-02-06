@@ -38,7 +38,7 @@ given([a,module,that,declares,types], _State, _) ->
 
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = joxa.compiler:forms("", Source, []),
+    Result = joxa.compiler:forms(Source, []),
     {ok, Result}.
 
 then([a,beam,binary,is,produced], State = {_, Binary},  _) ->

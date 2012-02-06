@@ -26,7 +26,7 @@ do_test() ->
                   (defn+ do-test2 (c)
                       c)
                    ">>,
-    {_, Binary} = joxa.compiler:forms("", Source, []),
+    {_, Binary} = joxa.compiler:forms(Source, []),
     ?assertMatch(true, is_binary(Binary)),
     ?assertMatch([{'--joxa-info',1},
                   {'--joxa-info',2},

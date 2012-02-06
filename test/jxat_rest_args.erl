@@ -67,8 +67,8 @@ given([a,module,that,has,rest,arguments], _State, _) ->
     {ok, {Source1, Source2}}.
 
 'when'([joxa,is,called,on,this,module], {Source1, Source2}, _) ->
-    Result1 = joxa.compiler:forms("", Source1, []),
-    Result2 = joxa.compiler:forms("", Source2, []),
+    Result1 = joxa.compiler:forms(Source1, []),
+    Result2 = joxa.compiler:forms(Source2, []),
    {ok, {Result1, Result2}}.
 
 then([a,beam,binary,is,produced], State={{_, Binary1}, {_, Binary2}}, _) ->

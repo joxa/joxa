@@ -24,7 +24,7 @@ nested_calls_test() ->
 
                 (defn+ do-test (a)
                     ((internal-test) a))">>,
-    {_, Binary} = joxa.compiler:forms("", Source, []),
+    {_, Binary} = joxa.compiler:forms(Source, []),
     ?assertMatch(true, is_binary(Binary)),
     ?assertMatch(1, 'jxat-nested-calls-test':'do-test'(1)),
     ?assertMatch(foo, 'jxat-nested-calls-test':'do-test'(foo)),

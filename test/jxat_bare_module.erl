@@ -10,7 +10,7 @@ given([a,bare,module], _State, _) ->
     {ok, Module}.
 
 'when'([joxa,is,called,on,this,module], State, _) ->
-    Result = joxa.compiler:forms("", State, []),
+    Result = joxa.compiler:forms(State, []),
     {ok, Result}.
 
 then([a,beam,binary,is,produced], State={_Ctx, Binary}, _) ->
@@ -25,6 +25,6 @@ then([a,beam,binary,is,produced], State={_Ctx, Binary}, _) ->
 
     {ok, State};
 then([the,joxa,context,for,a,bare,module,is,correctly,formed], State={Ctx, _}, _) ->
-    ?assertMatch('my-module', joxa.compiler:'internal-get-context'('module-name', Ctx)),
+    ?assertMatch('my-module', joxa.compiler:'get-context'('module-name', Ctx)),
     {ok, State}.
 
