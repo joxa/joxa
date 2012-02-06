@@ -18,24 +18,24 @@ test1_test() ->
     {ok, Ctx} = joxa.compiler:'start-context'([{attrs, [{foo, bar}]},
                                                {annots, ec_dictionary:new(ec_dict)}]),
     ?assertMatch([{foo, bar}],
-                 joxa.compiler:'internal-get-context'(attrs,
-                                                      joxa.compiler:'get-raw-context'(Ctx))),
+                 joxa.compiler:'get-context'(attrs,
+                                             joxa.compiler:'get-raw-context'(Ctx))),
     joxa.compiler:'add-export-ctx'(Ctx, 10, super, 3),
     ?assertMatch([{super, 3, 10}],
-                 sets:to_list(joxa.compiler:'internal-get-context'(exports,
-                                                                  joxa.compiler:'get-raw-context'(Ctx)))),
+                 sets:to_list(joxa.compiler:'get-context'(exports,
+                                                          joxa.compiler:'get-raw-context'(Ctx)))),
     joxa.compiler:'add-require-ctx'(Ctx, filelib),
 
     ?assertMatch([{filelib, _}],
                  ec_dictionary:to_list(
-                   joxa.compiler:'internal-get-context'(requires,
-                                                        joxa.compiler:'get-raw-context'(Ctx)))),
+                   joxa.compiler:'get-context'(requires,
+                                               joxa.compiler:'get-raw-context'(Ctx)))),
     joxa.compiler:'add-use-ctx'(Ctx, print, 2, format, io),
 
     ?assertMatch([{{print, 2}, {format, io}}],
                  ec_dictionary:to_list(
-                   joxa.compiler:'internal-get-context'(uses,
-                                                        joxa.compiler:'get-raw-context'(Ctx)))),
+                   joxa.compiler:'get-context'(uses,
+                                               joxa.compiler:'get-raw-context'(Ctx)))),
     joxa.compiler:'push-scope-ctx'(Ctx),
     joxa.compiler:'add-def-ctx'({0, [1]}, Ctx, [], foo, [], none),
     joxa.compiler:'add-def-ctx'({0, [1]}, Ctx, [], foo, [one, two], none),
@@ -64,13 +64,13 @@ test1_test() ->
 
     ?assertMatch({remote, 'not-rest', 'not-macro', {lists, zipwith3, 4}},
                  joxa.compiler:'resolve-reference-ctx'({0, [1]}, Ctx, {'--fun', lists,
-                                                             zipwith3, 4}, 4)),
+                                                                       zipwith3, 4}, 4)),
 
     ?assertMatch({remote, 'not-rest', 'not-macro', {lists, zipwith3, 4}},
                  joxa.compiler:'resolve-reference-ctx'({0, [1]}, Ctx, {'--fun', bar,
-                                                             zipwith3, 4}, 4)),
+                                                                       zipwith3, 4}, 4)),
 
     ?assertMatch('not-a-reference',
                  joxa.compiler:'resolve-reference-ctx'({0, [1]}, Ctx, {'--fun', bar,
-                                                             zipwith3, 3}, 4)),
+                                                                       zipwith3, 3}, 4)),
     joxa.compiler:'stop-context'(Ctx).

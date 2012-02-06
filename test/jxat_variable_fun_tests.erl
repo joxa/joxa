@@ -20,7 +20,7 @@ fun_var_test() ->
   (defn+ test-case1 ()
       ((get-it1) 1 2))">>,
 
-    {_, Binary} = joxa.compiler:forms("", Source, []),
+    {_, Binary} = joxa.compiler:forms(Source, []),
     ?assertMatch(true, is_binary(Binary)),
     ?assertMatch({1, 2},
                  'jxat-fun-var-test':'test-case0'()),
