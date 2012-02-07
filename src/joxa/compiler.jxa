@@ -613,7 +613,8 @@
               {:noreply (internal-add-error {{:variable-redefinition name}
                                              (internal-erri-from-context path raw-ctx)} raw-ctx)})))
           ([]
-           (erlang/throw :no-scope)))))
+           {:noreply (internal-add-error {:no-scope
+                                          (internal-erri-from-context path raw-ctx)} raw-ctx)}))))
      (:push-type-scope
       (let (type-scopes (get-context :type-scopes raw-ctx))
         {:noreply (set-context :type-scopes ((sets/new) . type-scopes) raw-ctx)}))
