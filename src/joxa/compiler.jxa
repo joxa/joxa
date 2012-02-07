@@ -1730,7 +1730,7 @@
 ;;
 ;; comp compiles the provided AST into a Joxa context. Later that context
 ;; must be compiled to core erlang.
-(defn get-exports (module idx)
+(defn get-exports (module)
   (let (mod-info (erlang/make_fun module :module_info 1)
         exports (mod-info :exports))
     (lists/map (fn (el)
@@ -1899,7 +1899,7 @@
      (when (erlang/is_atom use-module-name))
      (case (module-exists? use-module-name)
        (:true
-        (let (imports (get-exports use-module-name idx))
+        (let (imports (get-exports use-module-name))
           (add-require-ctx ctx use-module-name)
           (handle-use-clauses idx ctx
                               clause-body use-module-name imports)
@@ -1908,7 +1908,7 @@
         (erlang/throw {:invalid-use-clause {:bad-module use-module-name} idx}))))
     ((use-module-name . rest)
      (when (erlang/is_atom use-module-name))
-     (let (imports (get-exports use-module-name idx))
+     (let (imports (get-exports use-module-name))
        (populate-use-into-context ctx use-module-name imports)
        (make-use idx ctx rest :undefined '())))))
 
