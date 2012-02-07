@@ -542,9 +542,9 @@
      {:noreply (set-context :line line-annots raw-ctx)})
     ({:annots annots}
      {:noreply (set-context :annots annots raw-ctx)})
-    ({:warning warning}
+    ({:add-warning warning}
      {:noreply (internal-add-warning warning raw-ctx)})
-    ({:error error}
+    ({:add-error error}
      {:noreply (internal-add-error error raw-ctx)})
     (:incr-fun-index
      {:noreply (set-context :anon-fun-index (erlang/+ (get-context :anon-fun-index raw-ctx) 1) raw-ctx)})
@@ -662,10 +662,10 @@
   (gen_server/cast ctx {:set-context-all args}))
 
 (defn add-warning-ctx (warning ctx)
-  (gen_server/cast ctx {:warning warning}))
+  (gen_server/cast ctx {:add-warning warning}))
 
 (defn add-error-ctx (error ctx)
-  (gen_server/cast ctx {:error error}))
+  (gen_server/cast ctx {:add-error error}))
 
 (defn+ module-name-ctx (ctx)
   (gen_server/call ctx :module-name))
