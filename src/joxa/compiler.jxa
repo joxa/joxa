@@ -117,65 +117,65 @@
 ;; information about the module undergoing compilation.
 
 ;; ### Internal Context Implementation
-(defn+ get-context (field ctx)
+(defn+ get-context (field raw-ctx)
   (case field
-    (:module-name (erlang/element 2 ctx))
-    (:annots (erlang/element 3 ctx))
-    (:attrs (erlang/element 4 ctx))
-    (:exports (erlang/element 5 ctx))
-    (:type-exports (erlang/element 6 ctx))
-    (:scopes (erlang/element 7 ctx))
-    (:type-scopes (erlang/element 8 ctx))
-    (:definitions (erlang/element 9 ctx))
-    (:types (erlang/element 10 ctx))
-    (:aliases (erlang/element 11 ctx))
-    (:requires (erlang/element 12 ctx))
-    (:uses (erlang/element 13 ctx))
-    (:line (erlang/element 14 ctx))
-    (:options (erlang/element 15 ctx))
-    (:rests (erlang/element 16 ctx))
-    (:anon-fun-index (erlang/element 17 ctx))
-    (:fun-deps (erlang/element 18 ctx))
-    (:macros (erlang/element 19 ctx))
-    (:unexported-macros (erlang/element 20 ctx))
-    (:warnings (erlang/element 21 ctx))
-    (:errors (erlang/element 22 ctx))
-    (:result (erlang/element 23 ctx))
-    (:filename (erlang/element 24 ctx))
+    (:module-name (erlang/element 2 raw-ctx))
+    (:annots (erlang/element 3 raw-ctx))
+    (:attrs (erlang/element 4 raw-ctx))
+    (:exports (erlang/element 5 raw-ctx))
+    (:type-exports (erlang/element 6 raw-ctx))
+    (:scopes (erlang/element 7 raw-ctx))
+    (:type-scopes (erlang/element 8 raw-ctx))
+    (:definitions (erlang/element 9 raw-ctx))
+    (:types (erlang/element 10 raw-ctx))
+    (:aliases (erlang/element 11 raw-ctx))
+    (:requires (erlang/element 12 raw-ctx))
+    (:uses (erlang/element 13 raw-ctx))
+    (:line (erlang/element 14 raw-ctx))
+    (:options (erlang/element 15 raw-ctx))
+    (:rests (erlang/element 16 raw-ctx))
+    (:anon-fun-index (erlang/element 17 raw-ctx))
+    (:fun-deps (erlang/element 18 raw-ctx))
+    (:macros (erlang/element 19 raw-ctx))
+    (:unexported-macros (erlang/element 20 raw-ctx))
+    (:warnings (erlang/element 21 raw-ctx))
+    (:errors (erlang/element 22 raw-ctx))
+    (:result (erlang/element 23 raw-ctx))
+    (:filename (erlang/element 24 raw-ctx))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
-(defn+ set-context (field value ctx)
+(defn+ set-context (field value raw-ctx)
   (case field
-    (:module-name (erlang/setelement 2 ctx value))
-    (:annots (erlang/setelement 3 ctx value))
-    (:attrs (erlang/setelement 4 ctx value))
-    (:exports (erlang/setelement 5 ctx value))
-    (:type-exports (erlang/setelement 6 ctx value))
-    (:scopes (erlang/setelement 7 ctx value))
-    (:type-scopes (erlang/setelement 8 ctx value))
-    (:definitions (erlang/setelement 9 ctx value))
-    (:types (erlang/setelement 10 ctx value))
-    (:aliases (erlang/setelement 11 ctx value))
-    (:requires (erlang/setelement 12 ctx value))
-    (:uses (erlang/setelement 13 ctx value))
-    (:line (erlang/setelement 14 ctx value))
-    (:options (erlang/setelement 15 ctx value))
-    (:rests (erlang/setelement 16 ctx value))
-    (:anon-fun-index (erlang/setelement 17 ctx value))
-    (:fun-deps (erlang/setelement 18 ctx value))
-    (:macros (erlang/setelement 19 ctx value))
-    (:unexported-macros (erlang/setelement 20 ctx value))
-    (:warnings (erlang/setelement 21 ctx value))
-    (:errors (erlang/setelement 22 ctx value))
-    (:result (erlang/setelement 23 ctx value))
-    (:filename (erlang/setelement 24 ctx value))
+    (:module-name (erlang/setelement 2 raw-ctx value))
+    (:annots (erlang/setelement 3 raw-ctx value))
+    (:attrs (erlang/setelement 4 raw-ctx value))
+    (:exports (erlang/setelement 5 raw-ctx value))
+    (:type-exports (erlang/setelement 6 raw-ctx value))
+    (:scopes (erlang/setelement 7 raw-ctx value))
+    (:type-scopes (erlang/setelement 8 raw-ctx value))
+    (:definitions (erlang/setelement 9 raw-ctx value))
+    (:types (erlang/setelement 10 raw-ctx value))
+    (:aliases (erlang/setelement 11 raw-ctx value))
+    (:requires (erlang/setelement 12 raw-ctx value))
+    (:uses (erlang/setelement 13 raw-ctx value))
+    (:line (erlang/setelement 14 raw-ctx value))
+    (:options (erlang/setelement 15 raw-ctx value))
+    (:rests (erlang/setelement 16 raw-ctx value))
+    (:anon-fun-index (erlang/setelement 17 raw-ctx value))
+    (:fun-deps (erlang/setelement 18 raw-ctx value))
+    (:macros (erlang/setelement 19 raw-ctx value))
+    (:unexported-macros (erlang/setelement 20 raw-ctx value))
+    (:warnings (erlang/setelement 21 raw-ctx value))
+    (:errors (erlang/setelement 22 raw-ctx value))
+    (:result (erlang/setelement 23 raw-ctx value))
+    (:filename (erlang/setelement 24 raw-ctx value))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ internal-new-context (key-values)
-  (lists/foldl (fn (set-val ctx)
+  (lists/foldl (fn (set-val raw-ctx)
                    (case set-val
                      ({field value}
-                      (set-context field value ctx))))
+                      (set-context field value raw-ctx))))
                {:context
                 :undefined ; module-name
                 (ec_dictionary/new :ec_dict) ; annots
@@ -202,35 +202,35 @@
                 "" ; Filename
                 } key-values))
 
-(defn internal-add-warning (warning ctx)
-  (let (warnings (get-context :warnings ctx))
-    (set-context :warnings (warning . warnings) ctx)))
+(defn internal-add-warning (warning raw-ctx)
+  (let (warnings (get-context :warnings raw-ctx))
+    (set-context :warnings (warning . warnings) raw-ctx)))
 
-(defn internal-add-error (error ctx)
-  (let (errors (get-context :errors ctx))
-    (set-context :errors (error . errors) ctx)))
+(defn internal-add-error (error raw-ctx)
+  (let (errors (get-context :errors raw-ctx))
+    (set-context :errors (error . errors) raw-ctx)))
 
-(defn internal-erri-from-context (path ctx)
+(defn internal-erri-from-context (path raw-ctx)
   (__try
-   (let (idx (get-idx-annots (path?  path) (get-context :annots ctx))
-             filename (ec_dictionary/get :annots (get-context :annots ctx)))
+   (let (idx (get-idx-annots (path?  path) (get-context :annots raw-ctx))
+             filename (ec_dictionary/get :annots (get-context :annots raw-ctx)))
      {filename idx})
    (catch (type body)
      {"" {0 0}})))
 
-(defn internal-add-macro (name arity path ctx)
-  (let (macros (get-context :macros ctx))
+(defn internal-add-macro (name arity path raw-ctx)
+  (let (macros (get-context :macros raw-ctx))
     (case (lists/any (fn (el)
                          (erlang/== el {name arity})) macros)
       (:true
-       (internal-add-error {{:rest-fun-exists name} (internal-erri-from-context path ctx)} ctx))
+       (internal-add-error {{:rest-fun-exists name} (internal-erri-from-context path raw-ctx)} raw-ctx))
       (:false
-       (set-context :macros ({name arity}  . macros) ctx)))))
+       (set-context :macros ({name arity}  . macros) raw-ctx)))))
 
-(defn internal-add-def (path ctx annots name vars body replace)
+(defn internal-add-def (path raw-ctx annots name vars body replace)
   (let (arity (erlang/length vars)
-        defs (get-context :definitions ctx)
-        fun-deps (get-context :fun-deps ctx)
+        defs (get-context :definitions raw-ctx)
+        fun-deps (get-context :fun-deps raw-ctx)
         cerl-name (cerl/ann_c_fname annots name arity)
         cerl-body (cerl/ann_c_fun annots vars body))
 
@@ -242,25 +242,25 @@
                        (lists/keyreplace {name arity} 1
                                          defs
                                          {{name arity} {cerl-name cerl-body fun-deps}})
-                       ctx))
+                       raw-ctx))
          (:false
           (set-context :definitions
                        (lists/append defs
                                      [{{name arity} {cerl-name cerl-body fun-deps}}])
-                       ctx))))
+                       raw-ctx))))
       (_
-       (let (ctx (lists/foldl (fn (el ctx1)
+       (let (raw-ctx (lists/foldl (fn (el raw-ctx1)
                                     (case el
                                       ({{name arity}, _}
                                        (internal-add-warning
                                         {{:function-exists name arity}
-                                         (internal-erri-from-context path ctx1)} ctx1))
+                                         (internal-erri-from-context path raw-ctx1)} raw-ctx1))
                                       (_
-                                       ctx1))) ctx defs))
+                                       raw-ctx1))) raw-ctx defs))
          (set-context :fun-deps (sets/new)
                       (set-context :definitions
                                    (lists/append defs [{{name arity} {cerl-name cerl-body fun-deps}}])
-                                   ctx)))))))
+                                   raw-ctx)))))))
 
 (defn internal-rest-remote-reference? (module function possible-arity exports)
   (case (get-joxa-info :rest module function)
@@ -273,9 +273,9 @@
                           (erlang/non_neg_integer) (erlang/term))
   (erlang/term))
 
-(defn internal-remote-function? (module function possible-arity ctx aliased)
+(defn internal-remote-function? (module function possible-arity raw-ctx aliased)
   (__try
-   (let (requires (get-context :requires ctx)
+   (let (requires (get-context :requires raw-ctx)
          exports (ec_dictionary/get module requires))
      (case (internal-rest-remote-reference? module function possible-arity exports)
        (:not-a-reference
@@ -291,26 +291,26 @@
        (:not_found
         (case aliased
           (:false
-           (internal-alias? module function possible-arity ctx))
+           (internal-alias? module function possible-arity raw-ctx))
           (:true
            :not-a-reference)))))))
 
-(defn internal-remote-function? (module function possible-arity ctx)
-  (internal-remote-function? module function possible-arity ctx :false))
+(defn internal-remote-function? (module function possible-arity raw-ctx)
+  (internal-remote-function? module function possible-arity raw-ctx :false))
 
-(defn internal-alias? (module function possible-arity ctx)
+(defn internal-alias? (module function possible-arity raw-ctx)
   (__try
-   (let (aliases (get-context :aliases ctx)
+   (let (aliases (get-context :aliases raw-ctx)
          aliased-module  (ec_dictionary/get module aliases))
      (internal-remote-function?
-      aliased-module function possible-arity ctx :true))
+      aliased-module function possible-arity raw-ctx :true))
    (catch (type body)
      (case body
        (:not_found
         :not-a-reference)))))
 
-(defn internal-is-local-rest-fun? (name possible-arity ctx)
-  (let (rests (get-context :rests ctx))
+(defn internal-is-local-rest-fun? (name possible-arity raw-ctx)
+  (let (rests (get-context :rests raw-ctx))
     (lists/foldl (fn (el acc)
                      (case acc
                        (:false
@@ -322,8 +322,8 @@
                        (_
                         acc))) :false rests)))
 
-(defn internal-is-speced? (name possible-arity ctx)
-  (let (types (get-context :types ctx))
+(defn internal-is-speced? (name possible-arity raw-ctx)
+  (let (types (get-context :types raw-ctx))
     (case (ec_dictionary/get {name possible-arity} :undefined types)
       (:undefined
        :not-a-reference)
@@ -346,29 +346,29 @@
                      (_
                       acc))) :not-a-reference (ec_dictionary/to_list  uses)))
 
-(defn internal-used-function? (name possible-arity ctx)
-  (let (uses (get-context :uses ctx))
+(defn internal-used-function? (name possible-arity raw-ctx)
+  (let (uses (get-context :uses raw-ctx))
     (case (internal-rest-used-function? name uses)
       (:not-a-reference
        (case (ec_dictionary/get {name possible-arity} :undefined uses)
          ({fun-name module-name}
           {:remote :not-rest {module-name fun-name possible-arity}})
          (:undefined
-          (internal-is-speced? name possible-arity ctx))))
+          (internal-is-speced? name possible-arity raw-ctx))))
       (result
        result))))
 
-(defn internal-rest-defined-function? (function possible-arity ctx)
-  (case (internal-is-local-rest-fun? function possible-arity ctx)
+(defn internal-rest-defined-function? (function possible-arity raw-ctx)
+  (case (internal-is-local-rest-fun? function possible-arity raw-ctx)
     ({:true arity}
      {:apply :rest {function arity}})
     (x
      :not-a-reference)))
 
-(defn internal-defined-used-function? (name possible-arity ctx)
-  (case (internal-rest-defined-function? name possible-arity ctx)
+(defn internal-defined-used-function? (name possible-arity raw-ctx)
+  (case (internal-rest-defined-function? name possible-arity raw-ctx)
     (:not-a-reference
-     (let (defs (get-context :definitions ctx))
+     (let (defs (get-context :definitions raw-ctx))
        (case (lists/any (fn (el)
                             (case el
                               ({{name possible-arity} _}
@@ -379,32 +379,32 @@
          (:true
           {:apply :not-rest {name possible-arity}})
          (:false
-          (internal-used-function? name possible-arity ctx)))))
+          (internal-used-function? name possible-arity raw-ctx)))))
     (rest-apply
      rest-apply)))
 
-(defn internal-resolve-reference (ref arity path ctx)
+(defn internal-resolve-reference (ref arity path raw-ctx)
   (case ref
     ({:--fun _ arity}
      (when (erlang/is_integer arity))
-     {ctx (internal-defined-used-function? ref arity ctx)})
+     {raw-ctx (internal-defined-used-function? ref arity raw-ctx)})
     ({:--fun module function}
      (when (and (erlang/is_atom module)
                 (erlang/is_atom function)))
-     {ctx (internal-remote-function? module function arity ctx)})
+     {raw-ctx (internal-remote-function? module function arity raw-ctx)})
     ({:--fun fun invalid-arity}
      {(internal-add-error {{:mismatched-arity fun arity invalid-arity}
-                           (internal-erri-from-context path ctx)} ctx)
+                           (internal-erri-from-context path raw-ctx)} raw-ctx)
       :not-a-reference})
     ({:--fun module function arity}
-     {ctx (internal-remote-function? module function arity ctx)})
+     {raw-ctx (internal-remote-function? module function arity raw-ctx)})
     ({:--fun module function invalid-arity}
      {(internal-add-error {{:mismatched-arity function arity invalid-arity}
-                           (internal-erri-from-context path ctx)} ctx)
+                           (internal-erri-from-context path raw-ctx)} raw-ctx)
       :not-a-reference})
     (name
      (when (erlang/is_atom name))
-     (let (scopes (get-context :scopes ctx))
+     (let (scopes (get-context :scopes raw-ctx))
        (case (ec_lists/search (fn (scope)
                                   (__try
                                    {:ok (ec_dictionary/get name scope)}
@@ -415,11 +415,11 @@
          ({:ok {var new-arity}  _}
           (when (erlang/or (erlang/== -1 arity)
                            (erlang/== new-arity arity)))
-          {ctx {:reference {var new-arity}}})
+          {raw-ctx {:reference {var new-arity}}})
          (_
-          {ctx  (internal-defined-used-function? name arity ctx)}))))
+          {raw-ctx  (internal-defined-used-function? name arity raw-ctx)}))))
     (_
-     {ctx  :not-a-reference})))
+     {raw-ctx  :not-a-reference})))
 
 (defn get-macro-tag (module function arity)
   (case (get-joxa-info :macro module {function arity})
@@ -447,41 +447,41 @@
                        (erlang/== :context (erlang/element 1 args1))))
      {:ok args1})))
 
-(defn+ handle_call (request from ctx)
+(defn+ handle_call (request from raw-ctx)
    (let (result
         (case request
           (:annots
-           {ctx (get-context :annots ctx)})
+           {raw-ctx (get-context :annots raw-ctx)})
           (:filename
-           {ctx (get-context :filename ctx)})
+           {raw-ctx (get-context :filename raw-ctx)})
           (:anon-fun-index
-           {ctx (get-context :anon-fun-index ctx)})
+           {raw-ctx (get-context :anon-fun-index raw-ctx)})
           (:options
-           {ctx (get-context :options ctx)})
+           {raw-ctx (get-context :options raw-ctx)})
           (:exports
-           {ctx (get-context :exports ctx)})
+           {raw-ctx (get-context :exports raw-ctx)})
           (:definitions
-           {ctx (get-context :definitions ctx)})
+           {raw-ctx (get-context :definitions raw-ctx)})
           (:rests
-           {ctx (get-context :rests ctx)})
+           {raw-ctx (get-context :rests raw-ctx)})
           (:macros
-           {ctx (get-context :macros ctx)})
+           {raw-ctx (get-context :macros raw-ctx)})
           (:types
-           {ctx (get-context :types ctx)})
+           {raw-ctx (get-context :types raw-ctx)})
           (:type-exports
-           {ctx (get-context :type-exports ctx)})
+           {raw-ctx (get-context :type-exports raw-ctx)})
           (:unexported-macros
-           {ctx (get-context :unexported-macros ctx)})
+           {raw-ctx (get-context :unexported-macros raw-ctx)})
           (:module-name
-           {ctx (get-context :module-name ctx)})
+           {raw-ctx (get-context :module-name raw-ctx)})
           (:warnings
-           {ctx (get-context :warnings ctx)})
+           {raw-ctx (get-context :warnings raw-ctx)})
           (:errors
-           {ctx (get-context :errors ctx)})
+           {raw-ctx (get-context :errors raw-ctx)})
           (:line
-           {ctx (get-context :line ctx)})
+           {raw-ctx (get-context :line raw-ctx)})
           (:attrs
-           {ctx (get-context :attrs ctx)})
+           {raw-ctx (get-context :attrs raw-ctx)})
           ({:thing-from-context actions path0 do-fun}
            (let (do-action (fn (action path1)
                                (case action
@@ -494,24 +494,24 @@
                                            (lists/foldl do-action/2 path0 actions))
                                        (a2 (when (erlang/is_atom a2))
                                            (do-action actions path0))))
-             {ctx  (do-fun (path? path1) (get-context :annots ctx))}))
+             {raw-ctx  (do-fun (path? path1) (get-context :annots raw-ctx))}))
           (:warning-count
-           {ctx (erlang/length (get-context :warnings ctx))})
+           {raw-ctx (erlang/length (get-context :warnings raw-ctx))})
           (:error-count
-           {ctx (erlang/length (get-context :errors ctx))})
+           {raw-ctx (erlang/length (get-context :errors raw-ctx))})
           ({:resolve-reference path ref arity}
-           (case (internal-resolve-reference ref arity path ctx)
-             ({ctx1 {:remote rest (= mfa {module function rest-arity})}}
-              {ctx1 {:remote rest (get-macro-tag module function rest-arity) mfa}})
-             ({ctx1  {:apply rest (= fa {function rest-arity})}}
-              {ctx1 {:apply rest (get-macro-tag (get-context :module-name ctx)
+           (case (internal-resolve-reference ref arity path raw-ctx)
+             ({raw-ctx1 {:remote rest (= mfa {module function rest-arity})}}
+              {raw-ctx1 {:remote rest (get-macro-tag module function rest-arity) mfa}})
+             ({raw-ctx1  {:apply rest (= fa {function rest-arity})}}
+              {raw-ctx1 {:apply rest (get-macro-tag (get-context :module-name raw-ctx)
                                                 function rest-arity)
                             fa}})
              (val
               val)))
           ({:resolve-type-reference name arity}
-           {ctx (let (type-scopes (get-context :type-scopes ctx)
-                             types (get-context :types ctx))
+           {raw-ctx (let (type-scopes (get-context :type-scopes raw-ctx)
+                             types (get-context :types raw-ctx))
                    (case (lists/any (fn (set-scope)
                                         (sets/is_element {name arity} set-scope)) type-scopes)
                      (:true
@@ -523,123 +523,123 @@
                         (_
                          :true)))))})
           (:get-raw-context
-           {ctx ctx})
+           {raw-ctx raw-ctx})
           (:result
-           {ctx (get-context :result ctx)})))
+           {raw-ctx (get-context :result raw-ctx)})))
      (case result
-       ({ctx1 reply}
-        {:reply reply ctx1}))))
+       ({raw-ctx1 reply}
+        {:reply reply raw-ctx1}))))
 
-(defn+ handle_cast (msg ctx)
+(defn+ handle_cast (msg raw-ctx)
   (case msg
     ({:exports new-exports}
-     {:noreply (set-context :exports new-exports ctx)})
+     {:noreply (set-context :exports new-exports raw-ctx)})
     ({:filename filename}
-     {:noreply (set-context :filename filename ctx)})
+     {:noreply (set-context :filename filename raw-ctx)})
     ({:module-name new-module-name}
-     {:noreply (set-context :module-name new-module-name ctx)})
+     {:noreply (set-context :module-name new-module-name raw-ctx)})
     ({:line line-annots}
-     {:noreply (set-context :line line-annots ctx)})
+     {:noreply (set-context :line line-annots raw-ctx)})
     ({:annots annots}
-     {:noreply (set-context :annots annots ctx)})
+     {:noreply (set-context :annots annots raw-ctx)})
     ({:warning warning}
-     {:noreply (internal-add-warning warning ctx)})
+     {:noreply (internal-add-warning warning raw-ctx)})
     ({:error error}
-     {:noreply (internal-add-error error ctx)})
+     {:noreply (internal-add-error error raw-ctx)})
     (:incr-fun-index
-     {:noreply (set-context :anon-fun-index (erlang/+ (get-context :anon-fun-index ctx) 1) ctx)})
+     {:noreply (set-context :anon-fun-index (erlang/+ (get-context :anon-fun-index raw-ctx) 1) raw-ctx)})
     ({:add-export fun-name arity annots}
-     (let (exports (get-context :exports ctx))
+     (let (exports (get-context :exports raw-ctx))
        {:noreply
          (set-context
           :exports (sets/add_element {fun-name arity annots} exports)
-          ctx)}))
+          raw-ctx)}))
     ({:add-rest name arity path}
-     (let (rests (get-context :rests ctx))
+     (let (rests (get-context :rests raw-ctx))
        (case (lists/any (fn (el)
                             (erlang/== el name)) rests)
          (:true
           {:noreply (internal-add-error {{:rest-fun-exists name}
-                                          (internal-erri-from-context path ctx)} ctx)})
+                                          (internal-erri-from-context path raw-ctx)} raw-ctx)})
          (:false
-          {:noreply (set-context :rests ({name arity}  . rests) ctx)}))))
+          {:noreply (set-context :rests ({name arity}  . rests) raw-ctx)}))))
     ({:add-macro name arity path}
-     {:noreply (internal-add-macro name arity path ctx)})
+     {:noreply (internal-add-macro name arity path raw-ctx)})
     ({:add-unexported-macro name arity path}
-     (let (unexported-macros (get-context :unexported-macros ctx))
+     (let (unexported-macros (get-context :unexported-macros raw-ctx))
        {:noreply (set-context :unexported-macros ({name arity}  . unexported-macros)
-                              (internal-add-macro name arity path ctx))}))
+                              (internal-add-macro name arity path raw-ctx))}))
     ({:add-attr key value}
-     (let (attrs (get-context :attrs ctx))
-       {:noreply (set-context :attrs ({key value} . attrs) ctx)}))
+     (let (attrs (get-context :attrs raw-ctx))
+       {:noreply (set-context :attrs ({key value} . attrs) raw-ctx)}))
     ({:add-alias aliased-name module}
-     (let (aliases (get-context :aliases ctx))
+     (let (aliases (get-context :aliases raw-ctx))
        {:noreply
         (set-context :aliases
                      (ec_dictionary/add aliased-name module aliases)
-                     ctx)}))
+                     raw-ctx)}))
      ({:add-require module}
-      (let (requires (get-context :requires ctx)
+      (let (requires (get-context :requires raw-ctx)
                      exports ((erlang/make_fun module :module_info 1) :exports))
         {:noreply (set-context :requires (ec_dictionary/add module exports requires)
-                                        ctx)}))
+                                        raw-ctx)}))
      ({:add-use alias arity target module}
-      (let (use (get-context :uses ctx))
+      (let (use (get-context :uses raw-ctx))
         {:noreply (set-context :uses (ec_dictionary/add {alias arity}
                                                         {target module} use)
-                               ctx)}))
+                               raw-ctx)}))
      ({:add-def path annots name vars body replace}
-      {:noreply (internal-add-def path ctx annots name vars body replace)})
+      {:noreply (internal-add-def path raw-ctx annots name vars body replace)})
      ({:add-fun-dep name arity}
-      (let (fun-deps (get-context :fun-deps ctx))
-        {:noreply (set-context :fun-deps (sets/add_element {name arity} fun-deps) ctx)}))
+      (let (fun-deps (get-context :fun-deps raw-ctx))
+        {:noreply (set-context :fun-deps (sets/add_element {name arity} fun-deps) raw-ctx)}))
      (:push-scope
-      (let (scopes (get-context :scopes ctx))
-        {:noreply (set-context :scopes ((ec_dictionary/new :ec_dict) . scopes) ctx)}))
+      (let (scopes (get-context :scopes raw-ctx))
+        {:noreply (set-context :scopes ((ec_dictionary/new :ec_dict) . scopes) raw-ctx)}))
      (:pop-scope
-      (case (get-context :scopes ctx)
+      (case (get-context :scopes raw-ctx)
         ((_ . scopes)
-         {:noreply (set-context :scopes scopes ctx)})))
+         {:noreply (set-context :scopes scopes raw-ctx)})))
      ({:add-reference path name arity cerl-var}
-      (let (scopes (get-context :scopes ctx))
+      (let (scopes (get-context :scopes raw-ctx))
         (case scopes
           ((current . rest)
            (case (ec_dictionary/get name :not-in-scope current)
              (:not-in-scope
               {:noreply (set-context :scopes
-                                     ((ec_dictionary/add name {cerl-var arity} current) . rest) ctx)})
+                                     ((ec_dictionary/add name {cerl-var arity} current) . rest) raw-ctx)})
              (_
               {:noreply (internal-add-error {{:variable-redefinition name}
-                                             (internal-erri-from-context path ctx)} ctx)})))
+                                             (internal-erri-from-context path raw-ctx)} raw-ctx)})))
           ([]
            (erlang/throw :no-scope)))))
      (:push-type-scope
-      (let (type-scopes (get-context :type-scopes ctx))
-        {:noreply (set-context :type-scopes ((sets/new) . type-scopes) ctx)}))
+      (let (type-scopes (get-context :type-scopes raw-ctx))
+        {:noreply (set-context :type-scopes ((sets/new) . type-scopes) raw-ctx)}))
      (:pop-type-scope
-      (case (get-context :type-scopes ctx)
+      (case (get-context :type-scopes raw-ctx)
         ((_ . scopes)
-         {:noreply (set-context :type-scopes scopes ctx)})))
+         {:noreply (set-context :type-scopes scopes raw-ctx)})))
      ({:add-type-reference name arity}
-      (case (get-context :type-scopes ctx)
+      (case (get-context :type-scopes raw-ctx)
         ((current . scopes)
-         {:noreply (set-context :type-scopes ((sets/add_element {name arity} current) . scopes) ctx)})))
+         {:noreply (set-context :type-scopes ((sets/add_element {name arity} current) . scopes) raw-ctx)})))
      ({:add-type-export name arity}
-      (let (type-exports (get-context :type-exports ctx))
-        {:noreply (set-context :type-exports (sets/add_element {name arity} type-exports) ctx)}))
+      (let (type-exports (get-context :type-exports raw-ctx))
+        {:noreply (set-context :type-exports (sets/add_element {name arity} type-exports) raw-ctx)}))
      ({:add-type type-name arity body}
-      (let (types (get-context :types ctx))
-        {:noreply (set-context :types  (ec_dictionary/add {type-name arity}  body types) ctx)}))
+      (let (types (get-context :types raw-ctx))
+        {:noreply (set-context :types  (ec_dictionary/add {type-name arity}  body types) raw-ctx)}))
      ({:set-context-all args}
-      {:noreply (lists/foldl (fn (set-val ctx1)
+      {:noreply (lists/foldl (fn (set-val raw-ctx1)
                                  (case set-val
                                    ({field value}
-                                    (set-context field value ctx1))))
-                             ctx args)})
+                                    (set-context field value raw-ctx1))))
+                             raw-ctx args)})
     ({:result result}
-     {:noreply (set-context :result result ctx)})
+     {:noreply (set-context :result result raw-ctx)})
      (:stop-context
-      {:stop :normal ctx})))
+      {:stop :normal raw-ctx})))
 
 (defn+ handle_info (info state)
   {:noreply state})
@@ -3982,7 +3982,7 @@
              (make-interactive-fun ctx interactive-name [interactive-name [] ast])
              :expr)))))
       (_
-       (make-interactive-fun ctx interactive-name  [interactive-name [] ast])
+       (make-interactive-fun ctx interactive-name  [:interactive-name [] ast])
        :expr))))
 
 (defn internal-comp-interactive (ctx interactive-name input result0)
