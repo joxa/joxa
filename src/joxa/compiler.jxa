@@ -1,4 +1,4 @@
-;; The Joxa Compiler
+;;; The Joxa Compiler
 ;;; =================
 ;;; * author: Eric Merritt
 ;;; * copyright: Erlware, LLC 2011 - 2012
@@ -542,10 +542,11 @@
      {:noreply (set-context :line line-annots raw-ctx)})
     ({:annots annots}
      {:noreply (set-context :annots annots raw-ctx)})
-    ({:add-warning warning}
-     {:noreply (internal-add-warning warning raw-ctx)})
-    ({:add-error error}
-     {:noreply (internal-add-error error raw-ctx)})
+    ({:add-warning path warning}
+     {:noreply (internal-add-warning {warning (internal-erri-from-context path raw-ctx)}
+                                     raw-ctx)})
+    ({:add-error path error}
+     {:noreply (internal-add-error {error (internal-erri-from-context path raw-ctx)} raw-ctx)})
     (:incr-fun-index
      {:noreply (set-context :anon-fun-index (erlang/+ (get-context :anon-fun-index raw-ctx) 1) raw-ctx)})
     ({:add-export fun-name arity annots}
@@ -661,11 +662,11 @@
 (defn set-context-all-ctx (ctx args)
   (gen_server/cast ctx {:set-context-all args}))
 
-(defn add-warning-ctx (warning ctx)
-  (gen_server/cast ctx {:add-warning warning}))
+(defn add-warning-ctx (path warning ctx)
+  (gen_server/cast ctx {:add-warning path warning}))
 
-(defn add-error-ctx (error ctx)
-  (gen_server/cast ctx {:add-error error}))
+(defn add-error-ctx (path error ctx)
+  (gen_server/cast ctx {:add-error path error}))
 
 (defn+ module-name-ctx (ctx)
   (gen_server/call ctx :module-name))
