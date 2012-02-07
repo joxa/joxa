@@ -663,10 +663,10 @@
 (defn set-context-all-ctx (ctx args)
   (gen_server/cast ctx {:set-context-all args}))
 
-(defn add-warning-ctx (path warning ctx)
+(defn add-warning-ctx (ctx path warning)
   (gen_server/cast ctx {:add-warning path warning}))
 
-(defn add-error-ctx (path error ctx)
+(defn add-error-ctx (ctx path error)
   (gen_server/cast ctx {:add-error path error}))
 
 (defn+ module-name-ctx (ctx)
