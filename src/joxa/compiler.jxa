@@ -820,6 +820,10 @@
 (defn+ stop-context (ctx)
   (gen_server/cast ctx :stop-context))
 
+(defn add-error-r-nil-ctx (path error ctx)
+  (gen_server/cast ctx {:add-error path error})
+  (cerl/c_nil))
+
 ;; The Compiler
 ;; ------------
 ;;
