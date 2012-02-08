@@ -10,14 +10,17 @@
   (erlang/list_to_binary (io/get_line (prompt ctx))))
 
 (defn eval (parse ctx)
-  (let (result (joxa.compiler/comp-interactive ctx :--joxa-shell parse []))
-    (case (erlang/and  (joxa.compiler/compilable? ctx)
-                       (erlang/== result :expr))
-      (:true
-       (let (call-fun (erlang/make_fun (joxa.compiler/module-name-ctx ctx) :--joxa-shell 0))
-         (call-fun)))
-      (:false
-       :ok))))
+  (let (result (joxa.compiler/comp-interactive ctx :--joxa-shell parse [])
+        comp-res
+        (case (erlang/and  (joxa.compiler/compilable? ctx)
+                           (erlang/== result :expr))
+          (:true
+           (let (call-fun (erlang/make_fun (joxa.compiler/module-name-ctx ctx) :--joxa-shell 0))
+             (call-fun)))
+          (:false
+           :ok)))
+    (joxa.compiler/clear-errors ctx)
+    comp-res))
 
 (defn print (data ctx)
   (io/format "~p~n" [data]))

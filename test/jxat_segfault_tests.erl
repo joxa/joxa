@@ -20,9 +20,11 @@ bad_arity_test() ->
                                     :not-a-reference)
                                 (result
                                    result))))">>,
+    RawCtx = joxa.compiler:forms(Source, []),
+    ?assertMatch(true, joxa.compiler:'has-errors?'(RawCtx)),
+    ?assertMatch([{{'invalid-reference','rest-used-function-ctx?',3},{[],{0,0}}}],
+                 joxa.compiler:'get-context'(errors, RawCtx)).
 
-    ?assertThrow({'invalid-reference', _, _, _},
-                 joxa.compiler:forms(Source, [])).
 
 bad_call_test() ->
     Source = <<" (module jxat-invalid-arity-test1)
@@ -30,8 +32,12 @@ bad_call_test() ->
                 (defn+ invalid-code-test ()
                       (let (x 1)
                            -x))">>,
-    ?assertThrow({'invalid-reference', 'not-a-reference', _, _},
-                 joxa.compiler:forms(Source, [])).
+    RawCtx = joxa.compiler:forms(Source, []),
+    ?assertMatch(true, joxa.compiler:'has-errors?'(RawCtx)),
+    ?assertMatch([{{'invalid-reference','not-a-reference','-x'},
+                              {[],{0,0}}}]
+                 , joxa.compiler:'get-context'(errors, RawCtx)).
+
 
 
 segfault_test() ->
