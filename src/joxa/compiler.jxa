@@ -4120,7 +4120,15 @@
           (save-output options (get-context :result raw-ctx) raw-ctx)
           raw-ctx))
        ({:error reason}
-        (erlang/throw {:file-access reason filename}))))))
+        {:error  {:file-access reason filename}})))))
+;; Library Support Functions
+(defn+ has-errors? (ctx)
+  (let (errors (get-context :errors ctx)
+        warnings (get-context :warnings ctx))
+    (erlang/or
+     (erlang/> (erlang/length errors) 0)
+     (erlang/> (erlang/length warnings) 0))))
+
 
 ;; Command Line Interface
 ;; ----------------------
