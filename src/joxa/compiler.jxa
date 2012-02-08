@@ -1739,23 +1739,24 @@
                       {{fun arity} fun})))
                exports)))
 
-(defn gather-fun-arity-pairs (path fun-arity-list acc)
+(defn gather-fun-arity-pairs (path ctx fun-arity-list acc)
   (case fun-arity-list
     (({:--fun fun arity} . rest)
-     (gather-fun-arity-pairs path rest ({fun arity} . acc)))
+     (gather-fun-arity-pairs path ctx rest ({fun arity} . acc)))
     ([] acc)
-    (_
-     (erlang/throw {:invalid-use :invalid-fun-spec path}))))
+    (inv-f
+     (add-error-ctx ctx path {:invalid-use :invalid-fun-spec inv-f})
+     acc)))
 
-(defn gather-fun-alias-pairs (path fun-alias-pairs acc)
+(defn gather-fun-alias-pairs (path ctx fun-alias-pairs acc)
   (case fun-alias-pairs
     (([{:--fun fun arity} alias] . rest)
      (when (erlang/is_atom alias))
-     (gather-fun-alias-pairs path rest ({{fun arity} alias} . acc)))
+     (gather-fun-alias-pairs path ctx rest ({{fun arity} alias} . acc)))
     ([]
      acc)
     (_
-     (erlang/throw {:invalid_use :invalid_fun_spec idx}))))
+     (add-error-ctx ctx path {:invalid_use :invalid_fun_spec}))))
 
 (defn populate-use-into-context (ctx module-name imports)
   (case imports
@@ -1790,8 +1791,8 @@
 ;;
 ;; comp compiles the provided AST into a Joxa context. Later that context
 ;; must be compiled to core erlang.
-(defn filter-imports-to-onlys (path target-funs imports0)
-  (let (fun-arity-pairs (gather-fun-arity-pairs path target-funs '()))
+(defn filter-imports-to-onlys (path ctx target-funs imports0)
+  (let (fun-arity-pairs (gather-fun-arity-pairs path ctx target-funs '()))
     (lists/foldl (fn (el acc)
                      (case el
                        ({fun arity}
@@ -1800,11 +1801,12 @@
                             (:true
                              (new-el . acc))
                             (:false
-                             (erlang/throw {:invalid-use :non-existant-fun-name {fun arity} idx})))))))
+                             (add-error-ctx ctx path {:invalid-use :non-existant-fun-name {fun arity}})
+                             acc))))))
                  [] fun-arity-pairs)))
 
-(defn exclude-specific-funs (path excluded-funs imports0)
-  (let (fun-arity-pairs (gather-fun-arity-pairs path excluded-funs []))
+(defn exclude-specific-funs (path ctx excluded-funs imports0)
+  (let (fun-arity-pairs (gather-fun-arity-pairs path ctx excluded-funs []))
     (lists/foldl (fn (el acc)
                      (case el
                        ({{fun arity} _}
@@ -1816,8 +1818,8 @@
                              (new-el . acc)))))))
                  [] imports0)))
 
-(defn rename-funs (path renames imports0)
-  (let (fun-alias-pairs (gather-fun-alias-pairs path renames []))
+(defn rename-funs (path ctx renames imports0)
+  (let (fun-alias-pairs (gather-fun-alias-pairs path ctx renames []))
     (lists/foldl (fn (el exports1)
                      (case el
                        ({{fun arity} alias}
@@ -1835,17 +1837,17 @@
     (('(quote only) . (target-funs . rest))
      (when (and (erlang/is_atom module-name)
                 (erlang/is_list target-funs)))
-     (let (imports1 (filter-imports-to-onlys path target-funs imports0))
+     (let (imports1 (filter-imports-to-onlys path ctx target-funs imports0))
        (handle-use-clauses path ctx rest module-name imports1)))
     (('(quote exclude) . (target-funs . rest))
      (when (and (erlang/is_atom module-name)
                 (erlang/is_list target-funs)))
-     (let (imports1 (exclude-specific-funs path target-funs imports0))
+     (let (imports1 (exclude-specific-funs path ctx target-funs imports0))
        (handle-use-clauses path ctx rest module-name imports1)))
     (('(quote rename) . (target-funs . rest))
      (when (and (erlang/is_atom module-name)
                 (erlang/is_list target-funs)))
-     (let (imports1 (rename-funs path target-funs imports0))
+     (let (imports1 (rename-funs path ctx target-funs imports0))
        (handle-use-clauses path ctx rest module-name imports1)))
     (probably-more-uses
      (make-use path ctx probably-more-uses module-name imports0))))
