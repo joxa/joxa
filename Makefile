@@ -21,7 +21,7 @@ else
 endif
 
 BEAMS= $(BEAMDIR)/joxa/compiler.beam $(BEAMDIR)/joxa/shell.beam \
-       $(BEAMDIR)/joxa/core.beam
+       $(BEAMDIR)/joxa/core.beam $(BEAMDIR)/joxa.beam
 
 .SUFFIXES:
 .SUFFIXES:.jxa
@@ -71,4 +71,7 @@ $(BEAMDIR)/joxa/compiler.beam: $(SRCDIR)/joxa/compiler.jxa $(BEAMDIR)/joxa/boots
 	-s init stop -extra --bootstrap -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
 
 $(BEAMDIR)/joxa/%.beam: $(SRCDIR)/joxa/%.jxa
+	./bin/joxac -o $(BEAMDIR) $?
+
+$(BEAMDIR)/%.beam: $(SRCDIR)/%.jxa
 	./bin/joxac -o $(BEAMDIR) $?
