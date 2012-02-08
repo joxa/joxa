@@ -47,7 +47,7 @@ $(TMPDIR)/bootstrap_test.jxa:
 
 bootstrap_test: $(BEAMDIR)/joxa/compiler.beam $(TMPDIR)/bootstrap_test.jxa
 	sed -i 's/joxa\.compiler/bootstrap_test/g' $(TMPDIR)/bootstrap_test.jxa
-	$(ERL) $(ERLFLAGS) -s joxa.compiler main \
+	`which time` $(ERL) $(ERLFLAGS) -s joxa.compiler main \
 	-s init stop -extra --bootstrap -o $(TMPDIR) $(TMPDIR)/bootstrap_test.jxa
 
 bootstrap_helper:
