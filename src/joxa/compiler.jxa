@@ -640,6 +640,10 @@
                              raw-ctx args)})
     ({:result result}
      {:noreply (set-context :result result raw-ctx)})
+    ({:errors errors}
+     {:noreply (set-context :errors errors raw-ctx)})
+    ({:warnings warnings}
+     {:noreply (set-context :warnings warnings raw-ctx)})
      (:stop-context
       {:stop :normal raw-ctx})))
 
@@ -708,8 +712,14 @@
 (defn warnings-ctx (ctx)
   (gen_server/call ctx :warnings))
 
+(defn warnings-ctx (ctx warnings)
+  (gen_server/cast ctx {:warnings warnings}))
+
 (defn errors-ctx (ctx)
   (gen_server/call ctx :errors))
+
+(defn errors-ctx (ctx errors)
+  (gen_server/cast ctx {:errors errors}))
 
 (defn line-ctx (ctx)
   (gen_server/call ctx :line))
@@ -821,7 +831,7 @@
 (defn+ stop-context (ctx)
   (gen_server/cast ctx :stop-context))
 
-(defn add-error-r-nil-ctx (path error ctx)
+(defn add-error-r-nil-ctx (ctx path error)
   (gen_server/cast ctx {:add-error path error})
   (cerl/c_nil))
 
