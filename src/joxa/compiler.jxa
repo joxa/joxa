@@ -77,7 +77,7 @@
 
 (defspec get-idx-annots ((path) (erlang/term)) (index))
 
-(defspec make-use ((index) (context) (erlang/term) (erlang/atom) (erlang/list))
+(defspec make-use ((path) (context) (erlang/term) (erlang/atom) (erlang/list))
   (context))
 
 (defspec make-expr ((path) (context) (erlang/term)) {(context) (cerl/cerl)})
@@ -1739,19 +1739,19 @@
                       {{fun arity} fun})))
                exports)))
 
-(defn gather-fun-arity-pairs (idx fun-arity-list acc)
+(defn gather-fun-arity-pairs (path fun-arity-list acc)
   (case fun-arity-list
     (({:--fun fun arity} . rest)
-     (gather-fun-arity-pairs idx rest ({fun arity} . acc)))
+     (gather-fun-arity-pairs path rest ({fun arity} . acc)))
     ([] acc)
     (_
-     (erlang/throw {:invalid-use :invalid-fun-spec idx}))))
+     (erlang/throw {:invalid-use :invalid-fun-spec path}))))
 
-(defn gather-fun-alias-pairs (idx fun-alias-pairs acc)
+(defn gather-fun-alias-pairs (path fun-alias-pairs acc)
   (case fun-alias-pairs
     (([{:--fun fun arity} alias] . rest)
      (when (erlang/is_atom alias))
-     (gather-fun-alias-pairs idx rest ({{fun arity} alias} . acc)))
+     (gather-fun-alias-pairs path rest ({{fun arity} alias} . acc)))
     ([]
      acc)
     (_
@@ -1790,8 +1790,8 @@
 ;;
 ;; comp compiles the provided AST into a Joxa context. Later that context
 ;; must be compiled to core erlang.
-(defn filter-imports-to-onlys (idx target-funs imports0)
-  (let (fun-arity-pairs (gather-fun-arity-pairs idx target-funs '()))
+(defn filter-imports-to-onlys (path target-funs imports0)
+  (let (fun-arity-pairs (gather-fun-arity-pairs path target-funs '()))
     (lists/foldl (fn (el acc)
                      (case el
                        ({fun arity}
@@ -1803,8 +1803,8 @@
                              (erlang/throw {:invalid-use :non-existant-fun-name {fun arity} idx})))))))
                  [] fun-arity-pairs)))
 
-(defn exclude-specific-funs (idx excluded-funs imports0)
-  (let (fun-arity-pairs (gather-fun-arity-pairs idx excluded-funs []))
+(defn exclude-specific-funs (path excluded-funs imports0)
+  (let (fun-arity-pairs (gather-fun-arity-pairs path excluded-funs []))
     (lists/foldl (fn (el acc)
                      (case el
                        ({{fun arity} _}
@@ -1816,8 +1816,8 @@
                              (new-el . acc)))))))
                  [] imports0)))
 
-(defn rename-funs (idx renames imports0)
-  (let (fun-alias-pairs (gather-fun-alias-pairs idx renames []))
+(defn rename-funs (path renames imports0)
+  (let (fun-alias-pairs (gather-fun-alias-pairs path renames []))
     (lists/foldl (fn (el exports1)
                      (case el
                        ({{fun arity} alias}
@@ -1825,30 +1825,30 @@
                                           {{fun arity} alias}))))
                  imports0 fun-alias-pairs)))
 
-(defn handle-use-clauses (idx ctx forms module-name imports0)
+(defn handle-use-clauses (path ctx forms module-name imports0)
   (case forms
     ([]
      (populate-use-into-context ctx module-name imports0))
     (('(quote as) . (alias-name . rest))
      (add-alias-ctx ctx alias-name module-name)
-     (handle-use-clauses idx ctx rest module-name imports0))
+     (handle-use-clauses path ctx rest module-name imports0))
     (('(quote only) . (target-funs . rest))
      (when (and (erlang/is_atom module-name)
                 (erlang/is_list target-funs)))
-     (let (imports1 (filter-imports-to-onlys idx target-funs imports0))
-       (handle-use-clauses idx ctx rest module-name imports1)))
+     (let (imports1 (filter-imports-to-onlys path target-funs imports0))
+       (handle-use-clauses path ctx rest module-name imports1)))
     (('(quote exclude) . (target-funs . rest))
      (when (and (erlang/is_atom module-name)
                 (erlang/is_list target-funs)))
-     (let (imports1 (exclude-specific-funs idx target-funs imports0))
-       (handle-use-clauses idx ctx rest module-name imports1)))
+     (let (imports1 (exclude-specific-funs path target-funs imports0))
+       (handle-use-clauses path ctx rest module-name imports1)))
     (('(quote rename) . (target-funs . rest))
      (when (and (erlang/is_atom module-name)
                 (erlang/is_list target-funs)))
-     (let (imports1 (rename-funs idx target-funs imports0))
-       (handle-use-clauses idx ctx rest module-name imports1)))
+     (let (imports1 (rename-funs path target-funs imports0))
+       (handle-use-clauses path ctx rest module-name imports1)))
     (probably-more-uses
-     (make-use idx ctx probably-more-uses module-name imports0))))
+     (make-use path ctx probably-more-uses module-name imports0))))
 
 (defn module-exists? (mod-name)
   (case (code/ensure_loaded mod-name)
@@ -1891,7 +1891,7 @@
 ;;
 ;; This would be perfectly valid and could use occur in any order at all.
 
-(defn+ make-use (idx ctx form module-name imports)
+(defn+ make-use (path ctx form module-name imports)
   (case form
     ([]
      (populate-use-into-context ctx module-name imports))
@@ -1901,16 +1901,16 @@
        (:true
         (let (imports (get-exports use-module-name))
           (add-require-ctx ctx use-module-name)
-          (handle-use-clauses idx ctx
+          (handle-use-clauses path ctx
                               clause-body use-module-name imports)
-          (make-use idx ctx rest :undefined '())))
+          (make-use path ctx rest :undefined '())))
        (:false
-        (erlang/throw {:invalid-use-clause {:bad-module use-module-name} idx}))))
+        (erlang/throw {:invalid-use-clause {:bad-module use-module-name} path}))))
     ((use-module-name . rest)
      (when (erlang/is_atom use-module-name))
      (let (imports (get-exports use-module-name))
        (populate-use-into-context ctx use-module-name imports)
-       (make-use idx ctx rest :undefined '())))))
+       (make-use path ctx rest :undefined '())))))
 
 ;; Attribute Clauses
 ;; -----------------
@@ -2004,8 +2004,7 @@
     ((:attr . body)
      (make-attr (incr-path path0) ctx body))
     ((:use . body)
-     (let (idx (idx-from-context [] path0 ctx))
-       (make-use idx ctx body :undefined [])))
+     (make-use path0 ctx body :undefined []))
     (_
      (let (idx (idx-from-context [] path0 ctx))
        (erlang/throw {:invalid-form idx})))))
