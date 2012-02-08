@@ -42,8 +42,13 @@ incremental_fail_test() ->
 
                 (defn+ do-test (a)
                     ((post-test) a))">>,
-    ?assertThrow('unresolved-function-dependencies',
-                 joxa.compiler:forms(Source, [])).
+    RawCtx = joxa.compiler:forms(Source, []),
+    ?assertMatch(true,
+                 joxa.compiler:'has-errors?'(RawCtx)),
+    ?assertMatch([{{'undefined-functions',[{'post-test',0}]},
+                   {[],{0,0}}}],
+                 joxa.compiler:'get-context'(errors, RawCtx)).
+
 
 
 
