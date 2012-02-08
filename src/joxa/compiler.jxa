@@ -1699,7 +1699,7 @@
     (_
      (case (intermediate-parse input idx0)
        ({:fail {:expected expected idx1}}
-        (add-error-ctx ctx path {:invalid-form expected}))
+        (add-error-ctx ctx path {:parse-fail expected idx1}))
        ({intermediate-ast rest idx2}
         (case (transform-ast
                (traverse-path path)
@@ -1766,7 +1766,7 @@
     ([]
      acc)
     (_
-     (add-error-ctx ctx path {:invalid_use :invalid_fun_spec}))))
+     (add-error-ctx ctx path {:invalid_use :invalid-fun-spec}))))
 
 (defn populate-use-into-context (ctx module-name imports)
   (case imports
@@ -2238,8 +2238,8 @@
       ((= ref {:--fun _ _ a})
        (when (erlang/is_integer a))
        (case (resolve-reference-ctx path0 ctx ref a)
-         ({:reference {_ _}}
-          (add-error-r-nil-ctx ctx path0 :invalid-reference))
+         ({:reference (= detail {_ _})}
+          (add-error-r-nil-ctx ctx path0 {:invalid-reference detail}))
          ({:remote :not-rest _ {module function arity}}
           (when (erlang/and (erlang/is_atom module)
                             (erlang/is_atom function)))
@@ -2345,7 +2345,7 @@
                    ({:reference {var _}}
                     (make-rest-apply-var ctx annots (add-to-annots var annots) arg-list))
                     (_
-                     (add-error-r-nil-ctx ctx path0 {:invalid-reference val possible-arity})))))))))))
+                     (add-error-r-nil-ctx ctx path0 {:invalid-reference {val possible-arity}})))))))))))
 
 (defn make-try (path0 ctx form)
   (let (annots (annots-from-context [] path0 ctx))
@@ -3499,7 +3499,7 @@
      :ok))
   (case (erlang/> (erlang/length warnings) 0)
     (:true
-     (add-warning-ctx ctx (new-path) {:system-warnings errors}))
+     (add-warning-ctx ctx (new-path) {:system-warnings warnings}))
     (:false
      :ok)))
 
@@ -3851,6 +3851,12 @@
   (case ref
     ({:--fun name function}
      (io_lib/format "~s/~s" [name function]))
+    ({:--fun module function arity}
+     (io_lib/format "~s/~s/~p" [module function arity]))
+    ({:reference {var -1}}
+     (io_lib/format "~s" [var]))
+    ({:reference {var arity}}
+     (io_lib/format "~s/~p" [var arity]))
     (_
      (io_lib/format "~p" [ref]))))
 
@@ -3860,6 +3866,56 @@
      (io_lib/format "reference does not exist ~s" [ref]))
     ({:invalid-reference ref arity}
      (io_lib/format "invalid reference ~s/~p" [(format-fun-ref ref) arity]))
+    ({:parse-fail reason {l c}}
+     (io_lib/format "unable to parse source at ~p:~p ~p" [l c reason]))
+    ({:invalid-use :invalid-fun-spec inv-f}
+     (io_lib/format "invalid use declaration: invalid function reference (~p)"
+                    [inv-f]))
+    ({:invalid-use :invalid-fun-spec}
+     "invalid use declaration: invalid function reference")
+    ({:invalid-use :non-existant-fun-name {fun arity}}
+     (io_lib/format "invalid use declaration: function does not exist ~s/~p"
+                    [fun arity]))
+    ({:invalid-use-clause {:bad-module use-module-name}}
+     (io_lib/format "invalid use declaration: bad module name ~s"
+                    [use-module-name]))
+    (:invalid-attr-clause
+     "invalid attribute clause")
+    ({:invalid-require-clause {:bad-module module-name}}
+     (io_lib/format "invalid require declaration: bad module name ~s"
+                    [module-name]))
+    ({:invalid-require-clause _}
+      "invalid require declaration")
+    (:invalid-form
+     "invalid form")
+    (:invalid-module-declaration
+     "invalid module declaration")
+    (:invalid-sequence
+     "invalid sequence")
+    ({:invalid-reference {f -1}}
+     (io_lib/format "invalid reference ~s" [(format-fun-ref f) ]))
+    ({:invalid-reference {f a}}
+     (io_lib/format "invalid reference ~s/~p" [(format-fun-ref f) a]))
+    ({:undefined-reference ref}
+     (io_lib/format "invalid reference ~s" [(format-fun-ref ref)]))
+    ({:invalid-reference form}
+     (io_lib/format "invalid reference (~p)" [form]))
+    ({:invalid-try-expression}
+     "invalid try expression")
+    (:invalid-bitstring-spec
+     "invalid bitstring specification")
+    (:invalid-bitstring
+     "invalid bitstring ")
+    (:invalid-let-binding
+     "invalid let binding")
+    (:invalid-guard
+     "invalid guard expression")
+    ({:reference-already-defined ref}
+     (io_lib/format "reference already defined ~s" [(format-fun-ref ref)]))
+    (:invalid-definition
+     "invalid definition")
+    (:invalid-pattern
+     "invalid guard pattern")
     (_
      (io_lib/format "~p" [message]))))
 
@@ -3872,7 +3928,7 @@
                              (case sub-err
                                ({line module error-descriptor}
                                 (let (p-fun (erlang/make_fun module :format_error 1))
-                                  (io/format "~s:~i ~s~n" [file line (p-fun error-descriptor)])))))
+                                  (io/format "~s:~p ~s~n" [file line (p-fun error-descriptor)])))))
                          sub-errors))))
                  errs))
 
@@ -3885,9 +3941,9 @@
 ;; http://www.gnu.org/prep/standards/html_node/Errors.html
 (defn print-compiler-message (type message)
   (case message
-    ({:system-errors errors}
+    ({{:system-errors errors} _}
      (print-erl-errors-or-warnings errors))
-    ({:system-warnings warnings}
+    ({{:system-warnings warnings} _}
      (print-erl-errors-or-warnings warnings))
     ({detail {file-name {line column}}}
      (io/format "~s:~p:~p *~p* ~s~n" [file-name line column type (format-detail detail)]))
@@ -4114,6 +4170,7 @@
 (defn+ bootstrap-comp (ctx binary options)
   (case (intermediate-bootstrap-comp ctx binary options)
     (:uncompilable
+     (do-final-comp options ctx)
      :error)
     (_
      (do-final-comp options ctx)
