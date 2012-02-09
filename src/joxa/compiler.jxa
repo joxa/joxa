@@ -2913,7 +2913,9 @@
             (cerl/ann_c_clause annots
                                [cerl-pattern]
                                (make-guards annots pattern-guards)
-                               cerl-body)))))
+                               cerl-body)))
+         (_
+          (add-error-r-nil-ctx ctx path0 :invalid-case-clause))))
       (_
        (add-error-r-nil-ctx ctx path0 :invalid-case-clause)))))
 
