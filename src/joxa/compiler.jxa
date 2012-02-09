@@ -3957,7 +3957,7 @@
                        (print-compiler-message :warning message))
                    warnings)
     (lists/foreach (fn (message)
-                       (print-compiler-message :warning message))
+                       (print-compiler-message :error message))
                    errors)))
 
 (defn should-load? (options)
