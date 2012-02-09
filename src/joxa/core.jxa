@@ -1,3 +1,15 @@
+;;; The Joxa Core Library
+;;; =====================
+;;; * author: Eric Merritt
+;;; * copyright: Erlware, LLC 2011 - 2012
+;;;
+;;; Licensed under the Apache License, Version 2.0 you may not use
+;;; this file except in compliance with the License.  You may obtain a
+;;; copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+;;;
+;;;
+;;; This module provides a core set of functions to joxa users.
+
 (module joxa.core
         (require erlang lists))
 
