@@ -25,3 +25,24 @@
     ((a . rest)
      (- rest a))))
 
+
+(defmacro+ if (expression true-body false-body)
+  `(case ~expression
+     (:true
+      ~true-body)
+     (:false
+      ~false-body)))
+
+(defmacro+ when (expression true-body)
+  `(case ~expression
+     (:true
+      ~true-body)
+     (:false
+      :ok)))
+
+(defmacro+ unless (expression false-body)
+  `(case ~expression
+     (:true
+      :ok)
+     (:false
+      ~false-body)))
