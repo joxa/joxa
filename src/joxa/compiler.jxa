@@ -1199,21 +1199,6 @@
                  (erlang/iolist_to_binary node))))
            {:ident result idx}))))
 
-(defn+ symbol (input index)
-  (p input index :symbol
-     (p-seq [(p-string ":")
-             ignorable/2
-             (p-one-or-more
-              (p-and [(p-not (p-charclass <<"[,\\\\{}\t\n\s\r\\(\\)\\[\\]\"]">>))
-                      (p-anything)]))])
-     (fn (node idx)
-         (case node
-           ([_ _ value]
-            (let (result (erlang/list_to_atom
-                          (erlang/binary_to_list
-                           (erlang/iolist_to_binary value))))
-              {:quote {:ident result idx} idx}))))))
-
 (defn+ fun-reference (input index)
   (p input index :fun-reference
      (p-choose [(p-seq [ident/2
@@ -1282,7 +1267,8 @@
 
 (defn+ quote (input index)
   (p input index :quote
-     (p-seq [(p-string "'")
+     (p-seq [(p-choose [ (p-string "'")
+                         (p-string ":")])
              value/2])
      (fn (node idx)
          (case node
@@ -1404,13 +1390,12 @@
              (p-choose [float/2
                         integer/2
                         binary/2
-                        symbol/2
                         fun-reference/2
+                        quote/2
                         ident/2
                         list/2
                         tuple/2
                         string/2
-                        quote/2
                         quasiquote/2
                         unquote-splicing/2
                         unquote/2
