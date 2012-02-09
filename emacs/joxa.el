@@ -8,6 +8,8 @@
                             ("deftype" . font-lock-keyword-face)
                             ("defspec" . font-lock-keyword-face)
                             ("definline" . font-lock-keyword-face)
+                            ("defmacro+" . font-lock-keyword-face)
+                            ("defmacro" . font-lock-keyword-face)
                             ("defn+" . font-lock-keyword-face)
                             ("defn" . font-lock-keyword-face)
                             ("__try" . font-lock-keyword-face)
