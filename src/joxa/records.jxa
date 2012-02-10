@@ -1,0 +1,71 @@
+;;; The Joxa Core Library
+;;; =====================
+;;; * author: Eric Merritt
+;;; * copyright: Erlware, LLC 2011 - 2012
+;;;
+;;; Licensed under the Apache License, Version 2.0 you may not use
+;;; this file except in compliance with the License.  You may obtain a
+;;; copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+;;;
+;;;
+;;; This module provides for the definition and abstraction of structs
+;;; in joxa.
+(module joxa.records
+        (require (joxa.core :as core)
+                 lists erlang)
+        (use (erlang :only (+/2
+                            ==/2))))
+
+(defn convert-to-record-description (descs)
+  (case  (lists/foldl (fn (desc acc0)
+                          (case acc0
+                            ({acc1 count}
+                             (case desc
+                               (d (when (erlang/is_atom d))
+                                  {({d count :undefined} . acc1)
+                                   (core/incr count)})
+                               ({name default}
+                                {({name count default} . acc1)
+                                 (core/incr count)})))))
+                      {[], 2} descs)
+    ({acc _}
+     (lists/reverse acc))))
+
+(defn create-elements (decl descs)
+  (let (obj (core/gensym)
+        name (core/gensym)
+        value (core/gensym))
+    [`(~decl get-element ( ~obj ~name)
+             (case ~obj
+               ~@(lists/map (fn (desc)
+                                (case desc
+                                  ({f-name count _}
+                                   `('~f-name
+                                     (erlang/element ~count ~obj))))) descs)
+               (_
+                (erlang/throw {:invalid-field ~name}))))
+     `(~decl set-element ( ~obj ~name ~value)
+             (case ~obj
+               ~@(lists/map (fn (desc)
+                                (case desc
+                                  ({f-name count _}
+                                   `('~f-name
+                                     (erlang/setelement ~count ~obj ~value))))) descs)
+               (_
+                (erlang/throw {:invalid-field ~name}))))]))
+
+(defn create-record (decl descs)
+  (let (ells (create-elements decl descs)
+;        costr (create-constructors decl descs)
+;        field-info (create-field-info decl descs)
+;        accessors (create-accessors decl descs)
+;        t (create-templates decl descs)
+;        withs (create-withs decl descs)
+             )
+    `(do ~@ells)))
+
+(defmacro+ defrecord+ (field-descriptions)
+  (create-record :defn+ (convert-to-record-description field-descriptions)))
+
+(defmacro+ defrecord (field-descriptions)
+  (create-record :defn (convert-to-record-description field-descriptions)))
