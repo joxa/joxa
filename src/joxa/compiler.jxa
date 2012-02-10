@@ -3431,10 +3431,10 @@
                                    (let (acc1 ((make-literal (traverse-path path1) ctx element) .  acc0)
                                          path2 (incr-path path1))
                                      {path2 acc1}))))
-                            {path0 []} elements0))
+                            {path0 []} (erlang/tuple_to_list elements0)))
     (case result
       ({_ elements1}
-       (cerl/ann_c_tuple annots elements1)))))
+       (cerl/ann_c_tuple annots (lists/reverse elements1))))))
 
 (defn make-literal (path0 ctx arg0)
   (let (annots  (annots-from-context [] path0 ctx))
