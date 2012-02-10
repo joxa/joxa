@@ -4201,6 +4201,13 @@
          (filelib/ensure_dir out-path)
          (file/write_file out-file binary))))))
 
+(defn+ has-errors? (ctx)
+  (let (errors (get-context :errors ctx)
+        warnings (get-context :warnings ctx))
+    (erlang/or
+     (erlang/> (erlang/length errors) 0)
+     (erlang/> (erlang/length warnings) 0))))
+
 (defn+ do-compile (filename options)
   (case (start-context)
     ({:ok ctx}
@@ -4216,19 +4223,17 @@
           (stop-context ctx)
           (case result
             (val (when (erlang/== (erlang/element 1 val) :context))
-                 (save-output options (get-context :result result) result)
+                 (case (has-errors? val)
+                   (:false
+                    (save-output options (get-context :result result) result))
+                   (:true
+                    :ok))
                  val)
             (_
              result))))
        ({:error reason}
         {:error  {:file-access reason filename}})))))
-;; Library Support Functions
-(defn+ has-errors? (ctx)
-  (let (errors (get-context :errors ctx)
-        warnings (get-context :warnings ctx))
-    (erlang/or
-     (erlang/> (erlang/length errors) 0)
-     (erlang/> (erlang/length warnings) 0))))
+
 
 
 ;; Command Line Interface
