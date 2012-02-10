@@ -1684,7 +1684,8 @@
     (_
      (case (intermediate-parse input idx0)
        ({:fail {:expected expected idx1}}
-        (add-error-ctx ctx path {:parse-fail expected idx1}))
+        (add-error-ctx ctx path {:parse-fail expected idx1})
+        :error)
        ({intermediate-ast rest idx2}
         (case (transform-ast
                (traverse-path path)
@@ -3411,7 +3412,7 @@
                      (call-macro module function
                                  (runtime-args-to-arity args 1 arity []))))
          (_
-          (add-error-ctx ctx path0 :invalid-definition))))
+          (add-error-ctx ctx path0 {:invalid-definition-or-macro var}))))
       (_
        (add-error-ctx ctx path0 :invalid-definition)))))
 
@@ -3853,8 +3854,6 @@
      (io_lib/format "reference does not exist ~s" [ref]))
     ({:invalid-reference ref arity}
      (io_lib/format "invalid reference ~s/~p" [(format-fun-ref ref) arity]))
-    ({:parse-fail reason {l c}}
-     (io_lib/format "unable to parse source at ~p:~p ~p" [l c reason]))
     ({:invalid-use :invalid-fun-spec inv-f}
      (io_lib/format "invalid use declaration: invalid function reference (~p)"
                     [inv-f]))
@@ -3895,10 +3894,14 @@
      "invalid bitstring ")
     (:invalid-let-binding
      "invalid let binding")
+    (:no-clauses-provided
+     "no clauses provided for case statement")
     (:invalid-guard
      "invalid guard expression")
     ({:reference-already-defined ref}
      (io_lib/format "reference already defined ~s" [(format-fun-ref ref)]))
+    ({:invalid-definition-or-macro name}
+     (io_lib/format "invalid definition or macro (~s)" [(format-fun-ref name)]))
     (:invalid-definition
      "invalid definition")
     (:invalid-pattern
@@ -3932,6 +3935,8 @@
      (print-erl-errors-or-warnings errors))
     ({{:system-warnings warnings} _}
      (print-erl-errors-or-warnings warnings))
+    ({{:parse-fail expected {line column}} {file-name _}}
+     (io/format "~s:~p:~p *~p* parsing failed, expected ~p~n" [file-name line column type expected]))
     ({detail {file-name {line column}}}
      (io/format "~s:~p:~p *~p* ~s~n" [file-name line column type (format-detail detail)]))
     (msg
@@ -4004,6 +4009,8 @@
      :ok)
     (:true
      (case (parse ctx input)
+       (:error
+        :ok)
        ({ast0 (= rest {:parse-output _ path _})}
         (make-forms (traverse-path path) ctx ast0)
         (case (compile-context ctx :intermediate)
