@@ -22,7 +22,8 @@ bad_arity_test() ->
                                    result))))">>,
     RawCtx = joxa.compiler:forms(Source, []),
     ?assertMatch(true, joxa.compiler:'has-errors?'(RawCtx)),
-    ?assertMatch([{{'invalid-reference','rest-used-function-ctx?',3},{[],{0,0}}}],
+    ?assertMatch([{{'invalid-reference',{'rest-used-function-ctx?',3}},
+                   {[],_}}],
                  joxa.compiler:'get-context'(errors, RawCtx)).
 
 
@@ -35,7 +36,7 @@ bad_call_test() ->
     RawCtx = joxa.compiler:forms(Source, []),
     ?assertMatch(true, joxa.compiler:'has-errors?'(RawCtx)),
     ?assertMatch([{{'invalid-reference','not-a-reference','-x'},
-                              {[],{0,0}}}]
+                              {[],_}}]
                  , joxa.compiler:'get-context'(errors, RawCtx)).
 
 
