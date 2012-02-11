@@ -11,7 +11,7 @@
 ;;; This module provides a core set of functions to joxa users.
 
 (module joxa.core
-        (require erlang lists))
+        (require erlang lists joxa.compiler))
 
 (defn+ +(&rest args)
   (case args
@@ -63,3 +63,8 @@
       :ok)
      (:false
       ~false-body)))
+
+;; This is really just a convienience so users don't have to require
+;; both joxa.compiler and core.
+(defn+ gensym ()
+  (joxa.compiler/gensym))
