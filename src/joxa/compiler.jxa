@@ -581,7 +581,7 @@
                      raw-ctx)}))
      ({:add-require module}
       (let (requires (get-context :requires raw-ctx)
-                     exports ((erlang/make_fun module :module_info 1) :exports))
+             exports ((erlang/make_fun module :module_info 1) :exports))
         {:noreply (set-context :requires (ec_dictionary/add module exports requires)
                                         raw-ctx)}))
      ({:add-use alias arity target module}
@@ -3984,6 +3984,20 @@
     (_
      :false)))
 
+(defn post-compile-load (ctx)
+  (let (module-name (module-name-ctx ctx)
+        filename (filename-ctx ctx)
+        load-result (code/load_binary module-name filename (result-ctx ctx)))
+    (case load-result
+      ({:module module-name}
+       ;; The current module should always have up to date
+       ;; requirements
+       (add-require-ctx ctx module-name)
+       :ok)
+      (_
+       (erlang/throw {:unable-to-load filename})))))
+
+
 (defn do-final-comp (options ctx)
   (let (result (compile-context ctx :final))
     (report-errors-warnings ctx)
@@ -3995,14 +4009,7 @@
       (:ok
        (case (should-load? options)
          (:true
-          (let (module-name (module-name-ctx ctx)
-                            filename (filename-ctx ctx)
-                            load-result (code/load_binary module-name filename (result-ctx ctx)))
-            (case load-result
-              ({:module module-name}
-               :ok)
-              (_
-               (erlang/throw {:unable-to-load filename})))))
+          (post-compile-load ctx))
          (:false
           :ok))))))
 
@@ -4040,13 +4047,8 @@
           (:uncompilable
            (internal-forms ctx rest))
           (:ok
-           (let (module-name (module-name-ctx ctx)
-                 filename (filename-ctx ctx))
-             (case (code/load_binary module-name filename (result-ctx ctx))
-               ({:module module-name}
-                (internal-forms ctx rest))
-               (_
-                (erlang/throw {:unable-to-load filename})))))))))))
+           (post-compile-load ctx)
+           (internal-forms ctx rest))))))))
 
 (defn forms (ctx binary options)
   (set-context-all-ctx ctx [{:options (convert-options options [])}])
@@ -4136,15 +4138,8 @@
             (:uncompilable
              (internal-comp-interactive ctx interactive-name rest result1))
             (:ok
-             (let (module-name (module-name-ctx ctx)
-                   filename (filename-ctx ctx))
-               (case (code/load_binary module-name filename (result-ctx ctx))
-                 ({:module module-name}
-                  (internal-comp-interactive ctx interactive-name rest result1))
-                 (_
-                  (erlang/throw {:unable-to-load filename}))))))))
-       (:error
-        :error)))))
+             (post-compile-load ctx)
+             (internal-comp-interactive ctx interactive-name rest result1)))))))))
 
 (defn+ comp-interactive (ctx interactive-name input options)
   (set-context-all-ctx ctx [{:options (convert-options options [])}])
