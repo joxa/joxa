@@ -37,6 +37,11 @@
     ((a . rest)
      (- rest a))))
 
+(defn+ incr (val)
+  (erlang/+ val 1))
+
+(defn+ decr (val)
+  (erlang/- val 1))
 
 (defmacro+ if (expression true-body false-body)
   `(case ~expression
