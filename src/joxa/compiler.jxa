@@ -3970,8 +3970,8 @@
      (io/format "UNKNOWN_TYPE ~p~n" [msg]))))
 
 (defn report-errors-warnings (ctx)
-  (let (warnings (warnings-ctx ctx)
-        errors (errors-ctx ctx))
+  (let (warnings (lists/reverse (warnings-ctx ctx))
+        errors (lists/reverse (errors-ctx ctx)))
     (lists/foreach (fn (message)
                        (print-compiler-message :warning message))
                    warnings)
