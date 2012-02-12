@@ -1225,6 +1225,34 @@
              {:ident function _}]
             {:call {:--fun module function} idx})))))
 
+(definline convert-stringlike-thing (node)
+  (case node
+    ([_ string _]
+     (let (convert (lists/map (fn (el)
+                                  (case el
+                                    ([_ <<"\\>">>]
+                                     <<">">>)
+                                    ([_ <<"\\'">>]
+                                     <<"'">>)
+                                    ([_ <<"\\\"">>]
+                                     <<"\"">>)
+                                    ([_ <<"\\\\">>]
+                                     <<"\\">>)
+                                    ([_ <<"\\b">>]
+                                     <<"\b">>)
+                                    ([_ <<"\\f">>]
+                                     <<"\f">>)
+                                    ([_ <<"\\n">>]
+                                     <<"\n">>)
+                                    ([_ <<"\\r">>]
+                                     <<"\r">>)
+                                    ([_ <<"\\t">>]
+                                     <<"\t">>)
+                                    (_
+                                     el)))
+                              string))
+       (erlang/binary_to_list (erlang/iolist_to_binary convert))))))
+
 (defn+ string (input index)
   (p input index :string
      (p-seq [(p-string "\"")
@@ -1238,32 +1266,26 @@
                                                 (p-string "\\t")
                                                 (p-anything)])]))
              (p-string "\"")])
-
      (fn (node idx)
-         (case node
-           ([_ string _]
-            (let (convert (lists/map (fn (el)
-                                         (case el
-                                           ([_ <<"\\\"">>]
-                                            <<"\"">>)
-                                           ([_ <<"\\\\">>]
-                                            <<"\\">>)
-                                           ([_ <<"\\b">>]
-                                            <<"\b">>)
-                                           ([_ <<"\\f">>]
-                                            <<"\f">>)
-                                           ([_ <<"\\n">>]
-                                            <<"\n">>)
-                                           ([_ <<"\\r">>]
-                                            <<"\r">>)
-                                           ([_ <<"\\t">>]
-                                            <<"\t">>)
-                                           (_
-                                            el)))
-                                     string)
-                          result (erlang/binary_to_list (erlang/iolist_to_binary convert)))
-              {:string result idx}))))))
+         {:string (convert-stringlike-thing node) idx})))
 
+(defn+ quoted-ident (input index)
+  (p input index :quoted-ident
+     (p-seq [(p-string "<")
+             (p-zero-or-more (p-seq [(p-not (p-string ">"))
+                                     (p-choose [(p-string "\\>")
+                                                (p-string "\\\"")
+                                                (p-string "\\\\")
+                                                (p-string "\\b")
+                                                (p-string "\\f")
+                                                (p-string "\\n")
+                                                (p-string "\\r")
+                                                (p-string "\\t")
+                                                (p-anything)])]))
+             (p-string ">")])
+     (fn (node idx)
+         {:ident (erlang/list_to_atom
+                  (convert-stringlike-thing node)) idx})))
 
 (defn+ quote (input index)
   (p input index :quote
@@ -1390,6 +1412,7 @@
              (p-choose [float/2
                         integer/2
                         binary/2
+                        quoted-ident/2
                         fun-reference/2
                         quote/2
                         ident/2
@@ -2629,14 +2652,14 @@
     ({:erlang :is_tuple 1} :true)
     ({:erlang :and 2} :true)
     ({:erlang :or 2} :true)
-    ({:erlang :> 2} :true)
-    ({:erlang :< 2} :true)
+;    ({:erlang :> 2} :true)
+;    ({:erlang :< 2} :true)
     ({:erlang :== 2} :true)
     ({:erlang :=< 2} :true)
     ({:erlang :>= 2} :true)
     ({:erlang :/= 2} :true)
     ({:erlang :=:= 2} :true)
-    ({:erlang :=/= 2} :true)
+;    ({:erlang :<=/=> 2} :true)
     (_ :false)))
 
 (defn check-guards (ast)
@@ -4010,7 +4033,7 @@
     (:true
      (case (parse ctx input)
        (:error
-        :ok)
+        :error)
        ({ast0 (= rest {:parse-output _ path _})}
         (make-forms (traverse-path path) ctx ast0)
         (case (compile-context ctx :intermediate)
@@ -4119,7 +4142,9 @@
                  ({:module module-name}
                   (internal-comp-interactive ctx interactive-name rest result1))
                  (_
-                  (erlang/throw {:unable-to-load filename}))))))))))))
+                  (erlang/throw {:unable-to-load filename}))))))))
+       (:error
+        :error)))))
 
 (defn+ comp-interactive (ctx interactive-name input options)
   (set-context-all-ctx ctx [{:options (convert-options options [])}])
@@ -4147,12 +4172,16 @@
     (:true
      (case (parse ctx input)
        ({ast0 rest}
-        (parse-all ctx rest (ast0 . acc)))))))
+        (parse-all ctx rest (ast0 . acc)))
+       (:error
+        :error)))))
 
 (defn intermediate-bootstrap-comp (ctx binary options)
   (set-context-all-ctx ctx
                        [{:options (convert-options options [])}])
   (case (parse-all ctx binary [])
+    (:error
+     :error)
     (ast
      (lists/foldl (fn (def path)
                       (make-forms (traverse-path path)
