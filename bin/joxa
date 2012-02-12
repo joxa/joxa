@@ -1,7 +1,0 @@
-#! /bin/sh
-
-SCRIPTPATH=$(cd $(dirname $0)/..; pwd -P)
-JOXAPATH=${JOXAPATH:-$SCRIPTPATH}
-
-exec `which rlwrap` erl -noshell -env ERL_LIBS $JOXAPATH/deps -pa $JOXAPATH/ebin \
-    -pa $JOXAPATH/_build/joxa/lib/*/ebin -s joxa.shell start
