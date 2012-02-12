@@ -4285,10 +4285,15 @@
   (case
       (getopt/parse (option-spec-list) args)
     ({:ok {options [target]}}
-     (do-compile target options))
+     (let (raw-ctx (do-compile target options))
+       (case  (has-errors? raw-ctx)
+         (:true
+          (init/stop 127))
+         (:false
+          (init/stop 0)))))
     (_
      (usage (option-spec-list))
-     :did-not-get-it)))
+     (init/stop 127))))
 
 (defn+ main ()
   (main (init/get_plain_arguments)))

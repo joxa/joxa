@@ -1,5 +1,5 @@
 VSN=0.0.1a
-ERL=/usr/local/bin/erl
+ERL=$(shell which erl)
 SIN_BUILD_DIR=$(abspath _build/joxa)
 APPDIR=$(abspath $(SIN_BUILD_DIR)/lib/joxa-$(VSN))
 SRCDIR=$(abspath ./src)
@@ -13,6 +13,9 @@ ERLFLAGS=-noshell -env ERL_LIBS $(REBAR_BROKEN_DEPS) -pa $(REBAR_BROKEN_BIN) \
 
 SINAN=$(shell which sinan)
 REBAR=$(shell which rebar)
+
+COMP= $(ERL) $(ERLFLAGS) -s 'joxa.compiler' main \
+      -extra
 
 ifeq ($(SINAN),)
 	COMMAND=$(REBAR) get-deps && $(REBAR) compile
@@ -48,13 +51,13 @@ $(TMPDIR)/bootstrap_test.jxa:
 bootstrap_test: $(BEAMDIR)/joxa/compiler.beam $(TMPDIR)/bootstrap_test.jxa
 	sed -i 's/joxa\.compiler/bootstrap_test/g' $(TMPDIR)/bootstrap_test.jxa
 	`which time` $(ERL) $(ERLFLAGS) -s joxa.compiler main \
-	-s init stop -extra --bootstrap -o $(TMPDIR) $(TMPDIR)/bootstrap_test.jxa
+	 -extra --bootstrap -o $(TMPDIR) $(TMPDIR)/bootstrap_test.jxa
 
 bootstrap_helper:
 	$(ERL) $(ERLFLAGS) -s joxa.compiler main \
-	-s init stop -extra --bootstrap -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
+	-extra --bootstrap -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
 	$(ERL) $(ERLFLAGS) -s joxa.compiler main \
-	-s init stop -extra --bootstrap --ast -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
+	-extra --bootstrap --ast -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
 	sed -i "s/'joxa\.compiler'/Name/g" $(BEAMDIR)/joxa/compiler.ast
 	sed  '/<<<<REPLACE-THIS-WITH-AST>>>>/r $(BEAMDIR)/joxa/compiler.ast' $(PRIVDIR)/jxa_bootstrap.tmpl \
 	| sed '/<<<<REPLACE-THIS-WITH-AST>>>>/d' > $(SRCDIR)/jxa_bootstrap.erl
@@ -68,10 +71,10 @@ $(BEAMDIR)/joxa/bootstrap_compiler.beam: $(BEAMDIR)/joxa $(SRCDIR)/jxa_bootstrap
 
 $(BEAMDIR)/joxa/compiler.beam: $(SRCDIR)/joxa/compiler.jxa $(BEAMDIR)/joxa/bootstrap_compiler.beam
 	$(ERL) $(ERLFLAGS) -s joxa.bootstrap_compiler main \
-	-s init stop -extra --bootstrap -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
+	-extra --bootstrap -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
 
 $(BEAMDIR)/joxa/%.beam: $(SRCDIR)/joxa/%.jxa
-	./bin/joxac -o $(BEAMDIR) $?
+	$(COMP) -o $(BEAMDIR) $?
 
 $(BEAMDIR)/%.beam: $(SRCDIR)/%.jxa
-	./bin/joxac -o $(BEAMDIR) $?
+	$(COMP) -o $(BEAMDIR) $?
