@@ -3098,6 +3098,20 @@
        (let (cerl-expr (make-expr (traverse-incr-path path0) ctx expr)
              cerl-clauses (make-pattern (incr-path 2 path0) ctx clauses []))
          (cerl/ann_c_case annots cerl-expr cerl-clauses)))
+      ((:receive . ((:after . (timeout . do-exprs)) . clauses))
+       (when (erlang/is_integer timeout))
+       (let (timeout-expr  (make-seq (incr-path 2 (traverse-incr-path path0))
+                                     ctx do-exprs)
+              cerl-clauses (make-pattern (incr-path 2 path0) ctx clauses []))
+         (cerl/ann_c_receive annots
+                             cerl-clauses
+                             (cerl/ann_c_int annots timeout)
+                             timeout-expr)))
+      ((:receive . ((:after . _) . _))
+       (add-error-r-nil-ctx ctx path0 :invalid-receive))
+      ((:receive . clauses)
+       (let (cerl-clauses (make-pattern (incr-path 2 path0) ctx clauses []))
+         (cerl/ann_c_receive annots cerl-clauses)))
       ((:do . args)
        (make-seq (incr-path path0) ctx args))
       ((:binary . _)
@@ -3913,6 +3927,8 @@
      (io_lib/format "invalid reference ~s" [(format-fun-ref ref)]))
     ({:invalid-reference form}
      (io_lib/format "invalid reference (~p)" [form]))
+    (:invalid-receive
+     "invalid receive clause")
     ({:invalid-try-expression}
      "invalid try expression")
     (:invalid-bitstring-spec
