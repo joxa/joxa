@@ -2864,7 +2864,11 @@
           (case (make-pattern-element (traverse-incr-path 2 path0)
                                       ctx guards1 arg2)
             ({guards2 cerl-arg2}
-             {guards2 (cerl/ann_c_cons annots cerl-arg1 cerl-arg2)})))))
+             {guards2 (cerl/ann_c_cons annots cerl-arg1 cerl-arg2)})
+            (_
+             {guards1 (cerl/ann_c_cons annots (cerl/c_nil) (cerl/c_nil))})))
+         (_
+          {guards0 (cerl/c_nil)})))
       ([:cons arg1 arg2]
        (case (make-pattern-element (traverse-incr-path path0) ctx guards0 arg1)
          ({guards1 cerl-arg1}
