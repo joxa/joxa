@@ -21,7 +21,7 @@ else
 endif
 
 BEAMS= $(BEAMDIR)/joxa/compiler.beam $(BEAMDIR)/joxa/shell.beam \
-       $(BEAMDIR)/joxa/core.beam $(BEAMDIR)/joxa.beam
+       $(BEAMDIR)/joxa/core.beam $(BEAMDIR)/joxa.beam $(BEAMDIR)/joxa/records.beam
 
 .SUFFIXES:
 .SUFFIXES:.jxa

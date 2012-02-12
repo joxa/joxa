@@ -3,68 +3,64 @@
 -export([given/3, 'when'/3, then/3]).
 -include_lib("eunit/include/eunit.hrl").
 
-given([a,module,that,has,defined,recordss], _State, _) ->
+given([a,module,that,has,defined,records], _State, _) ->
     Source1 = <<"
-(module jxat-records-def-test)
+(module jxat-records-def-test
+          (require joxa.records
+                   erlang lists))
 
-
-(defrecords+ my-records (name age {sex male} {address \"unknown\"}))
-
-(defrecords+ other one)
+(joxa.records/defrecord+ my-records name age {sex male} {address \"unknown\"})
 
 ">>,
 
     {ok, Source1};
-given([another,module,uses,those,recordss], Source1, _) ->
+given([another,module,uses,those,records], Source1, _) ->
     Source2 = <<"
 (module jxat-records-uses-test
        (require jxat-records-def-test))
 
 (defn+ create1 ()
-       {(jxat-records-def-test/my-records
+       {(jxat-records-def-test/make
                            \"Robert\"
                            1024
                            :male
                            \"Somewhere in Ireland\"),
-       (jxat-records-def-test/my-records
+       (jxat-records-def-test/make-fields
                            [{:name \"Robert\"}
                            {:age 1024}
                            {:sex :male}
                            {:address \"Somewhere in Ireland\"}])})
 
-(defn+ create2()
-    {(jxat-records-def-test/other 1)
-     (jxat-records-def-test/other [{:one 1}])})
-
-(defn+ match1 (one two)
+(defn+ match1 (one)
    (case one
-     ((jxat-records-def-test/t two [{:name \"Robert\"}])
+     ((jxat-records-def-test/t name \"Robert\")
          :matched)
      (_
          :did-not-match)))
 
 
-(defn+ match2 (one two)
+(defn+ match2 (one)
    (case one
-     ((jxat-records-def-test/t two [{:name \"Robert\"}
-                                      {:sex :male}])
+     ((jxat-records-def-test/t name \"Robert\"
+                               sex male)
          :matched)
      (_
          :did-not-match)))
 
-
-(defn+ match2 (one two)
+(defn+ match3 (one)
    (case one
-     ((jxat-records-def-test/t two [{:name \"Rob\"}
-                                      {:sex :male}])
+     ((jxat-records-def-test/t name \"Robert\"
+                               sex :female)
          :matched)
      (_
          :did-not-match)))
+
 
 (defn+ with (one)
-   (jxat-records-def-test/with-fields [{name local-name}
-                                      {age local-age}
-                                      {address local-address}]
+   (jxat-records-def-test/let one
+                              (name local-name
+                               age local-age
+                               address local-address)
         {local-name local-age local-address}))">>,
 
     {ok, {Source1, Source2}}.
@@ -84,10 +80,48 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
 
     ?assertMatch([{'--joxa-info',1},
                   {'--joxa-info',2},
-
+                  {address,1},
+                  {'address!',2},
+                  {age,1},
+                  {'age!',2},
+                  {'element',2},
+                  {'element!',3},
+                  {'field-info',0},
+                  {'field-info',1},
+                  {'let',3},
+                  {make,4},
+                  {'make-fields',1},
                   {module_info,0},
-                  {module_info,1}],
+                  {module_info,1},
+                  {name,1},
+                  {'name!',2},
+                  {sex,1},
+                  {'sex!',2},
+                  {t,1}],
                  lists:sort('jxat-records-def-test':module_info(exports))),
+    {A, B} = 'jxat-records-uses-test':create1(),
+    ?assertMatch({'my-records',"Robert",1024,male,
+                  "Somewhere in Ireland"}, A),
+    ?assertMatch(A, B),
+    ?assertMatch(matched, 'jxat-records-uses-test':match1(A)),
+    ?assertMatch(matched, 'jxat-records-uses-test':match2(A)),
+    ?assertMatch('did-not-match', 'jxat-records-uses-test':match3(A)),
+    ?assertMatch({"Robert",1024,"Somewhere in Ireland"},
+                 'jxat-records-uses-test':with(A)),
+    ?assertMatch("Robert", 'jxat-records-def-test':name(B)),
+    ?assertMatch(1024, 'jxat-records-def-test':age(B)),
+    ?assertMatch(male, 'jxat-records-def-test':sex(B)),
+    ?assertMatch("Somewhere in Ireland",
+                 'jxat-records-def-test':address(B)),
+    ?assertMatch({'my-records',"Brian",1024,male,
+                  "Somewhere in Ireland"}, 'jxat-records-def-test':'name!'(B, "Brian")),
+    ?assertMatch({'my-records',"Robert",3,male,
+                  "Somewhere in Ireland"}, 'jxat-records-def-test':'age!'(B, 3)),
+    ?assertMatch({'my-records',"Robert",1024,never,
+                  "Somewhere in Ireland"}, 'jxat-records-def-test':'sex!'(B, never)),
+    ?assertMatch({'my-records',"Robert",1024,male,
+                  "wanderer"},
+                 'jxat-records-def-test':'address!'(B, "wanderer")),
   {ok, State}.
 
 
