@@ -534,6 +534,35 @@ string_test() ->
                        joxa.compiler:string(<<"\"\\r\"">>, index()))).
 
 
+quoted_ident_test() ->
+    ?memo(?assertMatch({{ident, ok, _},<<>>,_},
+                       joxa.compiler:'quoted-ident'(<<"<ok>">>, index()))),
+
+    ?memo(?assertMatch({{ident, '()', _},<<>>,_},
+                       joxa.compiler:'quoted-ident'(<<"<()>">>,
+                                           index()))),
+
+    ?memo(?assertMatch({{ident, '[]', _},
+                        <<>>,
+                        _},
+                       joxa.compiler:'quoted-ident'(<<"<[]>">>,
+                                           index()))),
+
+    ?memo(?assertMatch({{ident, '123', _},<<>>,_},
+                       joxa.compiler:'quoted-ident'(<<"<123>">>,
+                                           index()))),
+
+    ?memo(?assertMatch({{ident, '(1)', _},
+                        <<>>,
+                        _},
+                       joxa.compiler:'quoted-ident'(<<"<(1)>">>, index()))),
+
+    ?memo(?assertMatch({{ident, '{one two}', _},
+                        <<>>,
+                        _},
+                       joxa.compiler:'quoted-ident'(<<"<{one two}>">>, index()))).
+
+
 quote_test() ->
     ?memo(?assertMatch({{quote,{ident,ok,{1,2}},{1,1}},<<>>,{1,4}},
                        joxa.compiler:quote(<<"'ok">>, index()))),
@@ -976,7 +1005,34 @@ value_test() ->
                         <<>>,
                         {1,19}},
                        joxa.compiler:value(<<"<< \"HelloWorld\" >>">>,
-                                           index()))).
+                                           index()))),
+
+    ?memo(?assertMatch({{ident, ok, _},<<>>,_},
+                       joxa.compiler:value(<<"<ok>">>, index()))),
+
+    ?memo(?assertMatch({{ident, '()', _},<<>>,_},
+                       joxa.compiler:value(<<"<()>">>,
+                                           index()))),
+
+    ?memo(?assertMatch({{ident, '[]', _},
+                        <<>>,
+                        _},
+                       joxa.compiler:value(<<"<[]>">>,
+                                           index()))),
+
+    ?memo(?assertMatch({{ident, '123', _},<<>>,_},
+                       joxa.compiler:value(<<"<123>">>,
+                                           index()))),
+
+    ?memo(?assertMatch({{ident, '(1)', _},
+                        <<>>,
+                        _},
+                       joxa.compiler:value(<<"<(1)>">>, index()))),
+
+    ?memo(?assertMatch({{ident, '{one two}', _},
+                        <<>>,
+                        _},
+                       joxa.compiler:value(<<"<{one two}>">>, index()))).
 
 
 
