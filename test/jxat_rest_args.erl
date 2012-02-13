@@ -21,8 +21,6 @@ given([a,module,that,has,rest,arguments], _State, _) ->
 
                  (defn+ do-test3 ()
                   (do-t do-test0/3))
-
-
                  ">>,
 
      Source2 = <<"(module jxat-rest-test2
@@ -69,17 +67,16 @@ given([a,module,that,has,rest,arguments], _State, _) ->
     {ok, {Source1, Source2}}.
 
 'when'([joxa,is,called,on,this,module], {Source1, Source2}, _) ->
-    Result1 = joxa.compiler:forms("", Source1, []),
-    Result2 = joxa.compiler:forms("", Source2, []),
+    Result1 = joxa.compiler:forms(Source1, []),
+    Result2 = joxa.compiler:forms(Source2, []),
    {ok, {Result1, Result2}}.
 
-then([a,beam,binary,is,produced], State={{_, Binary1}, {_, Binary2}}, _) ->
-    ?assertMatch(true, is_binary(Binary1)),
-    ?assertMatch(true, is_binary(Binary2)),
-    {ok, State};
+then([a,beam,binary,is,produced], {Ctx1, Ctx2}, _) ->
+    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx1))),
+    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx2))),
+    {ok, {Ctx1, Ctx2}};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch(2, 'jxat-rest-test1':'--joxa-info'(rest, 'do-test0')),
-%    ?assertMatch({1,[2,3,4,5,6,7,9,10]}, 'jxat-rest-test2':'do-test0.5'()),
     ?assertMatch({1,[2,3,4,5,6,7,9,10]}, 'jxat-rest-test2':'do-test1'()),
     ?assertMatch({1,[2]}, ('jxat-rest-test1':'do-test1'())(1, 2)),
     ?assertMatch({1,[2, 3]}, 'jxat-rest-test1':'do-test3'()),

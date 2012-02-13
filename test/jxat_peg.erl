@@ -461,37 +461,6 @@ ident_test() ->
     ?memo(?assertMatch({{ident, 'bock', {1, _}}, <<"(ee">>, _},
                        joxa.compiler:ident(<<"bock(ee">>, index()))).
 
-symbol_test() ->
-    ?memo(?assertMatch({{quote,{ident,true,{1,1}},{1,1}},<<>>,{1,6}},
-                       joxa.compiler:symbol(<<":true">>, index()))),
-    ?memo(?assertMatch({{quote,{ident,false,{1,1}},{1,1}},<<>>,{1,7}},
-                       joxa.compiler:symbol(<<":false">>, index()))),
-    ?memo(?assertMatch({{quote,{ident,'*foo*',{1,1}},{1,1}},
-                        <<>>,
-                        {1,7}},
-                       joxa.compiler:symbol(<<":*foo*">>, index()))),
-    ?memo(?assertMatch({fail,{expected,{string,<<":">>},{1,1}}},
-                       joxa.compiler:symbol(<<"foo-bar">>, index()))),
-    ?memo(?assertMatch({fail,{expected,{string,<<":">>},{1,1}}},
-                       joxa.compiler:symbol(<<"null">>, index()))),
-    ?memo(?assertMatch({{quote,{ident,'Hello?',{1,1}},{1,1}},
-                        <<>>,
-                        {1,8}},
-                       joxa.compiler:symbol(<<":Hello?">>, index()))),
-    ?memo(?assertMatch({{quote,{ident,boo88,{1,1}},{1,1}},<<>>,{1,7}},
-                       joxa.compiler:symbol(<<":boo88">>, index()))),
-    ?memo(?assertMatch({fail,{expected,{string,<<":">>},{1,1}}},
-                       joxa.compiler:symbol(<<"bock:">>, index()))),
-    ?memo(?assertMatch({fail,{expected,{string,<<":">>},{1,1}}},
-                       joxa.compiler:symbol(<<"bock{">>, index()))),
-    ?memo(?assertMatch({fail,{expected,{string,<<":">>},{1,1}}},
-                       joxa.compiler:symbol(<<"bock[">>, index()))),
-    ?memo(?assertMatch({{quote,{ident,bock,{1,1}},{1,1}},
-                        <<"(ee">>,
-                        {1,6}},
-                       joxa.compiler:symbol(<<":bock(ee">>, index()))).
-
-
 fun_reference_test() ->
     ?memo(?assertMatch({{call,{'--fun','fun',3},{1,1}},<<>>,{1,6}},
                        joxa.compiler:'fun-reference'(<<"fun/3">>, index()))),
@@ -532,6 +501,35 @@ string_test() ->
 
     ?memo(?assertMatch({{string,"\r",{1,1}},<<>>,{1,5}},
                        joxa.compiler:string(<<"\"\\r\"">>, index()))).
+
+
+quoted_ident_test() ->
+    ?memo(?assertMatch({{ident, ok, _},<<>>,_},
+                       joxa.compiler:'quoted-ident'(<<"<ok>">>, index()))),
+
+    ?memo(?assertMatch({{ident, '()', _},<<>>,_},
+                       joxa.compiler:'quoted-ident'(<<"<()>">>,
+                                           index()))),
+
+    ?memo(?assertMatch({{ident, '[]', _},
+                        <<>>,
+                        _},
+                       joxa.compiler:'quoted-ident'(<<"<[]>">>,
+                                           index()))),
+
+    ?memo(?assertMatch({{ident, '123', _},<<>>,_},
+                       joxa.compiler:'quoted-ident'(<<"<123>">>,
+                                           index()))),
+
+    ?memo(?assertMatch({{ident, '(1)', _},
+                        <<>>,
+                        _},
+                       joxa.compiler:'quoted-ident'(<<"<(1)>">>, index()))),
+
+    ?memo(?assertMatch({{ident, '{one two}', _},
+                        <<>>,
+                        _},
+                       joxa.compiler:'quoted-ident'(<<"<{one two}>">>, index()))).
 
 
 quote_test() ->
@@ -740,25 +738,25 @@ value_test() ->
     ?memo(?assertMatch({{ident, 'bock', {1, _}}, <<"(ee">>, _},
                        joxa.compiler:value(<<"bock(ee">>, index()))),
 
-    ?memo(?assertMatch({{quote,{ident,true,{1,1}},{1,1}},<<>>,{1,6}},
+    ?memo(?assertMatch({{quote,{ident,true,{1,2}},{1,1}},<<>>,{1,6}},
                        joxa.compiler:value(<<":true">>, index()))),
-    ?memo(?assertMatch({{quote,{ident,false,{1,1}},{1,1}},<<>>,{1,7}},
+    ?memo(?assertMatch({{quote,{ident,false,{1,2}},{1,1}},<<>>,{1,7}},
                        joxa.compiler:value(<<":false">>, index()))),
-    ?memo(?assertMatch({{quote,{ident,'*foo*',{1,1}},{1,1}},
+    ?memo(?assertMatch({{quote,{ident,'*foo*',{1,2}},{1,1}},
                         <<>>,
                         {1,7}},
                        joxa.compiler:value(<<":*foo*">>, index()))),
     ?memo(?assertMatch({{ident,'foo-bar',{1,1}},<<>>,{1,8}},
                        joxa.compiler:value(<<"foo-bar">>, index()))),
-    ?memo(?assertMatch({{quote,{ident,'Hello?',{1,1}},{1,1}},
+    ?memo(?assertMatch({{quote,{ident,'Hello?', _},{1,1}},
                         <<>>,
                         {1,8}},
                        joxa.compiler:value(<<":Hello?">>, index()))),
-    ?memo(?assertMatch({{quote,{ident,boo88,{1,1}},{1,1}},<<>>,{1,7}},
+    ?memo(?assertMatch({{quote,{ident,boo88,_},{1,1}},<<>>,{1,7}},
                        joxa.compiler:value(<<":boo88">>, index()))),
     ?memo(?assertMatch({{ident,'bock:',{1,1}},<<>>,{1,6}},
                        joxa.compiler:value(<<"bock:">>, index()))),
-    ?memo(?assertMatch({{quote,{ident,bock,{1,1}},{1,1}},
+    ?memo(?assertMatch({{quote,{ident,bock,_},{1,1}},
                         <<"(ee">>,
                         {1,6}},
                        joxa.compiler:value(<<":bock(ee">>, index()))),
@@ -770,7 +768,7 @@ value_test() ->
                         {1,13}},
                        joxa.compiler:value(<<"module/fun/3">>,
                                            index()))),
-    ?memo(?assertMatch({{call,{'--fun',module,'fun'},{1,1}},
+    ?memo(?assertMatch({{call,{'--fun',module,'fun'},_},
                         <<>>,
                         {1,11}},
                        joxa.compiler:value(<<"module/fun">>,
@@ -976,7 +974,34 @@ value_test() ->
                         <<>>,
                         {1,19}},
                        joxa.compiler:value(<<"<< \"HelloWorld\" >>">>,
-                                           index()))).
+                                           index()))),
+
+    ?memo(?assertMatch({{ident, ok, _},<<>>,_},
+                       joxa.compiler:value(<<"<ok>">>, index()))),
+
+    ?memo(?assertMatch({{ident, '()', _},<<>>,_},
+                       joxa.compiler:value(<<"<()>">>,
+                                           index()))),
+
+    ?memo(?assertMatch({{ident, '[]', _},
+                        <<>>,
+                        _},
+                       joxa.compiler:value(<<"<[]>">>,
+                                           index()))),
+
+    ?memo(?assertMatch({{ident, '123', _},<<>>,_},
+                       joxa.compiler:value(<<"<123>">>,
+                                           index()))),
+
+    ?memo(?assertMatch({{ident, '(1)', _},
+                        <<>>,
+                        _},
+                       joxa.compiler:value(<<"<(1)>">>, index()))),
+
+    ?memo(?assertMatch({{ident, '{one two}', _},
+                        <<>>,
+                        _},
+                       joxa.compiler:value(<<"<{one two}>">>, index()))).
 
 
 

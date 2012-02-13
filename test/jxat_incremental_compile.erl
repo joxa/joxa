@@ -26,8 +26,8 @@ incremental_test() ->
 
                 (defn post-test ()
                     (fn (foo) foo))">>,
-    {_, Binary} = joxa.compiler:forms("", Source, []),
-    ?assertMatch(true, is_binary(Binary)),
+    Ctx = joxa.compiler:forms(Source, []),
+    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx))),
     ?assertMatch(1, 'jxat-incremental-test':'do-test'(1)),
     ?assertMatch(foo, 'jxat-incremental-test':'do-test'(foo)),
     ?assertMatch(bar, 'jxat-incremental-test':'do-test'(bar)).
@@ -42,8 +42,13 @@ incremental_fail_test() ->
 
                 (defn+ do-test (a)
                     ((post-test) a))">>,
-    ?assertThrow('unresolved-function-dependencies',
-                 joxa.compiler:forms("", Source, [])).
+    RawCtx = joxa.compiler:forms(Source, []),
+    ?assertMatch(true,
+                 joxa.compiler:'has-errors?'(RawCtx)),
+    ?assertMatch([{{'undefined-functions',[{'post-test',0}]},
+                   {[],{0,0}}}],
+                 joxa.compiler:'get-context'(errors, RawCtx)).
+
 
 
 

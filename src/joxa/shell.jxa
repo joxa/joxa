@@ -1,146 +1,54 @@
+;;; The Joxa Core Library
+;;; =====================
+;;; * author: Eric Merritt
+;;; * copyright: Erlware, LLC 2011 - 2012
+;;;
+;;; Licensed under the Apache License, Version 2.0 you may not use
+;;; this file except in compliance with the License.  You may obtain a
+;;; copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+;;;
+;;; This module provides a shell or REPL for the joxa language
 (module joxa.shell
         (require io code lists ec_dictionary
                  joxa.compiler)
         (use (erlang :only (atom_to_list/1 list_to_binary/1 apply/3))))
 
 (defn prompt (ctx)
-  (lists/concat [
-                 (atom_to_list (joxa.compiler/get-context :module-name ctx))
-                 "> "
-                ]))
-
-(defn do-read (ctx)
-  (let (input (io/get_line (prompt ctx)))
-    (joxa.compiler/parse "shell" (list_to_binary input))))
-
+  (lists/concat [(atom_to_list (joxa.compiler/module-name-ctx ctx))
+                 "> "]))
 (defn read (ctx)
-  (__try
-   (do-read ctx)
-   (catch (type body)
-     (case {type body}
-           (_
-            (io/format "PARSE ERROR: ~p~n" [body])
-            ""
-            )))))
-
-
-(defn transform-module-expr-attr (type)
-  (case type
-        (:require :requires)
-        (:use :uses)))
-
-(defn transform-module-expr (type expr ctx)
-  [:module
-   (joxa.compiler/get-context :module-name ctx)
-   (type .
-         (lists/concat [(ec_dictionary/to_list
-                         (joxa.compiler/get-context
-                          (transform-module-expr-attr type) ctx))
-                        expr]))])
-
-
-(defn transform-expr (ast ctx)
-  (case ast
-        ((:defn+ . _)
-         ast)
-        ((:defn . _)
-         ast)
-        ((:definline . _)
-         ast)
-        ((:deftype . _)
-         ast)
-        ((:deftype+ . _)
-         ast)
-        ((:defspec . _)
-         ast)
-        ((:module . _)
-         ast)
-        ((:defmacro . _)
-         ast)
-        ((:defmacro+ . _)
-         ast)
-        ((:do . _)
-         ast)
-        ((:require . requires)
-         (transform-module-expr :require requires ctx))
-        ((:use . uses)
-         (transform-module-expr :use uses ctx))
-        (_
-        [:defn+ :__joxa_shell__ [] ast])))
-
-(defn prepare-context (ctx)
-  ctx)
-
-(defn update-context (ctx)
-  (joxa.compiler/add-require-ctx
-   (joxa.compiler/get-context :module-name ctx) ctx))
-
-(defn remove-joxa-shell (ctx)
-  (let (defs (joxa.compiler/get-context :definitions ctx)
-        new-defs (lists/keydelete {:__joxa_shell__ 0} 1 defs))
-    (joxa.compiler/set-context :definitions new-defs ctx)))
-
-(defn do-eval (parse ctx)
-  (case parse
-        ({annots ast (= rest {:parse-output _ path _ _})}
-
-         (let (ast1 (transform-expr ast ctx)
-               ctx1 (joxa.compiler/comp-forms
-                     (joxa.compiler/traverse-path path)
-                     (prepare-context
-                      (joxa.compiler/set-context :annots annots ctx))
-                                               ast1))
-           (case (joxa.compiler/compile-context ctx1 :intermediate)
-                 ({ctx2 binary}
-                  (let (_
-                         (code/load_binary
-                          (joxa.compiler/get-context :module-name ctx2)
-                          "shell" binary)
-                        ctx3 (update-context ctx2))
-                    (case ast1
-                          ([:defn+ :__joxa_shell__ [] _]
-                             {(erlang/apply
-                               (joxa.compiler/get-context
-                                :module-name ctx2) :__joxa_shell__ []) ;; result
-                              (remove-joxa-shell ctx3)})
-                          (_
-                           {:ok ctx3})))))))))
+  (erlang/list_to_binary (io/get_line (prompt ctx))))
 
 (defn eval (parse ctx)
-  (__try
-   (do-eval parse ctx)
-   (catch (type body) 
-     (case {type body}
-           ({:throw {:invalid-reference reference _ _}}
-                  (io/format "ERROR: Invalid reference: ~p~n" [reference])
-                  {:error ctx})
-           ({:throw {:invalid-definition _}}
-                  (io/format "ERROR: Invalid definition~n")
-                  {:error ctx})
-           (_ 
-            (io/format "ERROR: ~p~n" [{type body}]) 
-            {:error ctx})))))
-    
-   
+  (let (result (joxa.compiler/comp-interactive ctx :--joxa-shell parse [])
+        comp-res
+        (case (erlang/and  (joxa.compiler/compilable? ctx)
+                           (erlang/== result :expr))
+          (:true
+           (let (call-fun (erlang/make_fun (joxa.compiler/module-name-ctx ctx) :--joxa-shell 0))
+             (call-fun)))
+          (:false
+           :ok)))
+    (joxa.compiler/clear-errors ctx)
+    comp-res))
 
 (defn print (data ctx)
-     (io/format "~p~n" [data]))
+  (io/format "~p~n" [data]))
 
 (defn loop (ctx)
   (do
     (let (r (read ctx)
-          e (case r ("" {:ok ctx}) (_ (eval r ctx))))
-      (case e
-            ({result ctx1}
-               (do
-                 (print result ctx1)
-                 (loop ctx1)))))))
-
-(defn initialize-context ()
-  (joxa.compiler/new-context [{:module-name :joxa-shell}]))
+          e (case r
+              (""
+               {:ok ctx})
+              (_
+               (eval r ctx))))
+      (print e ctx)
+      (loop ctx))))
 
 (defn+ start ()
-  (let (ctx (initialize-context))
-    (do
-      (io/format "Joxa 0.0.1~n~n")
-      (loop ctx))))
+  (let (ctx (joxa.compiler/start-interactive))
+    (joxa.compiler/module-name-ctx ctx :joxa-shell)
+    (io/format "Joxa 0.0.1~n~n")
+    (loop ctx)
+    (joxa.compiler/stop-interactive ctx)))

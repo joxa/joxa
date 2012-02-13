@@ -24,8 +24,8 @@ add_sub_test() ->
 
                 (defn+ do-sub ()
                     (- 1 2 3 4 5 6 7 8 9 10))">>,
-    {_, Binary} = joxa.compiler:forms("", Source, []),
-    ?assertMatch(true, is_binary(Binary)),
+    Ctx = joxa.compiler:forms(Source, []),
+    ?assertMatch(true,is_binary(joxa.compiler:'get-context'(result, Ctx))),
     ?assertMatch(1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10,
                  'jxat-core-add-test':'do-add'()),
     ?assertMatch(1 - 2 - 3 - 4 - 5 - 6 - 7 - 8 - 9 - 10,

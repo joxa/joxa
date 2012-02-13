@@ -6,6 +6,8 @@
 
 to_string({ident, Ident, _}) ->
     atom_to_list(Ident);
+to_string({'quoted-ident', Ident, _}) ->
+    ":'" ++ atom_to_list(Ident) ++ "'";
 to_string({quote, Value, _}) ->
    "'" ++ to_string(Value);
 to_string({quasiquote, Value, _}) ->

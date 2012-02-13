@@ -6,28 +6,28 @@
 given([a,featureful,module], _State, _) ->
     Source = <<"(module jxat-featureful
               (use string code)
-              (attr sfoo 123)
-              (use (lists :only (member/2 append/2)
-                          :rename ((member/2 mbr))))
-              (use (file :as f
-                         :exclude (delete/1)
-                         :rename ((change_group/2 chgrp)
-                                  (change_mode/2 chmod))))
-              (attr super_duper \"Hello World\")
+               (attr sfoo 123)
+               (use (lists :only (member/2 append/2)
+                     :rename ((member/2 mbr))))
+               (use (file :as f
+                     :exclude (delete/1)
+                     :rename ((change_group/2 chgrp)
+                                (change_mode/2 chmod))))
+               (attr super_duper \"Hello World\")
               (require (proplists :as props))
-              (require erlang code)
-              (use (filename :exclude (flatten/1 append/2 join/2
-                                       absname/1 absname_join/2))))">>,
+                (require erlang code)
+                  (use (filename :exclude (flatten/1 append/2 join/2
+                                           absname/1 absname_join/2))))">>,
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], State, _) ->
-    Result = joxa.compiler:forms("", State, []),
+    Result = joxa.compiler:forms(State, []),
     {ok, Result}.
 
-then([a,beam,binary,is,produced], State={_, Binary}, _) ->
-    ?assertMatch(true, is_binary(Binary)),
-    {ok, State};
-then([the,joxa,context,for,a,featureful,module,is,correctly,formed], State={Ctx0, _}, _) ->
+then([a,beam,binary,is,produced], Ctx, _) ->
+    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx))),
+    {ok, Ctx};
+then([the,joxa,context,for,a,featureful,module,is,correctly,formed], Ctx0, _) ->
     validate_module(string, Ctx0),
     validate_module(code, Ctx0),
     validate_lists(Ctx0),
@@ -48,7 +48,7 @@ then([the,joxa,context,for,a,featureful,module,is,correctly,formed], State={Ctx0
     ?assertMatch(123,
                  proplists:get_value(sfoo,
                                      'jxat-featureful':module_info(attributes))),
-    {ok, State}.
+    {ok, Ctx0}.
 
 validate_module(Module, Ctx0) ->
     %% module_info causes problems and is mostly ignored

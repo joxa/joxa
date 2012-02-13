@@ -1,0 +1,196 @@
+;;; The Joxa Core Library
+;;; =====================
+;;; * author: Eric Merritt
+;;; * copyright: Erlware, LLC 2011 - 2012
+;;;
+;;; Licensed under the Apache License, Version 2.0 you may not use
+;;; this file except in compliance with the License.  You may obtain a
+;;; copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+;;;
+;;;
+;;; This module provides for the definition and abstraction of structs
+;;; in joxa.
+(module joxa.records
+        (require (joxa.core :as core)
+                 lists erlang io)
+        (use (erlang :only (+/2
+                            ==/2))))
+
+(defn convert-to-record-description (descs)
+  (case  (lists/foldl (fn (desc acc0)
+                          (case acc0
+                            ({acc1 count}
+                             (case desc
+                               (d (when (erlang/is_atom d))
+                                  {({d count :undefined} . acc1)
+                                   (core/incr count)})
+                               ({name default}
+                                {({name count default} . acc1)
+                                 (core/incr count)})))))
+                      {[], 2} descs)
+    ({acc _}
+     (lists/reverse acc))))
+
+(defn create-elements (decl descs)
+  (let (obj (core/gensym)
+        name (core/gensym)
+        value (core/gensym))
+    [`(~decl element ( ~obj ~name)
+             (case ~name
+               ~@(lists/map (fn (desc)
+                                (case desc
+                                  ({f-name count _}
+                                   `(:~f-name
+                                     (erlang/element ~count ~obj))))) descs)
+               (_
+                (erlang/throw {:invalid-field ~name}))))
+     `(~decl element! ( ~obj ~name ~value)
+             (case ~name
+               ~@(lists/map (fn (desc)
+                                (case desc
+                                  ({f-name count _}
+                                   `(:~f-name
+                                     (erlang/setelement ~count ~obj ~value))))) descs)
+               (_
+                (erlang/throw {:invalid-field ~name}))))]))
+
+
+(defn create-default-body (name descs)
+  `(tuple
+    : ~name
+    ~@(lists/map (fn (desc)
+                     (case desc
+                       ({_ _ default}
+                        `'~default))) descs)))
+
+
+(defn create-constructors (name decl descs)
+  (let (args (lists/map (fn (desc)
+                            (case desc
+                              ({arg-name _ _}
+                               arg-name))) descs)
+        body (create-default-body name descs)
+        obj (core/gensym)
+        obj1 (core/gensym)
+        field-arg (core/gensym)
+        list-el (core/gensym)
+        key (core/gensym)
+        value (core/gensym)
+        se (fn (desc)
+               (case desc
+                 ([]
+                  obj)
+                 (({el-name _ _} . rest)
+                  `(element! ~(se rest)
+                             :~el-name
+                             ~el-name)))))
+    [`(~decl make ~args
+             (let (~obj ~body)
+               ~(se descs)))
+     `(~decl make-fields (~field-arg)
+             (let (~obj ~body)
+               (lists/foldl (fn (~list-el ~obj1)
+                                (case ~list-el
+                                  ({~key ~value}
+                                   (element! ~obj1 ~key ~value)))) ~obj ~field-arg)))]))
+
+(defn create-field-info (decl descs)
+  (let (field (core/gensym))
+    [`(~decl field-info ()
+             '~descs)
+     `(~decl field-info (~field)
+             (case ~field
+               ~@(lists/map (fn (el)
+                                (case el
+                                  ({name _ _}
+                                   `(:~name
+                                     '~el)))) descs)))]))
+
+(defn create-accessors (decl descs)
+  (let (obj (core/gensym)
+        value (core/gensym))
+    (lists/foldl (fn (desc acc)
+                   (case desc
+                     ({name count _}
+                      (let (setter-name (erlang/list_to_atom
+                                         (lists/append
+                                          (erlang/atom_to_list name) "!")))
+                        (`(~decl ~name (~obj)
+                                 (erlang/element ~count ~obj))
+                         . (`(~decl ~setter-name (~obj ~value)
+                                    (erlang/setelement ~count ~obj ~value))
+                            . acc))))))
+                 [] descs)))
+
+(defn create-macro-body (name descs)
+  (erlang/list_to_tuple
+   (name . (lists/map (fn (desc)
+                          :_) descs))))
+
+(defn+ get-field-index (f-name descs)
+  (case  (lists/foldl (fn (el acc)
+                          (case el
+                            ({f-name count _}
+                             count)
+                            (_
+                             acc))) -1 descs)
+    (-1
+     (erlang/throw {:invalid-field f-name}))
+    (val
+     val)))
+
+(defn+ make-t-body (name descs fields acc)
+
+  (case fields
+    ([]
+     acc)
+    ((f-name . (value . rest))
+     (make-t-body name descs rest
+                  (erlang/setelement
+                   (joxa.records/get-field-index f-name descs)
+                   acc value)))))
+
+(defn create-templates (name decl descs)
+  (let (def (case decl
+              (:defn+
+               :defmacro+)
+              (:defn
+               :defmacro))
+        fields (core/gensym)
+        pattern-tmp (create-macro-body name descs))
+    `(~def t (&rest ~fields)
+           (joxa.records/make-t-body :~name '~descs ~fields :~pattern-tmp))))
+
+
+(defn+ make-let (obj name descs bindings body)
+  (let (pattern-tmp (create-macro-body name descs))
+    `(case ~obj
+       (~(joxa.records/make-t-body name descs bindings pattern-tmp)
+         ~@body))))
+
+(defn create-let (name decl descs)
+  (let (def (case decl
+              (:defn+
+               :defmacro+)
+              (:defn
+               :defmacro))
+        obj (core/gensym)
+        bindings (core/gensym)
+        rest (core/gensym))
+    `(~def let (~obj ~bindings &rest ~rest)
+           (joxa.records/make-let ~obj :~name '~descs ~bindings ~rest))))
+
+(defn create-record (name decl descs)
+  (let (ells (create-elements decl descs)
+        constr (create-constructors name decl descs)
+        field-info (create-field-info decl descs)
+        accessors (create-accessors decl descs)
+        t (create-templates name decl descs)
+        lets (create-let name decl descs))
+    `(do ~@ells ~@constr ~@field-info ~@accessors ~t ~lets)))
+
+(defmacro+ defrecord+ (name &rest field-descriptions)
+  (create-record name :defn+ (convert-to-record-description field-descriptions)))
+
+(defmacro+ defrecord (name &rest field-descriptions)
+  (create-record name :defn (convert-to-record-description field-descriptions)))
