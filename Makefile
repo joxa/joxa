@@ -29,13 +29,13 @@ BEAMS= $(BEAMDIR)/joxa/compiler.beam $(BEAMDIR)/joxa/shell.beam \
 .SUFFIXES:
 .SUFFIXES:.jxa
 .PHONY:all bootstrap_test bootstrap_helper bootstrap setup do-changeover clean \
-	test build
+	test build cucumber shell
 
 all: build $(BEAMS)
 
-
 build:
 	@$(COMMAND)
+
 clean:
 	sinan clean
 
@@ -43,12 +43,18 @@ setup:
 	sinan clean; \
         sinan build
 
-test:
+test: $(BEAMS)
 	sinan cucumber; \
 	sinan eunit; \
 	sinan proper
 
-do-changeover: setup bootstrap_test bootstrap_helper
+cucumber: $(BEAMS)
+	sinan cucumber
+
+shell: $(BEAMS)
+	`which rlwrap` sinan shell
+
+do-changeover: setup bootstrap_test bootstrap_helper $(BEAMS)
 	sinan cucumber; \
 	sinan eunit; \
 	sinan proper
