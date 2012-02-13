@@ -11,7 +11,7 @@
 ;;; This module provides a core set of functions to joxa users.
 
 (module joxa.core
-        (require erlang lists joxa.compiler))
+        (require erlang lists joxa.compiler io))
 
 (defn+ +(&rest args)
   (case args
@@ -68,3 +68,67 @@
 ;; both joxa.compiler and core.
 (defn+ gensym ()
   (joxa.compiler/gensym))
+
+
+;; Try Support
+;; -----------
+;;
+;; Joxa has the goal of having as much of the language implemented in
+;; the language as possible. This makes the compiler much easier and
+;; reasoning about the language much easier too. So the compiler
+;; implements a primitive try called __try. That primitive try does
+;; not support matching at the language level or a number of other
+;; reasonable constructs. So to give decent try support we have
+;; implemented a more complete try as a macro here in core.
+;;
+;; This try takes following expression and converts it to the primitive try.
+;;
+;;     (joxa.core/try <expressions>++ (catch <catch-clauses>+))
+;;       <catch-clauses> :: (<pattern> <expressons>)
+
+
+;; ### Split the body
+;;
+;; This takes the body into and seperates it into expressions and the
+;; catch clause. The catch clause must be the last expression in the
+;; body.
+(defn split-try-body (body acc-exprs acc-clauses)
+  (case body
+    ([]
+     {(lists/reverse acc-exprs) acc-clauses})
+    ([(:catch . clauses)]
+     (split-try-body [] acc-exprs clauses))
+    ((else . rest)
+     (split-try-body rest (else . acc-exprs) acc-clauses))))
+
+;; ### Checking for 'catch alls'
+;;
+;; We dont need to know if the user has inserted a 'catch-all'
+;; clause. If he has we do not want to generate a catch all for
+;; him. This looks for a catch-all in the correct format. At the
+;; moment it is not complete, but those can be added as we move
+;; forward through time.
+(defn needs-last-try? (clauses)
+  (case clauses
+    ([({:_ :_} . _)]
+     :false)
+    ([(:_ . _)]
+     :false)
+    (_
+     :true)))
+
+(defmacro+ try (&rest body)
+  (let (type (gensym)
+        err (gensym))
+    (case (split-try-body body [] [])
+      ({exprs clauses}
+       `(__try
+         (do
+             ~@exprs)
+         (catch (~type ~err)
+           (case {~type ~err}
+             ~@(if (needs-last-try? clauses)
+                   (lists/append clauses
+                                 [`(_
+                                    (erlang/raise ~type ~err (erlang/get_stacktrace)))])
+                 clauses))))))))
