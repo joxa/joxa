@@ -29,7 +29,7 @@ BEAMS= $(BEAMDIR)/joxa/compiler.beam $(BEAMDIR)/joxa/shell.beam \
 .SUFFIXES:
 .SUFFIXES:.jxa
 .PHONY:all bootstrap_test bootstrap_helper bootstrap setup do-changeover clean \
-	test build cucumber shell
+	test build cucumber shell escript
 
 all: build $(BEAMS)
 
@@ -53,6 +53,9 @@ cucumber: $(BEAMS)
 
 shell: $(BEAMS)
 	`which rlwrap` sinan shell
+
+escript: $(BEAMS)
+	sinan escript
 
 do-changeover: setup bootstrap_test bootstrap_helper $(BEAMS)
 	sinan cucumber; \
