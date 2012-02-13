@@ -28,16 +28,25 @@ BEAMS= $(BEAMDIR)/joxa/compiler.beam $(BEAMDIR)/joxa/shell.beam \
 
 .SUFFIXES:
 .SUFFIXES:.jxa
-.PHONY:all bootstrap_test bootstrap_helper bootstrap setup do-changeover
+.PHONY:all bootstrap_test bootstrap_helper bootstrap setup do-changeover clean \
+	test build
 
-all:
+all: build $(BEAMS)
+
+
+build:
 	@$(COMMAND)
-
-bootstrap:  $(BEAMS)
+clean:
+	sinan clean
 
 setup:
 	sinan clean; \
         sinan build
+
+test:
+	sinan cucumber; \
+	sinan eunit; \
+	sinan proper
 
 do-changeover: setup bootstrap_test bootstrap_helper
 	sinan cucumber; \
@@ -48,12 +57,12 @@ $(TMPDIR)/bootstrap_test.jxa:
 	mkdir -p $(TMPDIR)
 	cp $(SRCDIR)/joxa/compiler.jxa $(TMPDIR)/bootstrap_test.jxa
 
-bootstrap_test: $(BEAMDIR)/joxa/compiler.beam $(TMPDIR)/bootstrap_test.jxa
+bootstrap_test: build $(BEAMDIR)/joxa/compiler.beam $(TMPDIR)/bootstrap_test.jxa
 	sed -i 's/joxa\.compiler/bootstrap_test/g' $(TMPDIR)/bootstrap_test.jxa
 	`which time` $(ERL) $(ERLFLAGS) -s joxa.compiler main \
 	 -extra --bootstrap -o $(TMPDIR) $(TMPDIR)/bootstrap_test.jxa
 
-bootstrap_helper:
+bootstrap_helper: build
 	$(ERL) $(ERLFLAGS) -s joxa.compiler main \
 	-extra --bootstrap -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
 	$(ERL) $(ERLFLAGS) -s joxa.compiler main \
