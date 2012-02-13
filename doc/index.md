@@ -3,32 +3,59 @@ layout: default
 title: Joxa
 ---
 
-News
-----
-
-Joxa is not yet ready for release. However, we should be releasing an
-alpha in the next few days. In the mean time you can review the source
-[here](https://github.com/erlware/joxa).
-
-
-What is Joxa
+Introduction
 ------------
 
-Joxa is a modern lisp in the style of Clojure designed to run on the
-Erlang VM.
+Joxa (pronounced like "jocksah") is a recent dialect of the Lisp
+programming language. It is a general-purpose language supporting
+interactive development that encourages a functional programming
+style, and simplifies multithreaded programming.
 
-Joxa is *not* Erlang, nor Clojure, nor Common Lisp. It shares elements
-of all these languages, and knowing these languages will help you get
-up to speed with Joxa, but it is its own unique language.
+Joxa runs on the Erlang Virtual Machine. Like other Lisps, Joxa treats
+code as data and has a full unhygienic macro system.
+
+**NOTE**: At the moment Joxa is a an Alpha product. It is used in
+production, and fully self hosting. However, you should expect to find
+bugs and hopefully report and/or fix those bugs. There are also still
+a number of things that need to be done as far as libraries and the
+like. We encourage you to use Joxa and participate in the community.
+however, you should expect to run into issues.
+
 
 Getting Started
 ---------------
 
 You will probably want to start with
 [Syntax](https://github.com/erlware/joxa/wiki/Syntax) the
-[Joxa Language Specification](https://github.com/erlware/joxa/wiki/JoxaLanguageSpecification)
-or the [FAQ](https://github.com/erlware/joxa/wiki/FAQ). If you want to
-get started developing Joxa you may want to take a look at the
-[Creating A Bootstrap](https://github.com/erlware/joxa/wiki/JoxaLanguageSpecification)
+[FAQ](https://github.com/erlware/joxa/wiki/FAQ).
 documentation.
+
+At the moment Joxa shares its mailing list with the other erlware
+projects. If the traffic gets high that might change. For now, to
+participate with the community sign up at.
+
+* [Erlware Questions](http://groups.google.com/group/erlware-questions)
+* [Erlware Dev](http://groups.google.com/group/erlware-dev)
+
+
+Motivation
+----------
+
+The Erlang/OTP system is a robust, scalable, pragmatic programming
+system that allows for the relatively simple creating of robust fault
+tolerant systems. However, the syntax of Erlang, while simple, is
+distracting from the language. The Author wishes to have the
+productive, flexible syntax of lisp on top of the powerful Erlang VM.
+
+
+Goals
+-----
+
+* Joxa should have a clear and simple semantics.
+* Joxa should include as few special forms as possible; Most complex
+  forms should be built in Joxa itself.
+* Joxa should have a consistent runtime environment for both macros
+  and code.
+* Joxa should support and facilitate incremental development
+* Joxa should integrate seamlessly into existing Erlang Systems.
 
