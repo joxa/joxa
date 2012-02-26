@@ -1,13 +1,18 @@
 VSN=0.0.1a
 ERL=$(shell which erl)
-SIN_BUILD_DIR=$(abspath _build/joxa)
-APPDIR=$(abspath $(SIN_BUILD_DIR)/lib/joxa-$(VSN))
 SRCDIR=$(abspath ./src)
 PRIVDIR=$(abspath ./priv)
-REBAR_BROKEN_BIN=$(abspath ./ebin)
-REBAR_BROKEN_DEPS=$(abspath ./deps)
 BEAMDIR=$(APPDIR)/ebin
 TMPDIR=./_build/tmp
+BINDIR=$(DESTDIR)/usr/bin
+JOXA_BUILD_DIR=$(abspath _build/joxa)
+APPDIR=$(abspath $(JOXA_BUILD_DIR)/lib/joxa-$(VSN))
+INSTALL_TARGET=$(DESTDIR)/usr/lib/erlang/lib/joxa-$(VSN)
+TARBALL=../joxa_$(VSN).orig.tar.gz
+
+REBAR_BROKEN_BIN=$(abspath ./ebin)
+REBAR_BROKEN_DEPS=$(abspath ./deps)
+
 ERLFLAGS=-noshell -env ERL_LIBS $(REBAR_BROKEN_DEPS) -pa $(REBAR_BROKEN_BIN) \
 	-pa $(APPDIR)/ebin
 
@@ -28,7 +33,7 @@ BEAMS= $(BEAMDIR)/joxa/compiler.beam $(BEAMDIR)/joxa/shell.beam \
 
 .SUFFIXES:
 .SUFFIXES:.jxa
-.PHONY:all bootstrap_test bootstrap_helper bootstrap setup do-changeover clean \
+.PHONY:all test_bootstrap pre_bootstrap bootstrap setup do-changeover clean \
 	test build cucumber shell escript
 
 all: build $(BEAMS)
@@ -43,7 +48,7 @@ setup:
 	sinan clean; \
         sinan build
 
-test: $(BEAMS)
+testall: $(BEAMS)
 	sinan cucumber; \
 	sinan eunit; \
 	sinan proper
@@ -57,21 +62,16 @@ shell: $(BEAMS)
 escript: $(BEAMS)
 	sinan escript
 
-do-changeover: setup bootstrap_test bootstrap_helper $(BEAMS)
-	sinan cucumber; \
-	sinan eunit; \
-	sinan proper
-
 $(TMPDIR)/bootstrap_test.jxa:
 	mkdir -p $(TMPDIR)
 	cp $(SRCDIR)/joxa/compiler.jxa $(TMPDIR)/bootstrap_test.jxa
 
-bootstrap_test: build $(BEAMDIR)/joxa/compiler.beam $(TMPDIR)/bootstrap_test.jxa
+test_bootstrap: build $(BEAMDIR)/joxa/compiler.beam $(TMPDIR)/bootstrap_test.jxa
 	sed -i 's/joxa\.compiler/bootstrap_test/g' $(TMPDIR)/bootstrap_test.jxa
 	`which time` $(ERL) $(ERLFLAGS) -s joxa.compiler main \
 	 -extra --bootstrap -o $(TMPDIR) $(TMPDIR)/bootstrap_test.jxa
 
-bootstrap_helper: build
+pre_bootstrap: test_bootstrap
 	$(ERL) $(ERLFLAGS) -s joxa.compiler main \
 	-extra --bootstrap -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
 	$(ERL) $(ERLFLAGS) -s joxa.compiler main \
@@ -79,6 +79,11 @@ bootstrap_helper: build
 	sed -i "s/'joxa\.compiler'/Name/g" $(BEAMDIR)/joxa/compiler.ast
 	sed  '/<<<<REPLACE-THIS-WITH-AST>>>>/r $(BEAMDIR)/joxa/compiler.ast' $(PRIVDIR)/jxa_bootstrap.tmpl \
 	| sed '/<<<<REPLACE-THIS-WITH-AST>>>>/d' > $(SRCDIR)/jxa_bootstrap.erl
+
+bootstrap: setup pre_bootstrap $(BEAMS)
+	sinan cucumber; \
+	sinan eunit; \
+	sinan proper
 
 $(BEAMDIR)/joxa:
 	mkdir -p $(BEAMDIR)/joxa
@@ -96,3 +101,25 @@ $(BEAMDIR)/joxa/%.beam: $(SRCDIR)/joxa/%.jxa
 
 $(BEAMDIR)/%.beam: $(SRCDIR)/%.jxa
 	$(COMP) -o $(BEAMDIR) $?
+
+##
+## Debian packaging support for joxa
+##
+
+$(TARBALL):
+	git archive --format=tar --prefix=joxa/ HEAD | gzip > $(TARBALL)
+
+install-deb:
+	mkdir -p $(INSTALL_TARGET)
+	mkdir -p $(BINDIR)
+	cp -r $(APPDIR)/* $(INSTALL_TARGET)
+	cp -r _build/joxa/escript/joxa $(BINDIR)
+
+build-deb: $(TARBALL)
+	rm -f ../joxa_*.deb
+	rm -f ../joxa_*.changes
+	pdebuild
+	debuild -S
+
+publish-ppa: build-deb
+	dput -f ppa:afiniate/ppa ../joxa_$(VSN)-*_source.changes

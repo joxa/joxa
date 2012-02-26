@@ -4,3 +4,5 @@ _build
 erl_crash.dump
 *.pyc
 doc/_site
+debian/patches
+.pc
