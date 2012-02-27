@@ -1,0 +1,10 @@
+(module jxat-fibonacci
+        (use (erlang :only (>/2 -/2 +/2))))
+
+(defn+ fibo (n)
+  (case n
+    (0 0)
+    (1 1)
+    (_ (when (> n 0))
+     (+ (fibo (- n 1))
+        (fibo (- n 2))))))
