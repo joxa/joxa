@@ -1,8 +1,8 @@
 %% This is the application resource file (.app file) for the,
 %% application.
 {application, joxa,
-  [{description, "Your Desc HERE"},
-   {vsn, "0.0.1a"},
+  [{description, "Implementation for the Joxa language"},
+   {vsn, "0.0.2a"},
    {modules, [joxa_app,
               joxa_sup]},
    {registered,[joxa_sup]},
