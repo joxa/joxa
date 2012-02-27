@@ -13,10 +13,10 @@
 	dh $@
 
 override_dh_auto_build:
-	$(MAKE) bootstrap escript
+	$(MAKE) escript-deb DESTDIR=$$(pwd)
 
 override_dh_auto_install:
 	$(MAKE) install-deb DESTDIR=$$(pwd)
 
 override_dh_auto_test:
-	$(MAKE) testall
+	$(MAKE) testall-deb DESTDIR=$$(pwd)
