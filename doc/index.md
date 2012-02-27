@@ -3,6 +3,43 @@ layout: default
 title: Joxa
 ---
 
+What It Looks Like
+------------------
+
+We know that the first think anyone wants to see is what it looks
+like. Here you go:
+
+#### Sieve of Eratosthenes
+
+    (module sieve-of-eratosthenes
+            (require lists io)
+            (use (joxa.core :as core :only (!=/2))
+                 (erlang :only (rem/2 +/2))))
+
+    (defn sieve (v primes)
+      (case v
+        ([] primes)
+        ((h . t)
+          (sieve  (lists/filter (fn (x)
+                                 (!= (rem x h) 0)) t)
+                  (+ primes 1)))))
+
+    (defn+ sieve (v)
+      (sieve (lists/seq 2 v) 1))
+
+#### Fibonacci
+
+    (module fibonacci
+            (use (erlang :only (>/2 -/2 +/2))))
+
+    (defn+ fibo (n)
+      (case n
+        (0 0)
+        (1 1)
+        (_ (when (> n 0))
+         (+ (fibo (- n 1))
+            (fibo (- n 2))))))
+
 Introduction
 ------------
 
