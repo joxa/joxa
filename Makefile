@@ -1,4 +1,4 @@
-VSN=0.0.1a
+VSN=0.0.2a
 ERL=$(shell which erl)
 SRCDIR=$(abspath ./src)
 PRIVDIR=$(abspath ./priv)
