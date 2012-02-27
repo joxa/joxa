@@ -13,6 +13,9 @@
 (module joxa.core
         (require erlang lists joxa.compiler io))
 
+(defmacro+ != (a1 a2)
+  `(erlang/:'=/=' ~a1 ~a2))
+
 (defn+ +(&rest args)
   (case args
     ([x y]
@@ -21,7 +24,6 @@
      (lists/sum args))
     (arg
      arg)))
-
 
 (defn - (num-list acc)
   (case num-list
