@@ -10,7 +10,10 @@
 ;;; This module provides an escript oriented interface to the joxa system.
 (module joxa
         (require joxa.compiler
-                 joxa.shell))
+                 joxa.shell
+                 init))
+
+
 
 ;; An entry point for the system
 ;; -----------------------------
@@ -25,3 +28,6 @@
      (joxa.compiler/main rest-args))
     (_
      (joxa.shell/start))))
+
+(defn+ main ()
+  (main (init/get_plain_arguments)))
