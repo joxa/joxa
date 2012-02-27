@@ -42,7 +42,13 @@ build:
 	@$(COMMAND)
 
 clean:
-	sinan clean
+	rm -f ../joxa_*.debian.tar.gz
+	rm -f ../joxa_*.dsc
+	rm -f ../joxa_*.build
+	rm -f ../joxa_*.changes
+	rm -rf debian/patches
+	rm -rf _build
+	rm -rf erl_crash.dump
 
 setup:
 	sinan clean; \
