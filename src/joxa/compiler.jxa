@@ -1198,40 +1198,11 @@
                 (erlang/binary_to_list
                  (erlang/iolist_to_binary node))))
            {:ident result idx}))))
-
-(defn+ fun-reference (input index)
-  (p input index :fun-reference
-     (p-choose [(p-seq [ident/2
-                        (p-string "/")
-                        ident/2
-                        (p-string "/")
-                        integer/2])
-                (p-seq [ident/2
-                        (p-string "/")
-                        integer/2])
-                (p-seq [ident/2
-                        (p-string "/")
-                        ident/2])])
-     (fn (node idx)
-         (case node
-           ([{:ident module _} _
-             {:ident function _} _
-             {:integer arity _}]
-            {:call {:--fun module function arity} idx})
-           ([{:ident function _} _
-             {:integer arity _}]
-            {:call {:--fun function arity} idx})
-           ([{:ident module _} _
-             {:ident function _}]
-            {:call {:--fun module function} idx})))))
-
 (definline convert-stringlike-thing (node)
   (case node
     ([_ string _]
      (let (convert (lists/map (fn (el)
                                   (case el
-                                    ([_ <<"\\>">>]
-                                     <<">">>)
                                     ([_ <<"\\'">>]
                                      <<"'">>)
                                     ([_ <<"\\\"">>]
@@ -1253,6 +1224,56 @@
                               string))
        (erlang/binary_to_list (erlang/iolist_to_binary convert))))))
 
+(defn+ quoted-ident (input index)
+  (p input index :quoted-ident
+     (p-seq [(p-string ":'")
+             (p-zero-or-more (p-seq [(p-not (p-string "'"))
+                                     (p-choose [(p-string "\\'")
+                                                (p-string "\\\"")
+                                                (p-string "\\\\")
+                                                (p-string "\\b")
+                                                (p-string "\\f")
+                                                (p-string "\\n")
+                                                (p-string "\\r")
+                                                (p-string "\\t")
+                                                (p-anything)])]))
+             (p-string "'")])
+     (fn (node idx)
+         {:ident (erlang/list_to_atom
+                  (convert-stringlike-thing node)) idx})))
+
+
+(defn inclusive-ident (input index)
+  (p input index :ident-types
+     (p-choose [quoted-ident/2
+                ident/2])))
+
+(defn+ fun-reference (input index)
+  (p input index :fun-reference
+     (p-choose [(p-seq [inclusive-ident/2
+                        (p-string "/")
+                        inclusive-ident/2
+                        (p-string "/")
+                        integer/2])
+                (p-seq [inclusive-ident/2
+                        (p-string "/")
+                        integer/2])
+                (p-seq [inclusive-ident/2
+                        (p-string "/")
+                        inclusive-ident/2])])
+     (fn (node idx)
+         (case node
+           ([{:ident module _} _
+             {:ident function _} _
+             {:integer arity _}]
+            {:call {:--fun module function arity} idx})
+           ([{:ident function _} _
+             {:integer arity _}]
+            {:call {:--fun function arity} idx})
+           ([{:ident module _} _
+             {:ident function _}]
+            {:call {:--fun module function} idx})))))
+
 (defn+ string (input index)
   (p input index :string
      (p-seq [(p-string "\"")
@@ -1268,24 +1289,6 @@
              (p-string "\"")])
      (fn (node idx)
          {:string (convert-stringlike-thing node) idx})))
-
-(defn+ quoted-ident (input index)
-  (p input index :quoted-ident
-     (p-seq [(p-string "<")
-             (p-zero-or-more (p-seq [(p-not (p-string ">"))
-                                     (p-choose [(p-string "\\>")
-                                                (p-string "\\\"")
-                                                (p-string "\\\\")
-                                                (p-string "\\b")
-                                                (p-string "\\f")
-                                                (p-string "\\n")
-                                                (p-string "\\r")
-                                                (p-string "\\t")
-                                                (p-anything)])]))
-             (p-string ">")])
-     (fn (node idx)
-         {:ident (erlang/list_to_atom
-                  (convert-stringlike-thing node)) idx})))
 
 (defn+ quote (input index)
   (p input index :quote
@@ -1412,8 +1415,8 @@
              (p-choose [float/2
                         integer/2
                         binary/2
-                        quoted-ident/2
                         fun-reference/2
+                        quoted-ident/2
                         quote/2
                         ident/2
                         list/2
@@ -2652,14 +2655,14 @@
     ({:erlang :is_tuple 1} :true)
     ({:erlang :and 2} :true)
     ({:erlang :or 2} :true)
-;    ({:erlang :> 2} :true)
-;    ({:erlang :< 2} :true)
+    ({:erlang :> 2} :true)
+    ({:erlang :'<' 2} :true)
     ({:erlang :== 2} :true)
     ({:erlang :=< 2} :true)
     ({:erlang :>= 2} :true)
     ({:erlang :/= 2} :true)
     ({:erlang :=:= 2} :true)
-;    ({:erlang :<=/=> 2} :true)
+    ({:erlang :'=/=' 2} :true)
     (_ :false)))
 
 (defn check-guards (ast)
