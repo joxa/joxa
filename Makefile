@@ -122,4 +122,4 @@ build-deb: $(TARBALL)
 	debuild -S
 
 publish-ppa: build-deb
-	dput -f ppa:afiniate/ppa ../joxa_$(VSN)-*_source.changes
+	dput -f ppa:afiniate/ppa ../joxa_$(VSN)_source.changes
