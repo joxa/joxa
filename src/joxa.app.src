@@ -2,7 +2,7 @@
 %% application.
 {application, joxa,
   [{description, "Implementation for the Joxa language"},
-   {vsn, "0.0.2a"},
+   {vsn, "0.0.3a"},
    {modules, [joxa_app,
               joxa_sup]},
    {registered,[joxa_sup]},
