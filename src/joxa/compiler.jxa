@@ -4086,6 +4086,45 @@
        (stop-context ctx)
        result))))
 
+;; Module Info
+;; -----------
+;;
+;; This does not compile a file. It simply evaluates a module enough
+;; to get a complete context. there by providing information about the
+;; module.
+
+(defn internal-info (ctx input)
+  (case (has-more-data-to-parse input)
+    (:false
+     :ok)
+    (:true
+     (case (parse ctx input)
+       (:error
+        :error)
+       ({ast0 (= rest {:parse-output _ path _})}
+        (make-forms (traverse-path path) ctx ast0)
+        ctx)))))
+
+(defn info (ctx binary options)
+  (set-context-all-ctx ctx [{:options (convert-options options [])}])
+  (internal-info ctx binary)
+  (get-raw-context ctx))
+
+(defn+ info (input options)
+  (case input
+    (_ (when (erlang/is_binary input))
+       (case (start-context)
+         ({:ok ctx}
+          (let (result (info ctx input options))
+            (stop-context ctx)
+            result))))
+    (_ (when (erlang/is_list input))
+     (case (file/read_file input)
+       ({:ok binary}
+        (info binary options))
+       ({:error reason}
+        {:error  {:file-access reason input}})))))
+
 ;; Interactive Compilation
 ;; -----------------------
 ;;
@@ -4180,7 +4219,6 @@
 ;; only be used by the compiler itself as it removes the ability to
 ;; have macros and the like. So generally, if you are not working on
 ;; the compiler you should ignore this interface.
-
 (defn parse-all (ctx input acc)
   (case (has-more-data-to-parse input)
     (:false
@@ -4222,7 +4260,6 @@
 ;;
 ;; This provides a means by which the correct compilation module and
 ;; result 'saving' module might be found.
-
 (defn get-extension (options)
   (case (proplists/get_value :ast options)
     (:false
