@@ -9,9 +9,10 @@
 ;;;
 ;;; This module provides a shell or REPL for the joxa language
 (module joxa.shell
-        (require io code lists ec_dictionary
-                 joxa.compiler)
-        (use (erlang :only (atom_to_list/1 list_to_binary/1 apply/3))))
+        (require io code lists
+                 ec_dictionary joxa.compiler)
+        (use (erlang :only (atom_to_list/1 list_to_binary/1 apply/3))
+             (joxa.core :as core)))
 
 (defn prompt (ctx)
   (lists/concat [(atom_to_list (joxa.compiler/module-name-ctx ctx))
@@ -37,14 +38,17 @@
 
 (defn loop (ctx)
   (do
-    (let (r (read ctx)
-          e (case r
-              (""
-               {:ok ctx})
-              (_
-               (eval r ctx))))
-      (print e ctx)
-      (loop ctx))))
+      (try
+       (let (r (read ctx)
+             e (case r
+                 ("" {:ok ctx})
+                 (_ (eval r ctx))))
+         (print e ctx)
+         (loop ctx))
+       (catch
+           (e
+            (io/format "error: ~p~n" [e])
+            (loop ctx))))))
 
 (defn+ start ()
   (let (ctx (joxa.compiler/start-interactive))
