@@ -18,41 +18,54 @@
   (lists/concat [(atom_to_list (joxa.compiler/module-name-ctx ctx))
                  "> "]))
 (defn read (ctx)
-  (erlang/list_to_binary (io/get_line (prompt ctx))))
+  (case (io/get_line (prompt ctx))
+    (r (when (erlang/is_list r))
+     (erlang/list_to_binary r))
+    (else
+     else)))
 
 (defn eval (parse ctx)
   (let (result (joxa.compiler/comp-interactive ctx :--joxa-shell parse [])
         comp-res
-        (case (erlang/and  (joxa.compiler/compilable? ctx)
-                           (erlang/== result :expr))
-          (:true
-           (let (call-fun (erlang/make_fun (joxa.compiler/module-name-ctx ctx) :--joxa-shell 0))
-             (call-fun)))
-          (:false
-           :ok)))
+        (if (joxa.compiler/compilable? ctx)
+            (if (erlang/== result :expr)
+                (let (call-fun (erlang/make_fun (joxa.compiler/module-name-ctx ctx) :--joxa-shell 0))
+                  (call-fun))
+              :ok)
+          (if (erlang/or  (erlang/== result :expr)
+                          (erlang/== result :defn))
+              :error
+            result)))
     (joxa.compiler/clear-errors ctx)
     comp-res))
 
 (defn print (data ctx)
   (io/format "~p~n" [data]))
 
-(defn loop (ctx)
-  (do
-      (try
-       (let (r (read ctx)
-             e (case r
-                 ("" {:ok ctx})
-                 (_ (eval r ctx))))
-         (print e ctx)
-         (loop ctx))
-       (catch
-           (e
-            (io/format "error: ~p~n" [e])
-            (loop ctx))))))
+(defn loop (ctx acc)
+  (try
+   (case (read ctx)
+     (:eof
+      :eof)
+     (<< (7 :integer) (_ :binary)>>
+         (io/format "resetting input~n")
+         (loop ctx <<>>))
+     (r
+      (case (eval <<(acc :binary) (r :binary)>> ctx)
+        ({:error rest}
+         (loop ctx rest))
+        (result
+         (print result ctx)
+         (loop ctx <<>>)))))
+   (catch
+       (e
+        (io/format "error: ~p : " [e])
+        (io/format "~p~n" [(erlang/get_stacktrace)])
+        (loop ctx <<>>)))))
 
 (defn+ start ()
   (let (ctx (joxa.compiler/start-interactive))
     (joxa.compiler/module-name-ctx ctx :joxa-shell)
     (io/format "Joxa 0.0.1~n~n")
-    (loop ctx)
+    (loop ctx <<>>)
     (joxa.compiler/stop-interactive ctx)))

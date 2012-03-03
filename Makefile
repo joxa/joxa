@@ -95,7 +95,7 @@ pre-build: $(LOCAL_SINAN)
 build: pre-build $(BEAMS)
 
 shell: build
-	$(ERL) $(ERLFLAGS) -s joxa main
+	$(ERL) $(ERLFLAGS) -s joxa main -s init stop
 
 clean:
 	rm -f ../joxa_*.debian.tar.gz
