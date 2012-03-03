@@ -4164,6 +4164,9 @@
           do
           ))
     (case ast
+      ((:module . _)
+       (make-module (new-path) ctx ast)
+       :defn)
       ((element . rest)
        (case (lists/member element dispatchables)
          (:true
