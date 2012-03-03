@@ -116,6 +116,11 @@
      :false)
     ([(:_ . _)]
      :false)
+    ([({i1 i2} . _)] (when (erlang/and (erlang/is_atom i1)
+                                       (erlang/is_atom i2)))
+     :false)
+    ([(i1 . _)] (when (erlang/is_atom i1))
+     :false)
     (_
      :true)))
 
