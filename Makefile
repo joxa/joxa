@@ -21,8 +21,11 @@ ERLFLAGS=-noshell -pa $(APPDIR)/ebin
 COMP= $(ERL) $(ERLFLAGS) -s 'joxa.compiler' main \
       -extra
 
-BEAMS= $(BEAMDIR)/joxa/compiler.beam $(BEAMDIR)/joxa/shell.beam \
-       $(BEAMDIR)/joxa/core.beam $(BEAMDIR)/joxa.beam $(BEAMDIR)/joxa/records.beam
+BEAMS= $(BEAMDIR)/joxa/compiler.beam \
+	$(BEAMDIR)/joxa/core.beam \
+	$(BEAMDIR)/joxa/shell.beam \
+        $(BEAMDIR)/joxa.beam \
+	$(BEAMDIR)/joxa/records.beam
 
 .SUFFIXES:
 .SUFFIXES:.jxa
