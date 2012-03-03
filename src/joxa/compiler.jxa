@@ -1516,7 +1516,7 @@
 (defn+ make-annots (path filename type idx annotations)
   (case idx
     ({line _}
-     (ec_dictionary/add path {type idx [line, {:file filename}]}
+     (ec_dictionary/add path {type idx [line {:file filename}]}
                         annotations))))
 
 ;; sometimes an invalid path is passed in. This is unfortunate but
@@ -1553,7 +1553,7 @@
 (defn+ get-line-annots (path annotations)
   (case (get-valid-annots path annotations)
     (:not-found
-     {"" {0 0}})
+     [0 {:file ""}])
     ({_ _ line}
      line)))
 
@@ -1711,7 +1711,7 @@
      (case (intermediate-parse input idx0)
        ({:fail {:expected expected idx1}}
         (add-error-ctx ctx path {:parse-fail expected idx1})
-        :error)
+        {:error input})
        ({intermediate-ast rest idx2}
         (case (transform-ast
                (traverse-path path)
@@ -4062,7 +4062,7 @@
      :ok)
     (:true
      (case (parse ctx input)
-       (:error
+       ({:error _}
         :error)
        ({ast0 (= rest {:parse-output _ path _})}
         (make-forms (traverse-path path) ctx ast0)
@@ -4099,7 +4099,7 @@
      :ok)
     (:true
      (case (parse ctx input)
-       (:error
+       ({:error _}
         :error)
        ({ast0 (= rest {:parse-output _ path _})}
         (make-forms (traverse-path path) ctx ast0)
@@ -4193,6 +4193,8 @@
      result0)
     (:true
      (case (parse ctx input)
+       ({:error rest}
+        {:error rest})
        ({ast0 (= rest {:parse-output _ path _})}
         (let (result1 (case  (make-dispatch ctx interactive-name ast0)
                         (:expr
@@ -4289,11 +4291,15 @@
          (file/write_file out-file binary))))))
 
 (defn+ has-errors? (ctx)
-  (let (errors (get-context :errors ctx)
-        warnings (get-context :warnings ctx))
-    (erlang/or
-     (erlang/> (erlang/length errors) 0)
-     (erlang/> (erlang/length warnings) 0))))
+  (case ctx
+    (_ (when (erlang/is_tuple ctx))
+       (let (errors (get-context :errors ctx)
+                    warnings (get-context :warnings ctx))
+         (erlang/or
+          (erlang/> (erlang/length errors) 0)
+          (erlang/> (erlang/length warnings) 0))))
+    (_
+     :true)))
 
 (defn+ do-compile (filename options)
   (case (start-context)

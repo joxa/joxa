@@ -81,3 +81,12 @@ segfault_test() ->
     ?assertThrow({'invalid-reference', ok, _},
                  'jxat-invalid-arity-test2':'test-case'({ok, 'not-a-reference'})).
 
+bad_let_test() ->
+    Source = <<" (module jxat-bad-let-test)
+
+                  (defn+ rest-used-function-ctx? ()
+                      (let (x 1)
+                       x)) ">>,
+    RawCtx = joxa.compiler:forms(Source, []),
+    ?assertMatch(false, joxa.compiler:'has-errors?'(RawCtx)),
+    ?assertMatch(1, 'jxat-bad-let-test':'rest-used-function-ctx?'()).
