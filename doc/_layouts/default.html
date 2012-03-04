@@ -1,85 +1,107 @@
-<!DOCTYPE html>
+<!DOCTYPE html
+PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
 <html lang='en'>
-  <head>
+  <head profile="http://www.w3.org/2005/10/profile">
     <title>{{ page.title }}</title>
     <meta http-equiv='Content-Type' content='text/html; charset=utf-8' />
     <!--[if lt IE 9]><script type='text/javascript' src='assets/javascript/html5.js'></script><![endif]-->
     <script type='text/javascript' src='assets/javascript/prettify.js'></script>
-    <link rel='stylesheet' type='text/css' href='assets/css/skeleton/stylesheets/base.css' />x
+    <link rel='stylesheet' type='text/css' href='assets/css/skeleton/stylesheets/base.css' />
     <link rel='stylesheet' type='text/css' href='assets/css/skeleton/stylesheets/skeleton.css' />
     <link rel='stylesheet' type='text/css' href='assets/css/prettify.css' />
     <link rel='stylesheet' type='text/css' href='assets/css/style.css' />
     <link rel='stylesheet' type='text/css' href='assets/css/code.css' />
+
+    <link rel="icon"
+          type="image/png"
+          href="assets/images/favicon.ico" />
   </head>
 
   <body onload='prettyPrint()'>
+    <header>
+      <div class='container'>
+        <div class='five columns alpha'>
+          <img src="assets/images/joxa-logo2.png"></img>
+        </div>
+        <div id="navigation" class='eleven columns omega'>
+          <div class="two columns">
+            <strong>about</strong>
+            <ul>
+              <li>
+                <a href="http://joxa.org/">intro</a>
+              </li>
+              <li>
+                <a href="https://github.com/erlware/joxa/wiki">wiki</a>
+              </li>
+            </ul>
+          </div>
+          <div class="two columns">
+            <strong>community</strong>
+            <ul>
+              <li>
+                <a href="http://groups.google.com/group/erlware-questions">mailing list</a>
+              </li>
+              <li>
+                <a href="http://erlware.org">erlware</a>
+              </li>
+            </ul>
+          </div>
+          <div class="two columns">
+            <strong>code</strong>
+            <ul>
+              <li>
+                <a href="https://github.com/erlware/joxa">source</a>
+              </li>
+              <li>
+                <a href="http://github.com/erlware/joxa/issues">issues</a>
+              </li>
+            </ul>
+          </div>
+          <div class="three columns">
+            <strong>Downloads</strong>
+            <ul>
+              <li>
+                <a href="https://github.com/erlware/joxa/downloads">Binaries</a>
+              </li>
+              <li>
+                <a href="https://launchpad.net/~afiniate/+archive/ppa">Ubuntu Packages</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </header>
+
     <div class='container'>
-      <header class='sixteen columns'>
-        <div class='nine columns alpha'>
-          <h1>Joxa - {{ page.title }}</h1>
-        </div>
 
-        <div class='six columns offset-by-one omega'>
-          <a href='https://github.com/erlware/joxa/downloads'
-             class='download-button'>
-            Download
-            <span>Latest version from GitHub</span>
-          </a>
-        </div>
-      </header>
-
-      <div class="menu sixteen columns">
-        <ul>
-          <li><a href="/joxa/">Home</a></li>
-        </ul>
-        <br style="clear:left"/>
-      </div>
 
       <div class='sixteen columns'>
-
         {{content}}
-
-      </div>
-
-      <div class='sixteen columns'>
-
-
       </div>
     </div>
 
     <footer>
       <div class='container'>
         <div class='ten columns offset-by-three repo-author'>
-          <img src='https://secure.gravatar.com/avatar/1c32ef01b258b3b5ca43d8da88653fb4.png'
+          <img src='/assets/images/erlware-logo.jpg'
                class='repo-author-logo' />
-          <a href="http://www.twitter.com/ericbmerritt">
+          <a href="http://www.twitter.com/erlware">
             <img src="http://twitter-badges.s3.amazonaws.com/twitter-a.png"
                  alt="Follow ericbmerritt on Twitter"/>
           </a>
           <p>
-            Eric B Merritt - CTO of Afiniate, Inc - is a veteran
-            entrepreneur, author and public speaker. Eric is expert in
-            the architecture, development and deployment of
-            large-scale distributed systems on heterogeneous hardware,
-            and the languages and platforms required to support
-            them. His experience spans from IBM mainframe and
-            mid-range systems, to distributed build systems and
-            massive fleet deployment tools for Amazon.com, and to
-            high-frequency trading systems and financial exchange
-            systems for leading private brokerages. Eric is a
-            co-author of the popular book “Erlang and OTP in Action”.
+            Erlware is an umbrella organization dedicated to bring
+            high quality, well tested, usable libraries and tools to
+            the Erlang community.
           </p>
-        </div>
-
-        <div class='sixteen columns credits'>
-          <p>GitHub release template built with HTML5, CSS3 and JS
-            by <a href='http://fublo.net'>Fublo</a></p>
         </div>
       </div>
     </footer>
 
     <a href='https://github.com/erlware/joxa'
        class='github-ribbon'><img src='assets/images/github-ribbons/red.png'
-                                  /></a>
+       /></a>
   </body>
 </html>
