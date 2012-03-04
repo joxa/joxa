@@ -7,14 +7,15 @@
 
 /* Page */
 body {
-    background: #333333 url('../images/page-background.png') repeat top left;
+    background: #FFFFFF;
     font-family: arial,sans-serif;
 }
 
 /* Header */
 header {
-    padding-top: 50px;
-    padding-bottom: 28px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    background-color: #FFFFFF;
 }
 
 /* Footer */
@@ -26,14 +27,6 @@ footer {
     box-shadow: -10px 0 15px #000000;
 }
 
-div.credits {
-    padding-top: 9px;
-    margin-top: 30px;
-    margin-bottom: 25px;
-    border-top: 1px solid #DDD2B2;
-    text-align: center;
-}
-
 footer p {
     color: #333333;
 }
@@ -42,24 +35,37 @@ div.repo-author {
     padding-top: 30px;
 }
 
+/* Navigation */
+
+#navigation li {
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
 /* Text */
-p, strong, li {
-    color: #CCCCCC;
+/* Text */
+p {
+    color: #000000;
+    font-size: 12px;
+}
+
+strong, li {
+    color: #000000;
     font-size: 14px;
 }
 
 strong {
     font-weight: bold;
-    color: #EEEEEE;
+    color: #0000;
 }
 
 a {
-    color: #0075B6;
+    color: #0000;
     text-decoration: none;
 }
 
 a:visited {
-    color: #0075B6;
+    color: #0000;
 }
 
 a:hover {
@@ -72,21 +78,21 @@ h1, h2 {
 
 h1 {
     font-style: italic;
-    color: #FFFFFF;
+    color: #0000;
     font-size: 50px;
     margin: 0;
 }
 
 h2 {
-    color: #CCCCCC;
-    font-size: 25px;
+    color: #0000;
+    font-size: 20px;
+    font-weight: bold;
     line-height: 23px;
     padding-top: 15px;
 }
 
 h3, h4, h5 {
-    color: #FFFFFF;
-    font-weight: bold;
+    color: #000000;
     font-family: inherit;
 }
 
@@ -99,77 +105,15 @@ a.github-ribbon {
     border: 0;
 }
 
-a.download-button {
-    display: block;
-    padding: 15px 20px 10px 20px;
-    color: #FFFFFF;
-    text-decoration: none;
-    font-size: 28px;
-    font-weight: bold;
-    background: #33A700 url('../images/github-logo.png') no-repeat 92% 50%;
-    border: 2px solid #339410;
-    -webkit-box-shadow: 3px 3px 5px #000000;
-    -moz-box-shadow: 3px 3px 5px #000000;
-    box-shadow: 3px 3px 5px #000000;
-    -webkit-border-radius: 5px;
-    -moz-border-radius: 5px;
-    border-radius: 5px;
-    -webkit-transition: 350ms;
-    -moz-transition: 350ms;
-    -o-transition: 350ms;
-    transition: 350ms;
-}
-
-a.download-button:hover {
-    background-color: #267C00;
-    background-position: 90% 50%;
-}
-
-a.download-button span {
-    font-size: 14px;
-    display: block;
-    margin-top: 2px;
-}
-
-div.highlight {
-    margin-top: 15px;
-    min-height: 220px;
-    border: 3px solid #FFFFFF;
-    background-color: #CCCC99;
-    display: block;
-    padding: 20px;
-    font-family: monospace;
-    -webkit-box-shadow: 3px 3px 5px #000000;
-    -moz-box-shadow: 3px 3px 5px #000000;
-    box-shadow: 3px 3px 5px #000000;
-    overflow-x: auto;
-}
-
-dl {
-    margin-top: 15px;
-    min-height: 220px;
-    border: 3px solid #FFFFFF;
-    background-color: #CCCC99;
-    display: block;
-    padding: 20px;
-    font-family: monospace;
-    -webkit-box-shadow: 3px 3px 5px #000000;
-    -moz-box-shadow: 3px 3px 5px #000000;
-    box-shadow: 3px 3px 5px #000000;
-    overflow-x: auto;
-}
-dt {
-    font-weight: bold
-}
-
-
 code {
+    font-size: 12px;
     margin-top: 15px;
     min-height: 50px;
-    border: 3px solid #FFFFFF;
-    background-color: #CCCC99;
+    border: 3px solid #000000;
+    background-color: #f4f4f4;
     display: block;
     padding: 20px;
+    margin-bottom: 20px;
     font-family: monospace;
     -webkit-box-shadow: 3px 3px 5px #000000;
     -moz-box-shadow: 3px 3px 5px #000000;
@@ -186,39 +130,6 @@ pre.prettyprint {
 img.repo-author-logo {
     float: left;
     margin-right: 15px;
-}
-
-.menu {
-    width: 100%;
-    border-bottom: 2px solid #77746C;
-    border-top: 2px solid #77746C;
-    margin-bottom: 28px;
-}
-
-.menu ul {
-    margin: 0;
-    padding: 0;
-    float: left;
-}
-
-.menu ul li {
-    display: inline;
-}
-
-.menu ul li a {
-    float: left;
-    text-decoration: none;
-    color: white;
-    padding: 10.5px 11px;
-}
-
-.menu ul li a:visited {
-    color: white;
-}
-
-.menu ul li a:hover, .menu ul li .current {
-    color: #fff;
-    background-color:#0b75b2;
 }
 
 /* Media queries */
