@@ -4267,13 +4267,13 @@
 ;; result 'saving' module might be found.
 (defn get-extension (options)
   (case (proplists/get_value :ast options)
-    (:false
+    (:undefined
      (case (proplists/get_value :to-core options)
-       (:false
+       (:undefined
         ".beam")
-       (_
+       (:true
         ".core")))
-    (_
+    (:true
      ".ast")))
 
 (defn save-output (options binary ctx)
