@@ -105,6 +105,7 @@ clean:
 	rm -rf debian/patches
 	rm -rf _build
 	rm -rf erl_crash.dump
+	rm -rf ./usr
 
 testall: build
 	$(LOCAL_SINAN) cucumber; \
