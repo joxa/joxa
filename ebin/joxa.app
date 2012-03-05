@@ -1,0 +1,12 @@
+{application, joxa,
+ [{description, "Implementation for the Joxa language"},
+  {vsn, "0.0.3a"},
+  {modules, [joxa,
+             jxa_bootstrap,
+             jxa_utils,
+             joxa.compiler,
+             joxa.core,
+             joxa.records,
+             joxa.shell]},
+  {applications, [kernel, stdlib, compiler,
+                  erlware_commons,getopt]}]}.
