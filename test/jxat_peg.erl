@@ -986,7 +986,7 @@ value_test() ->
     ?memo(?assertMatch({{ident, '[]', _},
                         <<>>,
                         _},
-                       joxa.compiler:value(<<"'[]'">>,
+                       joxa.compiler:value(<<":'[]'">>,
                                            index()))),
 
     ?memo(?assertMatch({{ident, '123', _},<<>>,_},
