@@ -1,4 +1,4 @@
-VSN=0.0.2a
+VSN=0.0.3a
 ERL=$(shell which erl)
 ERLC=$(shell which erlc)
 
