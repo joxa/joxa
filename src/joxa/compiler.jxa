@@ -4093,22 +4093,51 @@
 ;; to get a complete context. there by providing information about the
 ;; module.
 
+(defn get-require (form acc)
+  (case form
+    ([]
+     acc)
+    ((module-name . rest)
+     (when (erlang/is_atom module-name))
+     (get-require rest (module-name . acc)))
+    (([module-name [quote as] _]  . rest)
+     (when  (erlang/is_atom module-name))
+     (get-require rest (module-name . acc)))
+    (_
+     acc)))
+
+(defn get-use (form acc)
+  (case form
+    ([]
+     acc)
+    (((use-module-name . clause-body) . rest)
+     (when (erlang/is_atom use-module-name))
+     (get-use rest (use-module-name . acc)))
+    ((use-module-name . rest)
+     (when (erlang/is_atom use-module-name))
+     (get-use rest (use-module-name . acc)))))
+
 (defn internal-info (ctx input)
   (case (has-more-data-to-parse input)
     (:false
-     :ok)
+     [])
     (:true
      (case (parse ctx input)
        ({:error _}
-        :error)
-       ({ast0 (= rest {:parse-output _ path _})}
-        (make-forms (traverse-path path) ctx ast0)
-        ctx)))))
+        [])
+       ({(:module . rest) _}
+        (lists/flatten (lists/foldl (fn (form acc)
+                                        (case form
+                                          ((:require . req-rest)
+                                           ((get-require req-rest []) . acc))
+                                          ((:use . use-rest)
+                                           ((get-use use-rest []) . acc))
+                                          (_
+                                            acc))) [] rest)))))))
 
 (defn info (ctx binary options)
   (set-context-all-ctx ctx [{:options (convert-options options [])}])
-  (internal-info ctx binary)
-  (get-raw-context ctx))
+  (internal-info ctx binary))
 
 (defn+ info (input options)
   (case input
