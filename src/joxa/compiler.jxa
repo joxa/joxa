@@ -4125,15 +4125,15 @@
      (case (parse ctx input)
        ({:error _}
         [])
-       ({(:module . rest) _}
-        (lists/flatten (lists/foldl (fn (form acc)
-                                        (case form
-                                          ((:require . req-rest)
-                                           ((get-require req-rest []) . acc))
-                                          ((:use . use-rest)
-                                           ((get-use use-rest []) . acc))
-                                          (_
-                                            acc))) [] rest)))))))
+       ({(:module . (module-name . rest)) _}
+        {module-name (lists/flatten (lists/foldl (fn (form acc)
+                                                     (case form
+                                                       ((:require . req-rest)
+                                                        ((get-require req-rest []) . acc))
+                                                       ((:use . use-rest)
+                                                        ((get-use use-rest []) . acc))
+                                                       (_
+                                                        acc))) [] rest))})))))
 
 (defn info (ctx binary options)
   (set-context-all-ctx ctx [{:options (convert-options options [])}])
