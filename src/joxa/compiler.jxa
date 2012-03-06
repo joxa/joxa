@@ -4266,10 +4266,10 @@
 ;; This provides a means by which the correct compilation module and
 ;; result 'saving' module might be found.
 (defn get-extension (options)
-  (case (proplists/get_value :ast options)
-    (:undefined
-     (case (proplists/get_value :to-core options)
-       (:undefined
+  (case (proplists/get_value :ast options :false)
+    (:false
+     (case (proplists/get_value :to-core options :false)
+       (:false
         ".beam")
        (:true
         ".core")))

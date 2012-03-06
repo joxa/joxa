@@ -19,4 +19,4 @@ override_dh_auto_install:
 	$(MAKE) install-deb DESTDIR=$$(pwd)
 
 override_dh_auto_test:
-	$(MAKE) testall-deb DESTDIR=$$(pwd)
+	$(MAKE) test DESTDIR=$$(pwd)
