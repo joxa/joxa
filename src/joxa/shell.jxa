@@ -66,6 +66,6 @@
 (defn+ start ()
   (let (ctx (joxa.compiler/start-interactive))
     (joxa.compiler/module-name-ctx ctx :joxa-shell)
-    (io/format "Joxa 0.0.1~n~n")
+    (io/format "Joxa 0.0.3a~n~n")
     (loop ctx <<>>)
     (joxa.compiler/stop-interactive ctx)))
