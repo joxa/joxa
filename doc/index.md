@@ -1,6 +1,7 @@
 ---
 layout: default
 title: Joxa
+version: 0.0.5a
 ---
 
 __Joxa is a small semantically clean, functional lisp__. It is a
