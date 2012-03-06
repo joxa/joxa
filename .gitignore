@@ -1,5 +1,4 @@
 deps
-ebin
 _build
 erl_crash.dump
 *.pyc

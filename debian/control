@@ -4,6 +4,7 @@ Priority: extra
 Maintainer: Eric Merritt <eric@afiniate.com>
 Build-Depends: debhelper (>= 8.0.0),
                rsync,
+               zip,
                erlang-base,
                erlang-dev,
                erlang-tools,

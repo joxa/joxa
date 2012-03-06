@@ -1,52 +1,93 @@
 VSN=0.0.2a
 ERL=$(shell which erl)
-SRCDIR=$(abspath ./src)
-PRIVDIR=$(abspath ./priv)
-BEAMDIR=$(APPDIR)/ebin
-LOCAL_BIN=_build/bin/
-BINDIR=$(DESTDIR)/usr/bin
-JOXA_BUILD_DIR=$(abspath _build/joxa)
+ERLC=$(shell which erlc)
 
-LOCAL_SINAN=_build/bin/sinan
-TMPDIR=./_build/tmp
+#Project Directories (local to $(CURDIR))
+
+SRCDIR=$(abspath $(CURDIR)/src)
+TESTDIR=$(abspath $(CURDIR)/test)
+PRIVDIR=$(abspath $(CURDIR)/priv)
+
+# Build Directories In Build
+JOXA_BUILD_DIR=$(abspath _build/joxa)
+LIBDIR=$(JOXA_BUILD_DIR)/lib
+APPDIR=$(LIBDIR)/joxa-$(VSN)
+BEAMDIR=$(APPDIR)/ebin
+
+# System install targes (for the packages)
+BINDIR=$(DESTDIR)/usr/bin
+
+ESCRIPT_DIR=$(JOXA_BUILD_DIR)/escript
+ESCRIPT_TMP=$(CURDIR)/_build/tmp2
+TMPDIR=$(CURDIR)/_build/tmp
 LOCAL_DEPS=$(TMPDIR)/deps.tar.gz
 
-LIBDIR=$(abspath $(JOXA_BUILD_DIR)/lib)
-APPDIR=$(LIBDIR)/joxa-$(VSN)
 INSTALL_TARGET=$(DESTDIR)/usr/lib/erlang/lib/joxa-$(VSN)
 TARBALL=../joxa_$(VSN).orig.tar.gz
 
-ERLFLAGS=-noshell -pa $(APPDIR)/ebin
+ERLFLAGS=-noshell -pa $(APPDIR)/ebin -pa $(TMPDIR)/*/ebin
+ERLCFLAGS= -pa $(APPDIR)/ebin
 
 COMP= $(ERL) $(ERLFLAGS) -s 'joxa.compiler' main \
       -extra
 
-BEAMS= $(BEAMDIR)/joxa/compiler.beam \
+SRCBEAMS= $(BEAMDIR)/joxa/compiler.beam \
 	$(BEAMDIR)/joxa/core.beam \
 	$(BEAMDIR)/joxa/shell.beam \
         $(BEAMDIR)/joxa.beam \
 	$(BEAMDIR)/joxa/records.beam
 
+TESTBEAMS = $(BEAMDIR)/jxat_anon_fun.beam  \
+	$(BEAMDIR)/jxat_examples.beam  \
+	$(BEAMDIR)/jxat_module_info.beam \
+	$(BEAMDIR)/jxat_rest_args.beam \
+	$(BEAMDIR)/jxat_bare_module.beam \
+	$(BEAMDIR)/jxat_featureful_module.beam \
+	$(BEAMDIR)/jxat_nested_calls.beam  \
+	$(BEAMDIR)/jxat_segfault_tests.beam \
+	$(BEAMDIR)/jxat_binary.beam \
+	$(BEAMDIR)/jxat_hello_world.beam \
+	$(BEAMDIR)/jxat_parse.beam \
+	$(BEAMDIR)/jxat_specs.beam \
+	$(BEAMDIR)/jxat_case.beam \
+	$(BEAMDIR)/jxat_implicit_do.beam \
+	$(BEAMDIR)/jxat_path.beam  \
+	$(BEAMDIR)/jxat_throws.beam \
+	$(BEAMDIR)/jxat_core_add.beam \
+	$(BEAMDIR)/jxat_incremental_compile.beam  \
+	$(BEAMDIR)/jxat_peg.beam \
+	$(BEAMDIR)/jxat_try.beam \
+	$(BEAMDIR)/jxat_core_incr.beam  \
+	$(BEAMDIR)/jxat_jxa_parser_proper.beam \
+	$(BEAMDIR)/jxat_predicates.beam \
+	$(BEAMDIR)/jxat_variable_fun_tests.beam \
+	$(BEAMDIR)/jxat_ctx.beam \
+	$(BEAMDIR)/jxat_let_support.beam  \
+	$(BEAMDIR)/jxat_receive.beam   \
+	$(BEAMDIR)/jxat_do_test.beam \
+	$(BEAMDIR)/jxat_macros.beam   \
+	$(BEAMDIR)/jxat_records.beam
+
 .SUFFIXES:
 .SUFFIXES:.jxa
-.PHONY:all test_bootstrap pre_bootstrap bootstrap setup do-changeover clean \
-	test build cucumber shell escript pre_build setup
+.PHONY:all test_bootstrap pre_bootstrap bootstrap clean \
+	test build proper eunit cucumber shell bare-escript \
+	install-deb build-deb publish-ppa escript-deb
 
-all:
-	@echo **NOTE****NOTE****NOTE****NOTE****NOTE****NOTE****NOTE****NOTE**
-	@echo
-	@echo   To build joxa from scratch you need a new version of sinan.
-	@echo   All of the commands make sure sinan is in place and ready.
-	@echo
-	@echo   If you would like you can get things setup by running
-	@echo   'make setup' when you have a net connection. That should do the
-	@echo   right thing until you run 'make clean' again.
-	@echo
-	@echo   To get a joxa binary do 'make escript'. This will put the
-	@echo   binary in _build/joxa/escript that may then be copied to your path.
-	@echo   to build the joxa OTP Application you can simply do 'make build'
-	@echo
-	@echo **NOTE****NOTE****NOTE****NOTE****NOTE****NOTE****NOTE****NOTE**
+FEATURES=./features/*.feature
+
+all: build
+
+$(LOCAL_DEPS): $(TMPDIR) $(LIBDIR)
+	wget --progress=bar https://github.com/downloads/erlware/sinan/deps.tar.gz -O $(LOCAL_DEPS)
+	touch $(LOCAL_DEPS)
+	tar xzf $(LOCAL_DEPS) --directory=$(LIBDIR)
+
+$(ESCRIPT_DIR):
+	mkdir -p $(ESCRIPT_DIR)
+
+$(ESCRIPT_TMP):
+	mkdir -p $(ESCRIPT_TMP)
 
 $(LIBDIR):
 	mkdir -p $(LIBDIR)
@@ -54,26 +95,13 @@ $(LIBDIR):
 $(TMPDIR):
 	mkdir -p $(TMPDIR)
 
-$(LOCAL_BIN):
-	mkdir -p $(LOCAL_BIN)
-
-$(LOCAL_SINAN): $(LOCAL_BIN)
-	wget --progress=bar https://github.com/downloads/erlware/sinan/sinan -O $(LOCAL_SINAN)
-	touch $(LOCAL_SINAN)
-	chmod 777 $(LOCAL_SINAN)
-
-$(LOCAL_DEPS): $(TMPDIR) $(LIBDIR)
-	wget --progress=bar https://github.com/downloads/erlware/sinan/deps.tar.gz -O $(LOCAL_DEPS)
-	touch $(LOCAL_DEPS)
-	tar xzf $(LOCAL_DEPS) --directory=$(LIBDIR)
-
 $(TMPDIR)/bootstrap_test.jxa: $(TMPDIR)
 	cp $(SRCDIR)/joxa/compiler.jxa $(TMPDIR)/bootstrap_test.jxa
 
 $(BEAMDIR)/joxa:
 	mkdir -p $(BEAMDIR)/joxa
 
-$(BEAMDIR)/joxa/bootstrap_compiler.beam: $(BEAMDIR)/joxa $(SRCDIR)/jxa_bootstrap.erl
+$(BEAMDIR)/joxa/bootstrap_compiler.beam: $(BEAMDIR)/joxa $(BEAMDIR)/jxa_bootstrap.beam
 	$(ERL) $(ERLFLAGS) -s jxa_bootstrap do_bootstrap \
 	${BEAMDIR}/joxa/bootstrap_compiler.beam joxa.bootstrap_compiler -s init stop
 
@@ -87,12 +115,13 @@ $(BEAMDIR)/joxa/%.beam: $(SRCDIR)/joxa/%.jxa
 $(BEAMDIR)/%.beam: $(SRCDIR)/%.jxa
 	$(COMP) -o $(BEAMDIR) $?
 
-setup: $(LOCAL_DEPS) $(LOCAL_SINAN)
+$(BEAMDIR)/%.beam: $(SRCDIR)/%.erl
+	$(ERLC) $(ERLCFLAGS) -o $(BEAMDIR) $?
 
-pre-build: $(LOCAL_SINAN)
-	$(LOCAL_SINAN) build
+$(BEAMDIR)/%.beam: $(TESTDIR)/%.erl
+	$(ERLC) $(ERLCFLAGS) -o $(BEAMDIR) $?
 
-build: pre-build $(BEAMS)
+build: $(LOCAL_DEPS) $(SRCBEAMS) $(TESTBEAMS)
 
 shell: build
 	$(ERL) $(ERLFLAGS) -s joxa main -s init stop
@@ -107,16 +136,33 @@ clean:
 	rm -rf erl_crash.dump
 	rm -rf ./usr
 
-testall: build
-	$(LOCAL_SINAN) cucumber; \
-	$(LOCAL_SINAN) eunit; \
-	$(LOCAL_SINAN) proper
+test: proper eunit cucumber
 
-cucumber: build
-	$(LOCAL_SINAN) cucumber
+proper:
+	for f in $(notdir $(basename $(TESTBEAMS))); do	\
+	  $(ERL) $(ERLFLAGS) -eval "proper:module($$f)" -s init stop; \
+	done
 
-escript: build
-	$(LOCAL_SINAN) escript
+eunit:
+	for f in $(notdir $(basename $(TESTBEAMS))); do	\
+	  $(ERL) $(ERLFLAGS) -eval "eunit:test($$f)" -s init stop; \
+	done
+
+cucumber:
+	for f in $(FEATURES) ; do	\
+		$(ERL) $(ERLFLAGS) -eval "cucumberl:run(\"$$f\")" -s init stop; \
+	done
+
+bare-escript: $(ESCRIPT_DIR) $(ESCRIPT_TMP)
+	cp -R $(LIBDIR)/* $(ESCRIPT_TMP)
+	cd $(ESCRIPT_TMP); zip -r joxa.ez *; \
+        $(ERL) $(ERLFLAGS) -eval "escript:create(\"joxa\", [shebang, {emu_args, []}, {archive, \"./joxa.ez\"}])" -s init stop
+	chmod 777 $(ESCRIPT_TMP)/joxa
+	mv $(ESCRIPT_TMP)/joxa $(ESCRIPT_DIR)/
+	rm -rf $(ESCRIPT_TMP)
+
+
+escript: build bare-escript
 
 test_bootstrap: $(BEAMDIR)/joxa/compiler.beam $(TMPDIR)/bootstrap_test.jxa
 	sed -i 's/joxa\.compiler/bootstrap_test/g' $(TMPDIR)/bootstrap_test.jxa
@@ -132,10 +178,7 @@ pre_bootstrap: test_bootstrap
 	sed  '/<<<<REPLACE-THIS-WITH-AST>>>>/r $(BEAMDIR)/joxa/compiler.ast' $(PRIVDIR)/jxa_bootstrap.tmpl \
 	| sed '/<<<<REPLACE-THIS-WITH-AST>>>>/d' > $(SRCDIR)/jxa_bootstrap.erl
 
-bootstrap: clean build pre_bootstrap $(BEAMS)
-	$(LOCAL_SINAN) cucumber; \
-	$(LOCAL_SINAN) eunit; \
-	$(LOCAL_SINAN) proper
+bootstrap: clean build pre_bootstrap $(SRCBEAMS) $(TESTBEAMS) proper cucumber eunit
 
 ##
 ## Debian packaging support for joxa
@@ -144,21 +187,7 @@ bootstrap: clean build pre_bootstrap $(BEAMS)
 $(TARBALL):
 	git archive --format=tar --prefix=joxa/ HEAD | gzip > $(TARBALL)
 
-internal-build-deb:
-	sinan build
-
-bootstrap-deb: internal-build-deb pre_bootstrap $(BEAMS)
-	sinan cucumber; \
-	sinan eunit; \
-	sinan proper
-
-escript-deb: bootstrap-deb
-	sinan escript
-
-testall-deb:
-	sinan cucumber; \
-	sinan eunit; \
-	sinan proper
+escript-deb: $(BEAMDIR)/joxa/compiler.beam $(SRCBEAMS) $(TESTBEAMS)  bare-escript
 
 install-deb:
 	mkdir -p $(INSTALL_TARGET)
