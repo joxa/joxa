@@ -28,11 +28,11 @@ given([a,module,that,has,a,require,'and',use], _State, _) ->
     Result = joxa.compiler:info(Source, []),
     {ok, Result}.
 
-then([context,is,produced], Deps, _) ->
+then([context,is,produced], State = {_, Deps}, _) ->
     ?assertMatch(true, erlang:is_list(Deps)),
-    {ok, Deps};
+    {ok, State};
 then([context,contains,the,required,information], Deps, _) ->
-    ?assertMatch([erlang,jxat_module_info], Deps).
+    ?assertMatch({'jxat-case-test',[erlang,jxat_module_info]}, Deps).
 
 
 
