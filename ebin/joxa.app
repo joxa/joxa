@@ -1,6 +1,6 @@
 {application, joxa,
  [{description, "Implementation for the Joxa language"},
-  {vsn, "0.0.4a"},
+  {vsn, "0.0.5a"},
   {modules, [joxa,
              jxa_bootstrap,
              jxa_utils,
