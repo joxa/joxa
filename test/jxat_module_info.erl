@@ -28,12 +28,11 @@ given([a,module,that,has,a,require,'and',use], _State, _) ->
     Result = joxa.compiler:info(Source, []),
     {ok, Result}.
 
-then([context,is,produced], Ctx, _) ->
-    ?assertMatch(context, element(1, Ctx)),
-    {ok, Ctx};
-then([context,contains,the,required,information], Ctx, _) ->
-    Req = joxa.compiler:'get-context'(requires, Ctx),
-    ?assertMatch([erlang,jxat_module_info], ec_dictionary:keys(Req)).
+then([context,is,produced], Deps, _) ->
+    ?assertMatch(true, erlang:is_list(Deps)),
+    {ok, Deps};
+then([context,contains,the,required,information], Deps, _) ->
+    ?assertMatch([erlang,jxat_module_info], Deps).
 
 
 
