@@ -25,8 +25,9 @@ LOCAL_DEPS=$(TMPDIR)/deps.tar.gz
 INSTALL_TARGET=$(DESTDIR)/usr/lib/erlang/lib/joxa-$(VSN)
 TARBALL=../joxa_$(VSN).orig.tar.gz
 
-ERLFLAGS=-noshell -pa $(APPDIR)/ebin -pa $(TMPDIR)/*/ebin
-ERLCFLAGS= -pa $(APPDIR)/ebin
+EBIN_DIRS=$(wildcard $(LIBDIR)/*/ebin)
+ERLFLAGS=-noshell $(EBIN_DIRS:%= -pa %)
+ERLCFLAGS=$(EBIN_DIRS:%= -pa %)
 
 COMP= $(ERL) $(ERLFLAGS) -s 'joxa.compiler' main \
       -extra
