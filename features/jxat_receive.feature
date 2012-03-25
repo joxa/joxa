@@ -1,5 +1,5 @@
 Feature: Joxa should the receive clause
-  In order to allow a developer write code that receves messages
+  In order to allow a developer write code that receives messages
   As an Joxa Developer
   I want to Joxa to be able to receive messages
 
