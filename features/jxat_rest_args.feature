@@ -1,7 +1,9 @@
-Feature: Joxa should support variable arguments
-  In order to allow a developer have varargs
-  As an Joxa Developer
-  I want to Joxa to be able to make use of var args
+Feature: &rest Args
+  In order to allow a developer have &rest args
+  As a Joxa Developer
+  I want to write a function that has &rest args,
+   write a function that calls that function with variable arguments
+   and have the callee recieve the 'list' of arguments as expected
 
   Scenario: Support varargs in joxa
     Given a module that has rest arguments

@@ -1,7 +1,9 @@
-Feature: Joxa should support predicate operations
-  In order to allow a developer reasonable predicates aside from case
-  As an Joxa Developer
-  I want to Joxa to support if, when, and unless
+Feature: Conditionals
+  In order to allow more expressive conditional syntax
+  As a Joxa Developer
+  I want to write a function that has an if, a when, and an 'unless'
+  And have that function correctly execute based on the conditional
+    defined
 
   Scenario: Support predicate operations
     Given a module that has a predicates

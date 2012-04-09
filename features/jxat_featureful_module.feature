@@ -1,8 +1,9 @@
-Feature: Joxa should be able to compile a module with use,require and attr clauses
-  In order to allow a developer to compile a featureful module
-  As an Joxa Developer
+Feature: Module 'Visibility' Management
+  In order to allow a developer to build a module
+    that correctly manages internal visibilty
+  As a Joxa Developer
   I want to Joxa to be able to compile a form consisting of a single
-  module with various clauses
+  module that uses at least one 'use', one 'require' and one 'attr' clause
 
   Scenario: Allow a bare module
     Given a featureful module

@@ -1,7 +1,8 @@
-Feature: Joxa should be able to build a module that does some minimal thing
-  In order to allow a developer to build a module that does anything at all
-  As an Joxa Developer
-  I want to Joxa to be able to a function that calls another function
+Feature: Function Calling
+  In order to allow a developer to build a module
+    that allows one function to call another
+  As a Joxa Developer
+  I want to write a function that calls another function
 
   Scenario: Build a hello world module
     Given a module that has a function that calls io:format on an argument

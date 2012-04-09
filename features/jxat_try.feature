@@ -1,7 +1,8 @@
-Feature: Joxa builds supports normal 'try' expressions
-  In order to allow a developer to handle exceptions easily
-  As an Joxa Developer
-  I want to Joxa to support something like more normal trys
+Feature: Try exception handling expression
+  In order to allow a developer to handle exceptions
+  As a Joxa Developer
+  I want to support to throw an exception that is
+    successfully caught with a try expression
 
   Scenario: Build a try expression
     Given a module that has a function that contains 'try'

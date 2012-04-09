@@ -1,7 +1,9 @@
-Feature: Joxa should support macros
+Feature: Macro Support
   In order to allow a developer make use of semantic macros
-  As an Joxa Developer
-  I want to Joxa to be able to compile and use macros
+  As a Joxa Developer
+  I want to create a Macro and a function that calls that macro and
+    have the function be correctly built and run using the contents
+    generated from the macro
 
   Scenario: Support macros in joxa with defmacro
     Given a module that contains macros

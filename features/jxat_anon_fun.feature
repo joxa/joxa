@@ -1,7 +1,8 @@
 Feature: Joxa should support anonymous functions
   In order to allow a developer to do functional composition
-  As an Joxa Developer
-  I want to Joxa to be able to compile anonymous functions
+  As a Joxa Developer
+  I want to be write a function that declares and uses an
+   unnamed anonymous function
 
   Scenario: Support anonymous functions
     Given a module that has an anonymous function

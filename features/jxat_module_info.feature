@@ -1,7 +1,8 @@
-Feature: Joxa should support gathering information from a module without compilation
-  In order to allow a developer get information from a module
-  As an Joxa Developer
-  I want to Joxa to be able to parse a module and return context without compiling
+Feature: Module Introspection
+  In order to allow Joxa modules to advertise thier features
+  As a Joxa Developer
+  I want to create a module, and then query that module about what
+   macros, and &rest arguments it support
 
   Scenario: Support getting context
     Given a module that has a require and use

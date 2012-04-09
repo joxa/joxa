@@ -1,8 +1,9 @@
-Feature: Joxa should support type declarations
-  In order to allow a developer to specify types
-  and allow functions to be predeclared.
-  As an Joxa Developer
-  I want to Joxa to support specifying types and type specs
+Feature: Type declarations
+  In order to be able to document and define types
+  and allow functions to be pre-declared
+  As a Joxa Developer
+  I want to specify a type in a function and have the compiler
+   correctly compile the code into a form usable by ERTS
 
   Scenario: Support type specs
     Given a module that declares types
