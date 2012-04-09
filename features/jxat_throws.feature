@@ -1,8 +1,9 @@
-Feature: Joxa should support exceptions
-  In order to allow a developer to use exceptions
-  And interact with normal erlang systems
-  As an Joxa Developer
-  I want to Joxa to support catching exceptions
+Feature: Throwing Exceptions
+  In order to allow a developer to raise exceptions for exceptional conditions
+  And interact with normal exception throwing of erlang systems
+  As a Joxa Developer
+  I want to throw an exception that successfully propogates
+    up the stack to the test handling code
 
   Scenario: Support exceptions
     Given a module that catches an exception

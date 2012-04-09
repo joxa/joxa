@@ -1,7 +1,7 @@
-Feature: Joxa should support complex pattern matching in case clauses
-  In order to allow a developer to do reasonable development in Joxa
-  As an Joxa Developer
-  I want to Joxa to be able to compile pattern matching in case clauses
+Feature: Complex pattern matching in case clauses
+  In order to allow a developer to make use of Erlang style pattern matching
+  As a Joxa Developer
+  I want to write a function that includes a case statement that destructures a tuple
 
   Scenario: Support pattern matching with case
     Given a module that has a case statement

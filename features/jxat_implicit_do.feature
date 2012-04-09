@@ -1,7 +1,9 @@
-Feature: Joxa should support mulitple expressions in the body of let, defn and case
-  In order to allow a developer to do side effect code easily
-  As an Joxa Developer
-  I want to Joxa to be able have mulitple expressions in bodies without having a do
+Feature: Multiple expressions in the body of let, defn and case (implicit 'do')
+  In order to allow a developer to more succinctly write side effect
+    using code easily
+  As a Joxa Developer
+  I want to write a function that has multiple expressions in the body of
+     a let, defn or case statement.
 
   Scenario: Support implicit do
     Given a module that has an anonymous function
