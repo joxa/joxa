@@ -141,16 +141,22 @@ test: proper eunit cucumber
 
 proper:
 	for f in $(notdir $(basename $(TESTBEAMS))); do	\
+	  set -e; \
+	  echo Testing $$f;  \
 	  $(ERL) $(ERLFLAGS) -eval "proper:module($$f)" -s init stop; \
 	done
 
 eunit:
 	for f in $(notdir $(basename $(TESTBEAMS))); do	\
+	  set -e; \
+	  echo Testing $$f;  \
 	  $(ERL) $(ERLFLAGS) -eval "eunit:test($$f)" -s init stop; \
 	done
 
 cucumber:
 	for f in $(FEATURES) ; do	\
+		set -e; \
+		echo Testing $$f;  \
 		$(ERL) $(ERLFLAGS) -eval "cucumberl:run(\"$$f\")" -s init stop; \
 	done
 
