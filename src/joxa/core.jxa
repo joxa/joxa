@@ -52,19 +52,19 @@
      (:false
       ~false-body)))
 
-(defmacro+ when (expression true-body)
+(defmacro+ when (expression &rest true-body)
   `(case ~expression
      (:true
-      ~true-body)
+      ~@true-body)
      (:false
       :ok)))
 
-(defmacro+ unless (expression false-body)
+(defmacro+ unless (expression &rest false-body)
   `(case ~expression
      (:true
       :ok)
      (:false
-      ~false-body)))
+      ~@false-body)))
 
 ;; This is really just a convienience so users don't have to require
 ;; both joxa.compiler and core.
