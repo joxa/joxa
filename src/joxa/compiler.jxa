@@ -3769,7 +3769,7 @@
                        (cerl/ann_make_data annots
                                            {:atomic uses} []))))
 
-(defn make-joxa-info-terminator-1 (ctx)
+(defn make-joxa-info-terminator (ctx)
   (let (annots [:compiler_generated]
         var (gensym))
     (cerl/ann_c_clause
@@ -3789,7 +3789,7 @@
                  (make-joxa-info-macro-1 ctx)
                  (make-joxa-info-require-1 ctx)
                  (make-joxa-info-use-1 ctx)
-                 (make-joxa-info-terminator-1 ctx)]
+                 (make-joxa-info-terminator ctx)]
         detail-var (gensym)
         var-name (cerl/c_var detail-var))
     (add-exported-def-ctx (new-path) ctx
@@ -3842,7 +3842,8 @@
                       [(cerl/ann_c_clause annots
                                          [catch-all-var]
                                          (cerl/ann_c_atom annots :true)
-                                         (cerl/ann_c_atom annots :false))]))))
+                                         (cerl/ann_c_atom annots :false))
+                       (make-joxa-info-terminator ctx)]))))
 
 (defn make-joxa-info-macro-2 (fun-var ctx)
   (let (annots [:compiler_generated]
@@ -3861,7 +3862,8 @@
                       [(cerl/ann_c_clause annots
                                           [catch-all-var]
                                           (cerl/ann_c_atom annots :true)
-                                          (cerl/ann_c_atom annots :false))]))))
+                                          (cerl/ann_c_atom annots :false))
+                       (make-joxa-info-terminator ctx)]))))
 (defn make-joxa-info-2 (ctx)
   (let (annots [:compiler_generated]
         type-var (cerl/c_var (gensym))
@@ -3875,7 +3877,8 @@
                                         (cerl/ann_c_atom annots :true)
                                         (make-joxa-info-macro-2  fun-id-var ctx))
 
-        clauses [rest-clause macro-clause])
+
+        clauses [rest-clause macro-clause (make-joxa-info-terminator ctx)])
 
     (add-exported-def-ctx (new-path) ctx
                           [:compiler_generated] :--joxa-info
@@ -4474,7 +4477,7 @@
   (case ctx
     (_ (when (erlang/is_tuple ctx))
        (let (errors (get-context :errors ctx)
-                    warnings (get-context :warnings ctx))
+             warnings (get-context :warnings ctx))
          (erlang/or
           (erlang/> (erlang/length errors) 0)
           (erlang/> (erlang/length warnings) 0))))
