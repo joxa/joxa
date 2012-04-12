@@ -110,6 +110,17 @@
        (_
         (erlang/raise type body (erlang/get_stacktrace)))))))
 
+(defn get-joxa-info (type module)
+  (__try
+   (let (info-fun (erlang/make_fun module :--joxa-info 1))
+     (info-fun type))
+   (catch (type body)
+     (case {type body}
+       ({:error :undef}
+        :false)
+       (_
+        (erlang/raise type body (erlang/get_stacktrace)))))))
+
 ;; The Compile Context
 ;; -------------------
 ;;
@@ -2309,6 +2320,19 @@
 (defn call-macro (module function args)
   (erlang/apply module function args))
 
+;; We auto require anything required by the module exporting the
+;; macro. The reduces by quite a bit the confusion involved in using
+;; macros
+(defn auto-require (ctx module)
+  (case (get-joxa-info :requires module)
+    (:false :ok)
+    (external-requires
+     (lists/foreach (fn (mod-info)
+                        (case mod-info
+                          ({mod-name _}
+                           (add-require-ctx ctx mod-name))))
+                    external-requires))))
+
 (defn+ make-call (path0 ctx val args macro-only?)
   (let (annots (annots-from-context [] path0 ctx))
     (let (possible-arity (erlang/length args)
@@ -2323,10 +2347,12 @@
                        (call-macro (module-name-ctx ctx) function
                                               (runtime-args-to-arity args 1 arity []))))
            ({:remote :not-rest :macro {module function arity}}
+            (auto-require ctx module)
             (make-expr path0 ctx
                        (call-macro  module function
                                               args)))
            ({:remote :rest :macro {module function arity}}
+            (auto-require ctx module)
             (make-expr path0 ctx
                        (call-macro module function
                                    (runtime-args-to-arity args 1 arity []))))
