@@ -2409,6 +2409,49 @@
                     (_
                      (add-error-r-nil-ctx ctx path0 {:invalid-reference {val possible-arity}})))))))))))
 
+(defn make-macroexpand-1 (path0 ctx val args)
+  (let (annots (annots-from-context [] path0 ctx)
+        possible-arity (erlang/length args)
+        path1 (traverse-path path0)
+        call-annots (annots-from-context [] path1 ctx)
+        process-args (fn (args)
+                         (lists/map
+                          (fn (arg)
+                              (cerl/ann_make_data annots {:atomic arg} []))
+                          args)))
+    (case (resolve-reference-ctx path0 ctx val possible-arity)
+      ({:apply :not-rest :macro {function arity}}
+       (cerl/ann_c_apply annots
+                         (cerl/ann_c_fname call-annots
+                                           function
+                                           arity)
+                         (process-args args)))
+      ({:apply :rest :macro {function arity}}
+       (cerl/ann_c_apply annots
+                         (cerl/ann_c_fname call-annots
+                                           function
+                                           arity)
+                         (process-args
+                          (runtime-args-to-arity args 1 arity []))))
+      ({:remote :not-rest :macro {module function arity}}
+       (cerl/ann_c_call annots
+                        (cerl/ann_c_atom call-annots
+                                         module)
+                        (cerl/ann_c_atom call-annots
+                                         function)
+                        (process-args args)))
+      ({:remote :rest :macro {module function arity}}
+       (cerl/ann_c_call annots
+                        (cerl/ann_c_atom call-annots
+                                         module)
+                        (cerl/ann_c_atom call-annots
+                                         function)
+
+                        (process-args (runtime-args-to-arity args 1 arity []))))
+      (_
+       (add-error-r-nil-ctx ctx path1 {:not-a-macro
+                                       {val possible-arity}})))))
+
 (defn make-try (path0 ctx form)
   (let (annots (annots-from-context [] path0 ctx))
     (case form
@@ -3204,6 +3247,8 @@
        (make-list (incr-path path0) ctx args))
       ((:tuple . args)
        (make-tuple-expr (incr-path path0) ctx args))
+      ([:macroexpand-1 (val . args)]
+       (make-macroexpand-1 (incr-path path0) ctx val args))
       ((:__try . _)
        (make-try path0 ctx form))
       ((:fn . fn-body)
