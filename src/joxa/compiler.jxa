@@ -2961,13 +2961,15 @@
         annots (:compiler_generated . (annots-from-context [] path0 ctx))
         var (gensym))
     {actual-clause
-     [(cerl/ann_c_clause annots
-                         [(cerl/ann_c_var annots var)]
-                              (cerl/ann_c_primop annots
-                                                 (cerl/ann_c_atom annots :match_fail)
-                                                 [(cerl/ann_c_tuple annots
-                                                                    [(cerl/ann_c_atom annots :case_clause)
-                                                                     (cerl/ann_c_var annots var)])]))]}))
+     [(cerl/ann_c_clause
+       annots
+       [(cerl/ann_c_var annots var)]
+       (cerl/ann_c_atom annots :true)
+       (cerl/ann_c_primop annots
+                          (cerl/ann_c_atom annots :match_fail)
+                          [(cerl/ann_c_tuple
+                            annots [(cerl/ann_c_atom annots :case_clause)
+                                    (cerl/ann_c_var annots var)])]))]}))
 
 (defn make-pattern (path0 ctx form acc)
   (case form
