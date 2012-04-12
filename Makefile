@@ -67,7 +67,8 @@ TESTBEAMS = $(BEAMDIR)/jxat_anon_fun.beam  \
 	$(BEAMDIR)/jxat_receive.beam   \
 	$(BEAMDIR)/jxat_do_test.beam \
 	$(BEAMDIR)/jxat_macros.beam   \
-	$(BEAMDIR)/jxat_records.beam
+	$(BEAMDIR)/jxat_records.beam \
+	$(BEAMDIR)/jxat_module_fun_line_support.beam
 
 .SUFFIXES:
 .SUFFIXES:.jxa

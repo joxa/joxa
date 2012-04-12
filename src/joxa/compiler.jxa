@@ -142,6 +142,7 @@
     (:errors (erlang/element 22 raw-ctx))
     (:result (erlang/element 23 raw-ctx))
     (:filename (erlang/element 24 raw-ctx))
+    (:function-name (erlang/element 25 raw-ctx))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ set-context (field value raw-ctx)
@@ -169,6 +170,7 @@
     (:errors (erlang/setelement 22 raw-ctx value))
     (:result (erlang/setelement 23 raw-ctx value))
     (:filename (erlang/setelement 24 raw-ctx value))
+    (:function-name (erlang/setelement 25 raw-ctx value))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ internal-new-context (key-values)
@@ -200,6 +202,7 @@
                 [] ; Errors
                 :undefined ; binary
                 "" ; Filename
+                :undefined ; function name
                 } key-values))
 
 (defn internal-add-warning (warning raw-ctx)
@@ -454,6 +457,8 @@
            {raw-ctx (get-context :annots raw-ctx)})
           (:filename
            {raw-ctx (get-context :filename raw-ctx)})
+          (:function-name
+           {raw-ctx (get-context :function-name raw-ctx)})
           (:anon-fun-index
            {raw-ctx (get-context :anon-fun-index raw-ctx)})
           (:options
@@ -536,6 +541,8 @@
      {:noreply (set-context :exports new-exports raw-ctx)})
     ({:filename filename}
      {:noreply (set-context :filename filename raw-ctx)})
+    ({:function-name name}
+     {:noreply (set-context :function-name name raw-ctx)})
     ({:module-name new-module-name}
      {:noreply (set-context :module-name new-module-name raw-ctx)})
     ({:line line-annots}
@@ -744,6 +751,12 @@
 
 (defn result-ctx (ctx result)
   (gen_server/cast ctx {:result result}))
+
+(defn function-name-ctx (ctx)
+  (gen_server/call ctx :function-name))
+
+(defn function-name-ctx (ctx name)
+  (gen_server/cast ctx {:function-name name}))
 
 (defn filename-ctx (ctx)
   (gen_server/call ctx :filename))
@@ -2852,6 +2865,14 @@
       ([:quote args]
        (let (literal (make-literal (traverse-incr-path path0) ctx args))
          {guards0 literal}))
+      ([:$module-name]
+       (cerl/ann_c_atom annots (module-name-ctx ctx)))
+      ([:$line-number]
+       (case (get-line-annots (path? path0) (annots-ctx ctx))
+         ([line-number _]
+          (cerl/ann_c_int annots line-number))))
+      ([:$function-name]
+       (cerl/ann_c_atom annots (function-name-ctx ctx)))
       ([:string str0]
        (let (literal (make-literal-string (traverse-incr-path path0) annots ctx str0))
          {guards0 literal}))
@@ -3119,6 +3140,14 @@
        (make-seq (incr-path path0) ctx args))
       ((:binary . _)
        (make-binary path0 ctx form))
+      ([:$module-name]
+       (cerl/ann_c_atom annots (module-name-ctx ctx)))
+      ([:$line-number]
+       (case (get-line-annots (path? path0) (annots-ctx ctx))
+         ([line-number _]
+          (cerl/ann_c_int annots line-number))))
+      ([:$function-name]
+       (cerl/ann_c_atom annots (function-name-ctx ctx)))
       ([arg1 :. arg2]
        (make-cons annots (traverse-path path0) (traverse-incr-path 2 path0)
                   ctx arg1 arg2))
@@ -3382,8 +3411,10 @@
                                    (_
                                     (default-type)))) args))
     (make-implicit-spec path0 ctx name spec-args return-type)
+    (function-name-ctx ctx name)
     (case (do-function-body (incr-path path0) ctx :false name args expressions)
       ({arg-list body}
+       (function-name-ctx ctx :undefined)
        {name arg-list body}))))
 
 (defn make-function (path0 ctx form)
