@@ -487,6 +487,10 @@
            {raw-ctx (get-context :line raw-ctx)})
           (:attrs
            {raw-ctx (get-context :attrs raw-ctx)})
+          (:requires
+           {raw-ctx (get-context :requires raw-ctx)})
+          (:uses
+           {raw-ctx (get-context :uses raw-ctx)})
           ({:thing-from-context actions path0 do-fun}
            (let (do-action (fn (action path1)
                                (case action
@@ -586,10 +590,11 @@
         (set-context :aliases
                      (ec_dictionary/add aliased-name module aliases)
                      raw-ctx)}))
-     ({:add-require module}
-      (let (requires (get-context :requires raw-ctx)
-             exports ((erlang/make_fun module :module_info 1) :exports))
-        {:noreply (set-context :requires (ec_dictionary/add module exports requires)
+    ({:add-require module}
+     (let (requires (get-context :requires raw-ctx)
+           exports ((erlang/make_fun module :module_info 1) :exports))
+       {:noreply (set-context :requires
+                              (ec_dictionary/add module exports requires)
                                         raw-ctx)}))
      ({:add-use alias arity target module}
       (let (use (get-context :uses raw-ctx))
@@ -791,8 +796,14 @@
 (defn+ add-require-ctx (ctx module)
   (gen_server/cast ctx {:add-require module}))
 
+(defn+ requires-ctx (ctx)
+  (gen_server/call ctx :requires))
+
 (defn+ add-use-ctx (ctx alias arity target module)
   (gen_server/cast ctx {:add-use alias arity target module}))
+
+(defn+ uses-ctx (ctx)
+  (gen_server/call ctx :uses))
 
 (defn+ add-def-ctx (path ctx annots name vars body replace)
   (gen_server/cast ctx {:add-def path annots name vars body replace}))
@@ -2298,7 +2309,7 @@
 (defn call-macro (module function args)
   (erlang/apply module function args))
 
-(defn make-call (path0 ctx val args macro-only?)
+(defn+ make-call (path0 ctx val args macro-only?)
   (let (annots (annots-from-context [] path0 ctx))
     (let (possible-arity (erlang/length args)
           path1 (traverse-path path0)
@@ -3668,10 +3679,46 @@
                        (cerl/ann_c_atom annots :true)
                        (cerl/ann_make_data annots
                                            {:atomic macros} []))))
+
+(defn make-joxa-info-require-1 (ctx)
+  (let (annots [:compiler_generated]
+        requires (ec_dictionary/to_list (requires-ctx ctx)))
+    (cerl/ann_c_clause [:compiler_generated]
+                       [(cerl/ann_c_atom annots :requires)]
+                       (cerl/ann_c_atom annots :true)
+                       (cerl/ann_make_data annots
+                                           {:atomic requires} []))))
+
+(defn make-joxa-info-use-1 (ctx)
+  (let (annots [:compiler_generated]
+        uses (ec_dictionary/to_list (uses-ctx ctx)))
+    (cerl/ann_c_clause [:compiler_generated]
+                       [(cerl/ann_c_atom annots :uses)]
+                       (cerl/ann_c_atom annots :true)
+                       (cerl/ann_make_data annots
+                                           {:atomic uses} []))))
+
+(defn make-joxa-info-terminator-1 (ctx)
+  (let (annots [:compiler_generated]
+        var (gensym))
+    (cerl/ann_c_clause
+     annots
+     [(cerl/ann_c_var annots var)]
+     (cerl/ann_c_atom annots :true)
+     (cerl/ann_c_primop annots
+                        (cerl/ann_c_atom annots :match_fail)
+                        [(cerl/ann_c_tuple
+                          annots
+                          [(cerl/ann_c_atom annots :case_clause)
+                           (cerl/ann_c_var annots var)])]))))
+
 (defn make-joxa-info-1 (ctx)
   (let (annots [:compiler_generated]
         clauses [(make-joxa-info-rest-1 ctx)
-                 (make-joxa-info-macro-1 ctx)]
+                 (make-joxa-info-macro-1 ctx)
+                 (make-joxa-info-require-1 ctx)
+                 (make-joxa-info-use-1 ctx)
+                 (make-joxa-info-terminator-1 ctx)]
         detail-var (gensym)
         var-name (cerl/c_var detail-var))
     (add-exported-def-ctx (new-path) ctx
