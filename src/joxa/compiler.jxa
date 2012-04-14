@@ -2466,11 +2466,14 @@
          (push-scope-ctx ctx)
          (add-reference-to-scope-ctx path0 ctx value -1 value-var)
          (add-reference-to-scope-ctx path0 ctx type -1 type-var)
-         (let (cerl-catch (make-expr (incr-path (traverse-incr-path 2 path0)) ctx catch-expr))
+         (let (cerl-catch (make-expr (incr-path
+                                      (traverse-incr-path 2 path0))
+                                     ctx catch-expr))
            (pop-scope-ctx ctx)
            (cerl/ann_c_try annots cerl-expr [try-var] try-var
                            [type-var value-var ignore-var]
-                           cerl-catch))))
+                           cerl-catch)
+)))
       (_
        (add-error-r-nil-ctx ctx path0 :invalid-try-expression)))))
 
