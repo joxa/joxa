@@ -36,7 +36,8 @@ SRCBEAMS= $(BEAMDIR)/joxa/compiler.beam \
 	$(BEAMDIR)/joxa/core.beam \
 	$(BEAMDIR)/joxa/shell.beam \
         $(BEAMDIR)/joxa.beam \
-	$(BEAMDIR)/joxa/records.beam
+	$(BEAMDIR)/joxa/records.beam \
+	$(BEAMDIR)/joxa/assert.beam
 
 TESTBEAMS = $(BEAMDIR)/jxat_anon_fun.beam  \
 	$(BEAMDIR)/jxat_examples.beam  \
@@ -68,7 +69,8 @@ TESTBEAMS = $(BEAMDIR)/jxat_anon_fun.beam  \
 	$(BEAMDIR)/jxat_do_test.beam \
 	$(BEAMDIR)/jxat_macros.beam   \
 	$(BEAMDIR)/jxat_records.beam \
-	$(BEAMDIR)/jxat_module_fun_line_support.beam
+	$(BEAMDIR)/jxat_module_fun_line_support.beam \
+	$(BEAMDIR)/jxat_assert.beam
 
 .SUFFIXES:
 .SUFFIXES:.jxa
@@ -140,21 +142,21 @@ clean:
 
 test: proper eunit cucumber
 
-proper:
+proper: $(SRCBEAMS) $(TESTBEAMS)
 	for f in $(notdir $(basename $(TESTBEAMS))); do	\
 	  set -e; \
 	  echo Testing $$f;  \
 	  $(ERL) $(ERLFLAGS) -eval "proper:module($$f)" -s init stop; \
 	done
 
-eunit:
+eunit: $(SRCBEAMS) $(TESTBEAMS)
 	for f in $(notdir $(basename $(TESTBEAMS))); do	\
 	  set -e; \
 	  echo Testing $$f;  \
 	  $(ERL) $(ERLFLAGS) -eval "eunit:test($$f)" -s init stop; \
 	done
 
-cucumber:
+cucumber: $(SRCBEAMS) $(TESTBEAMS)
 	for f in $(FEATURES) ; do	\
 		set -e; \
 		echo Testing $$f;  \

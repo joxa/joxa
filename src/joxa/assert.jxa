@@ -1,0 +1,155 @@
+;; Assertions for Joxa
+;; ===================
+;;
+;; Assertions form part of the design process, and in others they are
+;; used only to check assumptions at runtime. In both cases, they can
+;; be checked for validity at runtime
+;;
+;; These assertions are based directly on the assertions provided by
+;; Eunit with just a bit of Joxification
+(module joxa.assert
+        (require erlang joxa.core))
+
+;; This macro yields 'true' if the value of E matches the guarded
+;; pattern G, otherwise 'false'.
+(defmacro+ matches (g e)
+  `(case ~e
+     (~g :true)
+     (_ :false)))
+
+;; The assert macro is written the way it is so as not to cause warnings
+;; for clauses that cannot match, even if the expression is a constant.
+(defmacro+ assert (bool-expr)
+  (let (__v (joxa.core/gensym))
+    `(case ~bool-expr
+       (:true
+        :ok)
+       (~__v
+        (erlang/error {:assertion_failed
+                       [{:module ($module-name)}
+                        {:line ($line-number)}
+                        {:expression (quote ~bool-expr)}
+                        {:expected (quote :true)}
+                        {:value (case ~__v
+                                  (:false ~__v)
+                                  (_ {:not_a_boolean ~__v}))}]})))))
+
+(defmacro+ assert-match (guard expr)
+  (let (__v (joxa.core/gensym))
+    `(case ~expr
+       (~guard :ok)
+       (~__v (erlang/error {:assertMatch_failed
+                            [{:module ($module-name)}
+                             {:line ($line-number)}
+                             {:expression (quote ~expr)}
+                             {:pattern (quote ~guard)}
+                             {:value ~__v}]})))))
+
+(defmacro+ assert-not-match (guard expr)
+  (let (__v (joxa.core/gensym))
+    `(let (~__v ~expr)
+       (case ~__v
+         (~guard
+          (erlang/error {:assertNotMatch_failed
+                         [{:module ($module-name)}
+                          {:line ($line-number)}
+                          {:expression  (quote ~expr)}
+                          {:pattern (quote ~guard)}
+                          {:value ~__v}]}))
+         (_ :ok)))))
+
+;; This is a convenience macro which gives more detailed reports when
+;; the expected LHS value is not a pattern, but a computed value
+(defmacro+ assert-equal (expect expr)
+  (let (__x (joxa.core/gensym)
+        __v (joxa.core/gensym))
+    `(let (~__x ~expect)
+       (case ~expr
+         (~__x :ok)
+         (~__v
+          (erlang/error {:assertEqual_failed
+                         [{:module ($module-name)}
+                          {:line ($line-number)}
+                          {:expression (quote ~expr)}
+                          {:expected  ~__x}
+                          {:value ~__v}]}))))))
+
+;; This is the inverse case of assertEqual, for convenience.
+(defmacro+ assert-not-equal (unexpect expr)
+  (let (__x (joxa.core/gensym))
+    `(let (~__x ~unexpect)
+       (case ~expr
+         (~__x
+          (erlang/error {:assertNotEqual_failed
+                         [{:module ($module-name)}
+                          {:line ($line-number)}
+                          {:expression (quote ~expr)}
+                          {:value ~__x}]}))
+         (_ :ok)))))
+
+
+;; Note: Class and Term are patterns, and can not be used for value.
+;; Term can be a guarded pattern, but Class cannot.
+(defmacro+ assert-exception (class term expr)
+  (let (__v (joxa.core/gensym)
+        __c (joxa.core/gensym)
+        __t (joxa.core/gensym))
+    `(joxa.core/try
+      (let (~__v ~expr)
+        (erlang/error
+         {:assertException_failed
+          [{:module ($module-name)}
+           {:line ($line-number)}
+           {:expression (quote ~expr)}
+           {:pattern
+            {(quote ~class) (quote ~term)}}
+           {:unexpected_success ~__v}]}))
+      (catch
+          ({~class ~term} :ok)
+          ({~__c ~__t}
+           (erlang/error
+            {:assertException_failed
+             [{:module ($module-name)}
+              {:line ($line-number)}
+              {:expression (quote ~expr)}
+              {:pattern {(quote ~class) (quote ~term)}}
+              {:unexpected_exception
+               {~__c ~__t
+                      (erlang/get_stacktrace)}}]}))))))
+
+(defmacro+ assert-error (term expr)
+  `(joxa.assert/assert-exception :error ~term ~expr))
+
+(defmacro+ assert-exit (term expr)
+  `(joxa.assert/assert-exception :exit ~term ~expr))
+
+(defmacro+ assert-throw (term expr)
+  `(joxa.assert/assert-exception :throw ~term ~expr))
+
+;; This is the inverse case of assertException, for convenience.
+;; Note: Class and Term are patterns, and can not be used for value.
+;; Both Class and Term can be guarded patterns. Because they can be
+;; guarded expressions both class and term must be enclosed in
+;; parens. That is it shoud be (:exit) not :exit etc
+(defmacro+ assert-not-exception (class term expr)
+  (let (__c (joxa.core/gensym)
+        __t (joxa.core/gensym))
+    `(joxa.core/try
+      ~expr
+      (catch
+          ({~__c ~__t}
+           (case ~__c
+             (~@class
+              (case ~__t
+                (~@term
+                 (erlang/error {:assertNotException_failed
+                                [{:module ($module-name)}
+                                 {:line ($line-number)}
+                                 {:expression (quote ~expr)}
+                                 {:pattern
+                                  {(quote ~class) (quote ~term)}}
+                                 {:unexpected_exception,
+                                  {~__c ~__t,
+                                        (erlang/get_stacktrace)}}]}))
+                (_ :ok)))
+             (_ :ok)))))))
