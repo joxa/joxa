@@ -2640,11 +2640,11 @@
 (defn get-expr-arity (expr)
   (case (cerl/type expr)
     (:var
-     (case (cerl/fname_arity expr)
-       (:undefined
-        -1)
-       (arity (when (erlang/is_integer arity))
-              arity)))
+     (case (cerl/var_name expr)
+       ({_ arity} (when (erlang/is_integer arity))
+        arity)
+       (_
+        -1)))
     (:fun
      (cerl/fun_arity expr))
     (_ -1)))
@@ -2958,6 +2958,8 @@
       ([:quote args]
        (let (literal (make-literal (traverse-incr-path path0) ctx args))
          {guards0 literal}))
+      ([:$file-name]
+       (cerl/ann_c_string annots (filename-ctx ctx)))
       ([:$module-name]
        (cerl/ann_c_atom annots (module-name-ctx ctx)))
       ([:$line-number]
@@ -3235,6 +3237,8 @@
        (make-seq (incr-path path0) ctx args))
       ((:binary . _)
        (make-binary path0 ctx form))
+      ([:$file-name]
+       (cerl/ann_c_string annots (filename-ctx ctx)))
       ([:$module-name]
        (cerl/ann_c_atom annots (module-name-ctx ctx)))
       ([:$line-number]
