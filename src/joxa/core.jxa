@@ -110,19 +110,22 @@
 ;; him. This looks for a catch-all in the correct format. At the
 ;; moment it is not complete, but those can be added as we move
 ;; forward through time.
-(defn needs-last-try? (clauses)
-  (case clauses
-    ([({:_ :_} . _)]
-     :false)
-    ([(:_ . _)]
-     :false)
-    ([({i1 i2} . _)] (when (erlang/and (erlang/is_atom i1)
-                                       (erlang/is_atom i2)))
-     :false)
-    ([(i1 . _)] (when (erlang/is_atom i1))
-     :false)
-    (_
-     :true)))
+(defn needs-reraise? (clauses)
+  (lists/all (fn (clause)
+                 (case clause
+                   (({:_ :_} . _)
+                    :false)
+                   ((:_ . _)
+                    :false)
+                   (({i1 i2} . _)
+                    (when (erlang/and (erlang/is_atom i1)
+                                      (erlang/is_atom i2)))
+                    :false)
+                   ((i1 . _) (when (erlang/is_atom i1))
+                    :false)
+                   (_
+                    :true)))
+             clauses))
 
 (defmacro+ try (&rest body)
   (let (type (gensym)
@@ -134,7 +137,7 @@
              ~@exprs)
          (catch (~type ~err)
            (case {~type ~err}
-             ~@(if (needs-last-try? clauses)
+             ~@(if (needs-reraise? clauses)
                    (lists/append clauses
                                  [`(_
                                     (erlang/raise ~type ~err (erlang/get_stacktrace)))])
