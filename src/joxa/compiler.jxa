@@ -2166,15 +2166,20 @@
                                  (cerl/get_ann cerl-thing)))
     (cerl/set_ann cerl-thing (lists/append old-annots annots))))
 
+(defn gensym-body ()
+  (let (x (erlang/phash2 {(erlang/node) (erlang/now ) (crypto/rand_bytes 16)}))
+    (lists/map (fn (el)
+                   (io_lib/format "~.16B" [el]))
+               (erlang/binary_to_list
+                (binary/encode_unsigned x)))))
+
 (defn+ gensym ()
-  (let (x (erlang/phash2 {(erlang/node) (erlang/now ) (crypto/rand_bytes 16)})
-        bit-rep (lists/map (fn (el)
-                               (io_lib/format "~.16B" [el]))
-                           (erlang/binary_to_list
-                            (binary/encode_unsigned x))))
     (erlang/list_to_atom
-     (lists/flatten
-      (io_lib/format "GENSYM_~s" [bit-rep])))))
+     (lists/flatten (io_lib/format "#:G~s" [(gensym-body)]))))
+
+(defn+ gensym (prefix)
+    (erlang/list_to_atom
+     (lists/flatten (io_lib/format "#:|~s~s|" [prefix (gensym-body)]))))
 
 (defn is-rest-var? (var)
   (let (annots (cerl/get_ann var))
