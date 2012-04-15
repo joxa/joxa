@@ -71,6 +71,8 @@
 (defn+ gensym ()
   (joxa.compiler/gensym))
 
+(defn+ gensym (prefix)
+  (joxa.compiler/gensym prefix))
 
 ;; Try Support
 ;; -----------
