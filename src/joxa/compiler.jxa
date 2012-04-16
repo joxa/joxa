@@ -2330,7 +2330,8 @@
 ;; macros
 (defn auto-require (ctx module)
   (case (get-joxa-info :requires module)
-    (:false :ok)
+    (:false
+     :ok)
     (external-requires
      (lists/foreach (fn (mod-info)
                         (case mod-info
@@ -3012,10 +3013,12 @@
                                 (call-macro (module-name-ctx ctx) function
                                             (runtime-args-to-arity args 1 arity []))))
          ({:remote :not-rest :macro {module function arity}}
+          (auto-require ctx module)
           (make-pattern-element path0 ctx guards0
                                 (call-macro  module function
                                              args)))
          ({:remote :rest :macro {module function arity}}
+          (auto-require ctx module)
           (make-pattern-element path0 ctx guards0
                                 (call-macro module function
                                             (runtime-args-to-arity args 1 arity []))))
@@ -3585,10 +3588,12 @@
                      (call-macro (module-name-ctx ctx) function
                                  (runtime-args-to-arity args 1 arity []))))
          ({:remote :not-rest :macro {module function arity}}
+          (auto-require ctx module)
           (make-forms path0 ctx
                      (call-macro  module function
                                   args)))
          ({:remote :rest :macro {module function arity}}
+          (auto-require ctx module)
           (make-forms path0 ctx
                      (call-macro module function
                                  (runtime-args-to-arity args 1 arity []))))
