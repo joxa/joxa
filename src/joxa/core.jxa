@@ -144,3 +144,16 @@
                                  [`(_
                                     (erlang/raise ~type ~err (erlang/get_stacktrace)))])
                  clauses))))))))
+
+(defmacro+ let-match (args &rest body)
+  (let (process-arg-body
+        (fn (arg)
+            (case arg
+              ([r e]
+               `(case ~e
+                  (~r ~@body)))
+              ((r . (e . rest))
+               `(case ~e
+                  (~r ~(process-arg-body rest))))
+              (detail (erlang/error {:malformed-let-match-expression detail})))))
+    (process-arg-body args)))
