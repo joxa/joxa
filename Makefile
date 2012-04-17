@@ -37,7 +37,8 @@ SRCBEAMS= $(BEAMDIR)/joxa/compiler.beam \
 	$(BEAMDIR)/joxa/shell.beam \
         $(BEAMDIR)/joxa.beam \
 	$(BEAMDIR)/joxa/records.beam \
-	$(BEAMDIR)/joxa/assert.beam
+	$(BEAMDIR)/joxa/assert.beam \
+	$(BEAMDIR)/joxa/eunit.beam
 
 TESTBEAMS = $(BEAMDIR)/jxat_anon_fun.beam  \
 	$(BEAMDIR)/jxat_examples.beam  \
@@ -70,7 +71,9 @@ TESTBEAMS = $(BEAMDIR)/jxat_anon_fun.beam  \
 	$(BEAMDIR)/jxat_macros.beam   \
 	$(BEAMDIR)/jxat_records.beam \
 	$(BEAMDIR)/jxat_module_fun_line_support.beam \
-	$(BEAMDIR)/jxat_assert.beam
+	$(BEAMDIR)/jxat_assert.beam \
+	$(BEAMDIR)/jxat_eunit.beam \
+	$(BEAMDIR)/joxa/test-let-match.beam
 
 .SUFFIXES:
 .SUFFIXES:.jxa
@@ -125,6 +128,9 @@ $(BEAMDIR)/%.beam: $(SRCDIR)/%.erl
 $(BEAMDIR)/%.beam: $(TESTDIR)/%.erl
 	$(ERLC) $(ERLCFLAGS) -o $(BEAMDIR) $?
 
+$(BEAMDIR)/joxa/%.beam: $(TESTDIR)/joxa/%.jxa
+	$(COMP) -o $(BEAMDIR) $?
+
 build: $(LOCAL_DEPS) $(SRCBEAMS) $(TESTBEAMS)
 
 shell: build
@@ -146,14 +152,14 @@ proper: $(SRCBEAMS) $(TESTBEAMS)
 	for f in $(notdir $(basename $(TESTBEAMS))); do	\
 	  set -e; \
 	  echo Testing $$f;  \
-	  $(ERL) $(ERLFLAGS) -eval "proper:module($$f)" -s init stop; \
+	  $(ERL) $(ERLFLAGS) -eval "proper:module('$$f')" -s init stop; \
 	done
 
 eunit: $(SRCBEAMS) $(TESTBEAMS)
 	for f in $(notdir $(basename $(TESTBEAMS))); do	\
 	  set -e; \
 	  echo Testing $$f;  \
-	  $(ERL) $(ERLFLAGS) -eval "eunit:test($$f)" -s init stop; \
+	  $(ERL) $(ERLFLAGS) -eval "eunit:test('$$f')" -s init stop; \
 	done
 
 cucumber: $(SRCBEAMS) $(TESTBEAMS)
