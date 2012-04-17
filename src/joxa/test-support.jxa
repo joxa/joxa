@@ -1,0 +1,101 @@
+;; Test Support
+;; ============
+;;
+;; This module provides some functionality that helps in applying
+;; tests from a makefile. Given a path to an OTP application it will
+;; extract all of the module names from the app and attempt to run the
+;; proper and eunit tests on said modules.
+(module joxa.test-support
+        (require joxa.eunit joxa.assert joxa.lists
+                 erlang filelib string filename re proper init
+                 cucumberl)
+        (use (joxa.core :only (try/1 if/3 +/1 when/2 unless/2 !=/2))
+             (erlang :only (==/2))))
+
+(defn file-name-to-module-name (ebin-path name)
+  (let (len (erlang/length ebin-path)
+        pre-mod (case (string/substr name (+ len 2))
+                  ((\/ . rest)
+                   rest)
+                  (n
+                   n))
+        dir (case  (filename/dirname pre-mod)
+              ("." "")
+              (else else))
+        base (filename/basename pre-mod ".beam"))
+    ;; When name is not a superset of ebin-path that starts at
+    ;; position 0
+    (when (!= (string/str name ebin-path) 1)
+      (erlang/throw {:invalid-path name}))
+    (erlang/list_to_atom
+     (erlang/binary_to_list
+      (erlang/iolist_to_binary [(re/replace dir "\/" "." [:global])
+                                (if (erlang/> (erlang/length dir) 0) "." "")
+                                base])))))
+
+;; Given a path to an OTP Application find all modules in said
+;; application.
+(defn+ gather-modules-from-app (path)
+  (let (ebin-path (filename/join path "ebin"))
+    (filelib/fold_files ebin-path ".+\.beam" :true
+                        (fn (name names)
+                            ((file-name-to-module-name ebin-path name) . names))
+                        [])))
+
+(defn+ eunit-test-app (path)
+    (joxa.lists/dolist
+     (mod (gather-modules-from-app path))
+     (let (exports (erlang/get_module_info mod :exports))
+       (when (lists/member {:test 0} exports)
+         (when (== :error (joxa.eunit/test mod))
+           (init/stop 1))))))
+
+(defn+ proper-test-app (path)
+    (joxa.lists/dolist
+     (mod (gather-modules-from-app path))
+     (let (exports (erlang/get_module_info mod :exports))
+         (unless (== [] (proper/module mod))
+           (init/stop 1)))))
+
+(defn+ gather-features-from-app (path)
+  (let (feature-path (filename/join path "features"))
+    (filelib/fold_files feature-path ".+\.feature" :true
+                        (fn (name names)
+                            (name . names))
+                        [])))
+
+(defn+ cucumberl-test-app (path)
+    (joxa.lists/dolist (feature (gather-features-from-app path))
+                       (try
+                        (case (cucumberl/run feature)
+                          ({:ok, _} :ok)
+                          (_
+                           (init/stop 1)))
+                        (catch ({_ _}
+                                (init/stop 1)))))
+)
+(defn+ main (args)
+  ;; Path comes in as an atom from the command line
+  (case args
+    ([:eunit path]
+     (eunit-test-app (erlang/atom_to_list path)))
+    ([:proper path]
+     (proper-test-app (erlang/atom_to_list path)))
+    ([:cucumberl path]
+     (cucumberl-test-app (erlang/atom_to_list path)))
+    (invalid
+     (erlang/error {:invalid-args invalid}))))
+
+;;
+;; Unit tests for the module
+;;
+(defn+ filename-to-module-name_test ()
+  (let (ebin-path "/foo/bar/baz"
+        uber-path "/foo/bar/baz/namespace/module-name.beam"
+        uber-path2 "/foo/bar/baz/module-name.beam")
+    (joxa.assert/assert-equal :namespace.module-name
+                              (file-name-to-module-name ebin-path uber-path))
+    (joxa.assert/assert-equal :module-name
+                              (file-name-to-module-name ebin-path uber-path2))))
+
+(joxa.eunit/testable)

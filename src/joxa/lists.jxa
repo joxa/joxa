@@ -1,0 +1,51 @@
+;; Special operations on lists
+;; ===========================
+;;
+
+(module joxa.lists
+        (require lists joxa.core erlang)
+        (use (joxa.core :only (if/3))))
+
+(defn needs-catchall? (clause)
+  (case clause
+    (:_
+     :false)
+    (i1
+     (when (erlang/is_atom i1))
+     :false)
+    (_
+     :true)))
+
+;; Apply the body to every item in the list. The 'value' part of an
+;; expression may be a pattern. If the pattern does not match then
+;; the non-matching element is skipped
+;;
+;;    Without Guard
+;;    (dolist (x (lists/seq 0 1)) (+ x 1))
+;;
+;;    With Guard
+;;    (dolist (x (when (> x 1)) (lists/seq 0 10)) (+ x 1))
+;;
+(defmacro+ dolist (binding &rest body)
+  (case binding
+    ([val items]
+       (let (arg (joxa.core/gensym "doseq"))
+       `(lists/foreach
+         (fn (~arg)
+             (case ~arg
+               ~@(if (needs-catchall? val)
+                  [`(~val
+                     ~@body)  `(_ :ok)]
+                  [`(~val
+                     ~@body)])))  ~items)))
+    ([val guard items]
+     (let (arg (joxa.core/gensym "dolist"))
+       `(lists/foreach
+         (fn (~arg)
+             (case ~arg
+               (~val ~guard
+                     ~@body)
+               (_ :ok)))  ~items)))
+
+    (invalid
+     (erlang/error {:invalid-binding invalid }))))

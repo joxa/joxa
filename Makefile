@@ -38,7 +38,9 @@ SRCBEAMS= $(BEAMDIR)/joxa/compiler.beam \
         $(BEAMDIR)/joxa.beam \
 	$(BEAMDIR)/joxa/records.beam \
 	$(BEAMDIR)/joxa/assert.beam \
-	$(BEAMDIR)/joxa/eunit.beam
+	$(BEAMDIR)/joxa/eunit.beam \
+        $(BEAMDIR)/joxa/lists.beam \
+	$(BEAMDIR)/joxa/test-support.beam
 
 TESTBEAMS = $(BEAMDIR)/jxat_anon_fun.beam  \
 	$(BEAMDIR)/jxat_examples.beam  \
@@ -149,25 +151,14 @@ clean:
 test: proper eunit cucumber
 
 proper: $(SRCBEAMS) $(TESTBEAMS)
-	for f in $(notdir $(basename $(TESTBEAMS))); do	\
-	  set -e; \
-	  echo Testing $$f;  \
-	  $(ERL) $(ERLFLAGS) -eval "proper:module('$$f')" -s init stop; \
-	done
+	$(ERL) $(ERLFLAGS) -s 'joxa.test-support' main proper $(APPDIR) -s init stop
 
 eunit: $(SRCBEAMS) $(TESTBEAMS)
-	for f in $(notdir $(basename $(TESTBEAMS))); do	\
-	  set -e; \
-	  echo Testing $$f;  \
-	  $(ERL) $(ERLFLAGS) -eval "eunit:test('$$f')" -s init stop; \
-	done
+	$(ERL) $(ERLFLAGS) -s 'joxa.test-support' main eunit $(APPDIR) -s init stop
+
 
 cucumber: $(SRCBEAMS) $(TESTBEAMS)
-	for f in $(FEATURES) ; do	\
-		set -e; \
-		echo Testing $$f;  \
-		$(ERL) $(ERLFLAGS) -eval "cucumberl:run(\"$$f\")" -s init stop; \
-	done
+	$(ERL) $(ERLFLAGS) -s 'joxa.test-support' main cucumberl $(CURDIR) -s init stop
 
 bare-escript: $(ESCRIPT_DIR) $(ESCRIPT_TMP)
 	cp -R $(LIBDIR)/* $(ESCRIPT_TMP)
