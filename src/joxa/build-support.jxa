@@ -5,10 +5,11 @@
 ;; tests from a makefile. Given a path to an OTP application it will
 ;; extract all of the module names from the app and attempt to run the
 ;; proper and eunit tests on said modules.
-(module joxa.test-support
+(module joxa.build-support
         (require joxa.eunit joxa.assert joxa.lists
-                 erlang filelib string filename re proper init
-                 cucumberl)
+                 erlang filelib string filename re
+                 proper init io file io_lib filename
+                 cucumberl joxa.assert)
         (use (joxa.core :only (try/1 if/3 +/1 when/2 unless/2 !=/2))
              (erlang :only (==/2))))
 
@@ -83,9 +84,40 @@
      (proper-test-app (erlang/atom_to_list path)))
     ([:cucumberl path]
      (cucumberl-test-app (erlang/atom_to_list path)))
+    ([:print path]
+     (io/format "~p~n"
+                [(gather-modules-from-app
+                  (erlang/atom_to_list path))]))
     (invalid
      (erlang/error {:invalid-args invalid}))))
 
+(defn update-app-config (vsn app-name app-path input-path)
+  (let (mods (gather-modules-from-app app-path)
+        app-file-path (filename/join [app-path "ebin" app-name]))
+    (case (file/consult input-path)
+      ({:ok [{:application name  mod-info}]}
+       (io/format "writing ~s~n" [app-file-path])
+     (joxa.assert/assert-equal
+      :ok
+      (file/write_file
+       app-file-path
+       (io_lib/format "~p.~n"
+                      [{:application name
+                                     (lists/keyreplace :vsn 1
+                                                       (lists/keyreplace
+                                                        :modules 1 mod-info {:modules mods})
+                                                       {:vsn vsn})}]))))
+      (error
+       (erlang/error error)))))
+
+(defn+ update-app-config (args)
+  (case args
+    ([vsn app-name app-path input-path]
+     (update-app-config (erlang/atom_to_list vsn)
+                        (erlang/atom_to_list app-name)
+                        (erlang/atom_to_list app-path)
+                        (erlang/atom_to_list input-path)))
+    (_ (erlang/error {:invalid-arguments args}))))
 ;;
 ;; Unit tests for the module
 ;;
