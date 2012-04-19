@@ -5,11 +5,10 @@ version: 0.0.5a
 ---
 
 __Joxa is a small semantically clean, functional lisp__. It is a
-general-purpose language encouraging interactive development that
-encourages a functional programming style, and simplifies
-multithreaded programming. Joxa runs on the Erlang Virtual
+general-purpose language encouraging interactive development and a
+functional programming style. Joxa runs on the Erlang Virtual
 Machine. Like other Lisps, Joxa treats code as data and has a full
-unhygienic macro system.
+(unhygienic) macro system.
 
 Joxa (pronounced 'jocksah') isn't Erlang, though its very
 compatible. Its not Clojure though there is plenty of shared
