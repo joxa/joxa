@@ -40,7 +40,7 @@ SRCBEAMS= $(BEAMDIR)/joxa/compiler.beam \
 	$(BEAMDIR)/joxa/assert.beam \
 	$(BEAMDIR)/joxa/eunit.beam \
         $(BEAMDIR)/joxa/lists.beam \
-	$(BEAMDIR)/joxa/test-support.beam
+	$(BEAMDIR)/joxa/build-support.beam
 
 TESTBEAMS = $(BEAMDIR)/jxat_anon_fun.beam  \
 	$(BEAMDIR)/jxat_examples.beam  \
@@ -133,7 +133,12 @@ $(BEAMDIR)/%.beam: $(TESTDIR)/%.erl
 $(BEAMDIR)/joxa/%.beam: $(TESTDIR)/joxa/%.jxa
 	$(COMP) -o $(BEAMDIR) $?
 
-build: $(LOCAL_DEPS) $(SRCBEAMS) $(TESTBEAMS)
+$(BEAMDIR)/joxa.app: $(SRCDIR)/joxa.app.src
+	$(ERL) $(ERLFLAGS) -s 'joxa.build-support' 'update-app-config' \
+	"$(VSN)" "joxa.app" "$(APPDIR)" "$(SRCDIR)/joxa.app.src" -s init stop
+
+
+build: $(LOCAL_DEPS) $(SRCBEAMS) $(TESTBEAMS) $(BEAMDIR)/joxa.app
 
 shell: build
 	$(ERL) $(ERLFLAGS) -s joxa main -s init stop
@@ -151,14 +156,14 @@ clean:
 test: proper eunit cucumber
 
 proper: $(SRCBEAMS) $(TESTBEAMS)
-	$(ERL) $(ERLFLAGS) -s 'joxa.test-support' main proper $(APPDIR) -s init stop
+	$(ERL) $(ERLFLAGS) -s 'joxa.build-support' main proper $(APPDIR) -s init stop
 
 eunit: $(SRCBEAMS) $(TESTBEAMS)
-	$(ERL) $(ERLFLAGS) -s 'joxa.test-support' main eunit $(APPDIR) -s init stop
+	$(ERL) $(ERLFLAGS) -s 'joxa.build-support' main eunit $(APPDIR) -s init stop
 
 
 cucumber: $(SRCBEAMS) $(TESTBEAMS)
-	$(ERL) $(ERLFLAGS) -s 'joxa.test-support' main cucumberl $(CURDIR) -s init stop
+	$(ERL) $(ERLFLAGS) -s 'joxa.build-support' main cucumberl $(CURDIR) -s init stop
 
 bare-escript: $(ESCRIPT_DIR) $(ESCRIPT_TMP)
 	cp -R $(LIBDIR)/* $(ESCRIPT_TMP)
