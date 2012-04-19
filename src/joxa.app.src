@@ -1,0 +1,9 @@
+%% -*- mode: Erlang; fill-column: 75; comment-column: 50; -*-
+
+{application, joxa,
+ [{description, "The Joxa Language Implementation"},
+  {vsn, "0.0.0"},
+  {modules, []},
+  {applications, [kernel, stdlib, compiler, erlware_commons,
+                  edoc, syntax_tools,
+                  erlware_commons]}]}.
