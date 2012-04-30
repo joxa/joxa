@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Joxa
-version: 0.0.5a
+version: 0.0.6a
 ---
 
 __Joxa is a small semantically clean, functional lisp__. It is a
@@ -129,7 +129,7 @@ Usage is quite simple. Run joxa without arguments to bring up the
 shell.
 
     $> joxa
-    Joxa 0.0.3a
+    Joxa {{ page.version }}
 
     joxa-shell> (defn foo () :hello)
     ok
