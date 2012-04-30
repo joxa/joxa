@@ -4,6 +4,7 @@
  [{description, "The Joxa Language Implementation"},
   {vsn, "0.0.0"},
   {modules, []},
+  {registered, []},
   {applications, [kernel, stdlib, compiler, erlware_commons,
                   edoc, syntax_tools,
                   erlware_commons]}]}.
