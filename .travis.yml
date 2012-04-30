@@ -1,0 +1,9 @@
+language: erlang
+otp_release:
+       - R15B
+       - R14B04
+script: "make test"
+branches:
+        only:
+                - master
+                - next
