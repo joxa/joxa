@@ -2,7 +2,7 @@ VSN=0.0.6a
 ERL=$(shell which erl)
 ERLC=$(shell which erlc)
 
-#Project Directories (local to $(CURDIR))
+# Project Directories (local to $(CURDIR))
 
 SRCDIR=$(abspath $(CURDIR)/src)
 TESTDIR=$(abspath $(CURDIR)/test)
@@ -14,8 +14,11 @@ LIBDIR=$(JOXA_BUILD_DIR)/lib
 APPDIR=$(LIBDIR)/joxa-$(VSN)
 BEAMDIR=$(APPDIR)/ebin
 
+# Location of the support makefiles
+BUILD_SUPPORT=$(CURDIR)/build-support
 .SUFFIXES:
 .SUFFIXES:.jxa
 
-include $(CURDIR)/build-support/core-build.mkf
-include $(CURDIR)/build-support/debian.mkf
+include $(BUILD_SUPPORT)/core-build.mkf
+include $(BUILD_SUPPORT)/debian.mkf
+include $(BUILD_SUPPORT)/doc.mkf
