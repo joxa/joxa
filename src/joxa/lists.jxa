@@ -4,7 +4,7 @@
 
 (module joxa.lists
         (require lists joxa.core erlang)
-        (use (joxa.core :only (if/3))))
+        (use (joxa.core :only (if/3 !=/2))))
 
 (defn needs-catchall? (clause)
   (case clause
@@ -49,3 +49,52 @@
 
     (invalid
      (erlang/error {:invalid-binding invalid }))))
+
+(defn+ hd (l)
+  (case l
+    ((h . _)
+     h)
+    (_
+     (erlang/error {:badarg l}))))
+
+(defn+ tl (l)
+  (case l
+    ((_ . tl)
+     tl)
+    (_
+     (erlang/error {:badarg l}))))
+
+(defmacro+ foldl (binding acc-expr &rest body)
+  (if (!= 2 (erlang/length acc-expr))
+      (erlang/error {:badarg acc-expr})
+    :ok)
+  (let (acc-var (hd acc-expr)
+        acc-expr (lists/nth 2 acc-expr)
+        acc-sym (joxa.core/gensym "foldl")
+        arg (joxa.core/gensym "foldl")
+        body-gen (fn (binding1)
+                     (case binding1
+                       ([val items]
+                        {`(case ~arg
+                            ~@(if (needs-catchall? val)
+                                  [`(~val
+                                     ~@body)  `(_ ~acc-var)]
+                                [`(~val
+                                   ~@body)])) items})
+                       ([val guard items]
+                        {`(case ~arg
+                            (~val ~guard
+                                  ~@body)
+                            (_ ~acc-var)) items})
+                       (invalid
+                        (erlang/error {:invalid-binding invalid })))))
+    (case (body-gen binding)
+      ({fun-body items}
+       `(lists/foldl
+         (fn (~arg ~acc-sym)
+             (case ~acc-sym
+               ~@(if (needs-catchall? acc-var)
+                     [`(~acc-var
+                        ~fun-body)  `(_ ~acc-sym)]
+                   [`(~acc-var
+                      ~fun-body)]))) ~acc-expr ~items)))))
