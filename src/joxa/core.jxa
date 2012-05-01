@@ -16,6 +16,24 @@
 (defmacro+ != (a1 a2)
   `(erlang/:'=/=' ~a1 ~a2))
 
+(defmacro+ and (&rest args)
+  (case args
+     ([x y]
+      `(erlang/and ~x ~y))
+     ((a . b)
+      `(erlang/and ~a (joxa.core/and ~@b)))
+    (arg
+     arg)))
+
+(defmacro+ or (&rest args)
+  (case args
+     ([x y]
+      `(erlang/or ~x ~y))
+     ((a . b)
+      `(erlang/or ~a (joxa.core/and ~@b)))
+    (arg
+     arg)))
+
 (defn+ +(&rest args)
   (case args
     ([x y]
@@ -157,3 +175,6 @@
                   (~r ~(process-arg-body rest))))
               (detail (erlang/error {:malformed-let-match-expression detail})))))
     (process-arg-body args)))
+
+(defmacro+ define (name value)
+  `(defmacro ~name () ~value))
