@@ -16,6 +16,12 @@
 (defmacro+ != (a1 a2)
   `(erlang/:'=/=' ~a1 ~a2))
 
+(defmacro+ lte (a1 a2)
+  `(erlang/:'=<' ~a1 ~a2))
+
+(defmacro+ gte (a1 a2)
+  `(erlang/:'>=' ~a1 ~a2))
+
 (defmacro+ and (&rest args)
   (case args
      ([x y]
