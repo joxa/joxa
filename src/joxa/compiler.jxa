@@ -4287,16 +4287,19 @@
     (_
      acc)))
 
-(defn get-use (form acc)
+(defn get-use (ctx form acc)
   (case form
     ([]
      acc)
     (((use-module-name . clause-body) . rest)
      (when (erlang/is_atom use-module-name))
-     (get-use rest (use-module-name . acc)))
+     (get-use ctx rest (use-module-name . acc)))
     ((use-module-name . rest)
      (when (erlang/is_atom use-module-name))
-     (get-use rest (use-module-name . acc)))))
+     (get-use ctx rest (use-module-name . acc)))
+    (_
+     (add-error-ctx ctx (new-path) {:invalid-use :invalid-form form})
+     acc)))
 
 (defn internal-info (ctx input)
   (case (has-more-data-to-parse input)
@@ -4312,7 +4315,7 @@
                                                        ((:require . req-rest)
                                                         ((get-require req-rest []) . acc))
                                                        ((:use . use-rest)
-                                                        ((get-use use-rest []) . acc))
+                                                        ((get-use ctx use-rest []) . acc))
                                                        (_
                                                         acc))) [] rest))})))))
 
