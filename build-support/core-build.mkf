@@ -138,7 +138,7 @@ clean:
 	rm -rf erl_crash.dump
 	rm -rf ./usr
 
-test: proper eunit cucumber
+test: build proper eunit cucumber
 
 proper: $(SRCBEAMS) $(TESTBEAMS)
 	$(ERL) $(ERLFLAGS) -s 'joxa.build-support' main proper $(APPDIR) -s init stop
