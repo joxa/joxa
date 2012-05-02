@@ -1,0 +1,33 @@
+;;; Supervisor Behaviour Support
+;;; ============================
+;;; * author: Eric Merritt
+;;; * copyright: Erlware, LLC 2012
+(module joxa.otp.supervisor
+        (require erlang supervisor joxa.lists))
+
+(defmacro+ gen-start-link ()
+  ;; Create a default start link function for the most common
+  ;; supervisor start method
+  `(defn+ start_link ()
+     (supervisor/start_link {:local ($module-name)} ($module-name) [])))
+
+(defn+ default-init (child-list)
+  ;; Create a default supervisor spec based on a list of child
+  ;; modules.
+  {:ok {{:one_for_one 1000 3600}
+        (joxa.lists/foldl (child child-list)
+                          (acc [])
+                          ({child {child :start_link []}
+                                  :permanent 2000 :worker [child]} . acc))}})
+
+(defmacro+ gen-init (child-list)
+  ;; Create an entire default init based on a list of child modules.
+  (let (args (joxa.core/gensym "supervisor"))
+    `(defn+ init (~args)
+       (joxa.otp.supervisor/default-init ~child-list))))
+
+(defmacro+ gen-supervisor (child-list)
+  ;; Gen an entire supervisor body from the hild list
+  `(do
+       (joxa.otp.supervisor/gen-start-link)
+       (joxa.otp.supervisor/gen-init ~child-list)))

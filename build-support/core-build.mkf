@@ -23,7 +23,8 @@ SRCBEAMS= $(BEAMDIR)/joxa/compiler.beam \
 	$(BEAMDIR)/joxa/lists.beam \
 	$(BEAMDIR)/joxa/build-support.beam \
 	$(BEAMDIR)/joxa/otp.beam \
-	$(BEAMDIR)/joxa/otp/application.beam
+	$(BEAMDIR)/joxa/otp/application.beam \
+	$(BEAMDIR)/joxa/otp/supervisor.beam
 
 TESTBEAMS = $(BEAMDIR)/jxat_anon_fun.beam  \
 	$(BEAMDIR)/jxat_examples.beam  \
