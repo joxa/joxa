@@ -1,0 +1,32 @@
+;;; Application Behaviour Support
+;;; =============================
+;;; * author: Eric Merritt
+;;; * copyright: Erlware, LLC 2012
+(module joxa.otp.application
+        (require erlang joxa.otp)
+        (use (joxa.core :only (try/1 unless/2))))
+
+(defn+ start-supervisor (sup-name)
+  ;; Start a simple top level supervisor with the usual
+  ;; defaults. *NOTE* that this function either returns a pid or
+  ;; *throws* an exception with the error returned by start sup. You
+  ;; should take this into account when calling this function.
+  (let (start-sup (erlang/make_fun sup-name :start_link 0))
+    (case start-sup
+      ({:ok pid}
+       pid)
+      (err
+       (erlang/throw err)))))
+
+(defmacro+ start-function (sup-name)
+  ;; This macro defines a start function that creates the common
+  ;; 'start top level supervisor' call that exists in most
+  ;; applications.
+  (let (start-type (joxa.core/gensym "application")
+        start-args (joxa.core/gensym "application"))
+    `(defn+ start (~start-type ~start-args)
+       (try
+        {:ok (joxa.opt.application ~sup-name)}
+        (catch
+            ({:throw error}
+             error))))))

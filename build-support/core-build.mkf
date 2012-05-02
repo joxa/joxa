@@ -21,7 +21,9 @@ SRCBEAMS= $(BEAMDIR)/joxa/compiler.beam \
 	$(BEAMDIR)/joxa/assert.beam \
 	$(BEAMDIR)/joxa/eunit.beam \
 	$(BEAMDIR)/joxa/lists.beam \
-	$(BEAMDIR)/joxa/build-support.beam
+	$(BEAMDIR)/joxa/build-support.beam \
+	$(BEAMDIR)/joxa/otp.beam \
+	$(BEAMDIR)/joxa/otp/application.beam
 
 TESTBEAMS = $(BEAMDIR)/jxat_anon_fun.beam  \
 	$(BEAMDIR)/jxat_examples.beam  \
@@ -98,6 +100,9 @@ $(BEAMDIR)/joxa/compiler.beam: $(SRCDIR)/joxa/compiler.jxa $(BEAMDIR)/joxa/boots
 	-extra --bootstrap -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
 
 $(BEAMDIR)/joxa/%.beam: $(SRCDIR)/joxa/%.jxa
+	$(COMP) -o $(BEAMDIR) $?
+
+$(BEAMDIR)/joxa/otp/%.beam: $(SRCDIR)/joxa/otp/%.jxa
 	$(COMP) -o $(BEAMDIR) $?
 
 $(BEAMDIR)/%.beam: $(SRCDIR)/%.jxa
