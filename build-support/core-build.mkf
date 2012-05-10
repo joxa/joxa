@@ -62,8 +62,8 @@ TESTBEAMS = $(BEAMDIR)/jxat_anon_fun.beam  \
 	$(BEAMDIR)/joxa/test-let-match.beam
 
 .PHONY:all test_bootstrap pre_bootstrap bootstrap clean \
-	test build proper eunit cucumber shell bare-escript \
-	install-deb build-deb publish-ppa escript-deb
+	test build get-deps proper eunit \
+	cucumber shell bare-escript
 
 FEATURES=./features/*.feature
 
@@ -123,7 +123,9 @@ $(BEAMDIR)/joxa.app: $(SRCDIR)/joxa.app.src
 	"$(VSN)" "joxa.app" "$(APPDIR)" "$(SRCDIR)/joxa.app.src" -s init stop
 
 
-build: $(LOCAL_DEPS) $(SRCBEAMS) $(TESTBEAMS) $(BEAMDIR)/joxa.app
+build: $(SRCBEAMS) $(TESTBEAMS) $(BEAMDIR)/joxa.app
+
+get-deps: $(LOCALDEPS)
 
 shell: build
 	$(ERL) $(ERLFLAGS) -s joxa main -s init stop
