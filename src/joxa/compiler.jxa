@@ -2167,7 +2167,7 @@
     (cerl/set_ann cerl-thing (lists/append old-annots annots))))
 
 (defn gensym-body ()
-  (let (x (erlang/phash2 {(erlang/node) (erlang/now ) (crypto/rand_bytes 16)}))
+  (let (x (erlang/phash2 {(erlang/node) (erlang/now) (crypto/rand_bytes 16)}))
     (lists/map (fn (el)
                    (io_lib/format "~.16B" [el]))
                (erlang/binary_to_list
