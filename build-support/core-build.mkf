@@ -125,7 +125,7 @@ $(BEAMDIR)/joxa.app: $(SRCDIR)/joxa.app.src
 
 build: $(SRCBEAMS) $(TESTBEAMS) $(BEAMDIR)/joxa.app
 
-get-deps: $(LOCALDEPS)
+get-deps: $(LOCAL_DEPS)
 
 shell: build
 	$(ERL) $(ERLFLAGS) -s joxa main -s init stop
