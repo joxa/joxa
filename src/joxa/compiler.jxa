@@ -3677,6 +3677,17 @@
     (:false
      :ok)))
 
+(definline compile-options (ctx type)
+  (let (additional-opts (case type
+                          (:final [:inline])
+                          (_ [])))
+    (lists/flatten [(options-ctx ctx)
+                    additional-opts
+                    :from_core
+                    :binary
+                    :return_errors
+                    :return_warnings])))
+
 (defn erl-comp (ctx cerl-ast type)
   (case type
     (:final
@@ -3689,11 +3700,7 @@
            (io_lib/format "~p" [cerl-ast]))
           (_
            (case (compile/forms cerl-ast
-                                (lists/append (options-ctx ctx)
-                                              [:from_core
-                                               :binary
-                                               :return_errors
-                                               :return_warnings]))
+                                (compile-options ctx type))
              ({ok [] result []}
               result)
              ({ok errors result warnings}
