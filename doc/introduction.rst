@@ -1,17 +1,31 @@
 Introduction
 ************
 
+Joxa is a Lisp designed to support general programming with good
+declarative data description facilities. Joxa is intended to be used
+as a powerful, light-weight alternative for Erlang for any program any
+system where a language like Erlang is prefered. Joxa is implemented
+as a compiler and library, written in itself while still making
+extensive use of the Erlang libraries and infrastructure.
+
+Joxa is free software, and is provided as usual with no guarantees, as
+stated in its license. Further information is a available on the Joxa
+website, www.joxa.org.
+
+Examples
+--------
+
 The very first thing that everyone wants to see when exploring a new
 language is what it looks like. So to feed that need lets jump right
 into some examples and descriptions.
 
 
 Sieve of Eratosthenes
----------------------
+~~~~~~~~~~~~~~~~~~~~~
 
-Here we see the Sieve of Eratosthenes defined as a Joxa Module::
+Here we see the Sieve of Eratosthenes implemented as a Joxa Namespace::
 
-    (module sieve-of-eratosthenes
+    (ns sieve-of-eratosthenes
             (require lists)
             (use (joxa.core :as core :only (!=/2))
                  (erlang :only (rem/2 +/2))))
@@ -28,7 +42,7 @@ Here we see the Sieve of Eratosthenes defined as a Joxa Module::
       (sieve (lists/seq 2 v) 1))
 
 
-Now that we have seen the entire module lets start breaking it
+Now that we have seen the entire namespace lets start breaking it
 down::
 
     (ns sieve-of-eratosthenes
@@ -57,10 +71,9 @@ you to require all your namespaces.
 
 The third part is the use form. The use form allow you to import
 functions into the namespace. So you do not have to write the fully
-qualified namespace of the module. This is especially useful for
-functions and macros defined as operators. Don't go crazy with it
-though. It is a spice that should be used only where it enhances
-clarity.
+qualified name. This is especially useful for functions and macros
+defined as operators. Don't go crazy with it though. It is a spice
+that should be used only where it enhances clarity.
 
 Any number of require and use statements can appear in the namespace
 in any order.
@@ -104,9 +117,9 @@ must be defined before they are used. So the unexported ``sieve/2``
 had to be defined before the exported ``sieve/1`` function.
 
 Fibonacci
----------
+~~~~~~~~~
 
-fibo::
+Here we see the Fibonacci implemented as a Joxa Namespace::
 
     (ns fibonacci
        (use (erlang :only (>/2 -/2 +/2))))

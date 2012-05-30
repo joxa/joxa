@@ -16,15 +16,16 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
-   intro
+   introduction
    install
    quick-start
    language
-   library
-   contributing
-   style-guide
-   getting-help
-   FAQ
+   standard-library
+   style
+   appendix
+      contributing
+      getting-help
+
 
 
 Indices and tables
