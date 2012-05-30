@@ -17,6 +17,7 @@
 ;;; does ensure that only a very minimal base language is supported.
 ;;;
 (module joxa.compiler
+        (attr pragma native)
         (require init getopt file
                  lists unicode sets
                  re ets proplists filename
@@ -3556,7 +3557,7 @@
        (let (inline-annots (:inline . annots))
          (case (make-function (incr-path path0) ctx details)
            ({name arg-list body}
-            (add-def-ctx path0 ctx annots name arg-list body)))))
+            (add-def-ctx path0 ctx inline-annots name arg-list body)))))
       ((:defmacro+ . details)
        (case (make-function (incr-path path0) ctx details)
          ({name arg-list body}
@@ -3677,6 +3678,55 @@
     (:false
      :ok)))
 
+(defn get-definitions (ctx)
+  (lists/map (fn (el)
+                 (case el
+                   ({_ value}
+                    value)))
+             (definitions-ctx ctx)))
+
+(defn gather-inline-funs (ctx)
+  (let (defs (definitions-ctx ctx)
+        inlinables
+        (lists/foldl (fn (cvar acc)
+                         (case cvar
+                           ({name-arity {_ body _}}
+                            (case (lists/member :inline  (cerl/get_ann body))
+                              (:true
+                               (name-arity . acc))
+                               (:false acc)))))
+                     []
+                     defs))
+    (case inlinables
+      ([] [])
+      (_
+       {:inline inlinables}))))
+
+(definline hipe-option (ctx)
+  (let (attrs (attrs-ctx ctx))
+    (case (lists/any (fn (val)
+                         (case val
+                           ({k v}
+                            (erlang/and (erlang/== (cerl/concrete k) :pragma)
+                                        (erlang/== (cerl/concrete v) :native)))))
+                     attrs)
+      (:true
+       (case (erlang/system_info :hipe_architecture)
+         (:undefined [])
+         (_ :native)))
+      (_ []))))
+
+(definline compile-options (ctx type)
+  (let (additional-opts (case type
+                          (:final [(hipe-option ctx) :inline (gather-inline-funs ctx)])
+                          (_ [])))
+    (lists/flatten [(options-ctx ctx)
+                    additional-opts
+                    :from_core
+                    :binary
+                    :return_errors
+                    :return_warnings])))
+
 (defn erl-comp (ctx cerl-ast type)
   (case type
     (:final
@@ -3689,11 +3739,7 @@
            (io_lib/format "~p" [cerl-ast]))
           (_
            (case (compile/forms cerl-ast
-                                (lists/append (options-ctx ctx)
-                                              [:from_core
-                                               :binary
-                                               :return_errors
-                                               :return_warnings]))
+                                (compile-options ctx type))
              ({ok [] result []}
               result)
              ({ok errors result warnings}
@@ -3723,13 +3769,6 @@
                    ({fun arity annots}
                     (cerl/ann_c_fname annots fun arity))))
              (sets/to_list (exports-ctx ctx))))
-
-(defn get-definitions (ctx)
-  (lists/map (fn (el)
-                 (case el
-                   ({_ value}
-                    value)))
-             (definitions-ctx ctx)))
 
 ;; ### make-joxa-info-1 Function Set
 ;;
