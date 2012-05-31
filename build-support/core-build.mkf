@@ -59,7 +59,8 @@ TESTBEAMS = $(BEAMDIR)/jxat_anon_fun.beam  \
 	$(BEAMDIR)/jxat_module_fun_line_support.beam \
 	$(BEAMDIR)/jxat_assert.beam \
 	$(BEAMDIR)/jxat_eunit.beam \
-	$(BEAMDIR)/joxa/test-let-match.beam
+	$(BEAMDIR)/joxa/test-let-match.beam \
+	$(BEAMDIR)/joxa/test/multiple-namespaces.beam
 
 .PHONY:all test_bootstrap pre_bootstrap bootstrap clean \
 	test build get-deps proper eunit \
@@ -113,6 +114,9 @@ $(BEAMDIR)/%.beam: $(TESTDIR)/%.erl
 	$(ERLC) $(ERLCFLAGS) -o $(BEAMDIR) $?
 
 $(BEAMDIR)/joxa/%.beam: $(TESTDIR)/joxa/%.jxa
+	$(COMP) -o $(BEAMDIR) $?
+
+$(BEAMDIR)/joxa/test/%.beam: $(TESTDIR)/joxa/test/%.jxa
 	$(COMP) -o $(BEAMDIR) $?
 
 $(BEAMDIR)/joxa.app: $(SRCDIR)/joxa.app.src
@@ -173,7 +177,7 @@ pre_bootstrap: test_bootstrap
 	-extra --bootstrap -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
 ## Have the working compiler output its own core erlang ast
 	$(ERL) $(ERLFLAGS) -s joxa.compiler main \
-	-extra --bootstrap --ast -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
+	-extra --bootstrap --to_ast -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
 ## copy that ast into an erl file for useful later building
 	sed -i "s/'joxa\.compiler'/Name/g" $(BEAMDIR)/joxa/compiler.ast
 	sed  '/<<<<REPLACE-THIS-WITH-AST>>>>/r $(BEAMDIR)/joxa/compiler.ast' $(PRIVDIR)/jxa_bootstrap.tmpl \

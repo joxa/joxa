@@ -155,6 +155,7 @@
     (:result (erlang/element 23 raw-ctx))
     (:filename (erlang/element 24 raw-ctx))
     (:function-name (erlang/element 25 raw-ctx))
+    (:namespace-transition (erlang/element 26 raw-ctx))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ set-context (field value raw-ctx)
@@ -183,6 +184,7 @@
     (:result (erlang/setelement 23 raw-ctx value))
     (:filename (erlang/setelement 24 raw-ctx value))
     (:function-name (erlang/setelement 25 raw-ctx value))
+    (:namespace-transition (erlang/setelement 26 raw-ctx value))
     (_ (erlang/throw {:invalid-field, :context field}))))
 
 (defn+ internal-new-context (key-values)
@@ -215,7 +217,17 @@
                 :undefined ; binary
                 "" ; Filename
                 :undefined ; function name
+                :no-transition ; namespace-transition
                 } key-values))
+
+(defn internal-cleanup-after-transition (ctx)
+  ;; We only want to retain the file level things
+  (internal-new-context
+   [{:options (get-context :options ctx)}
+    {:warnings (get-context :warnings ctx)}
+    {:errors (get-context :errors ctx)}
+    {:filename (get-context :filename ctx)}
+    {:namespace-transition (get-context :namespace-transition ctx)}]))
 
 (defn internal-add-warning (warning raw-ctx)
   (let (warnings (get-context :warnings raw-ctx))
@@ -543,6 +555,8 @@
                          :false)
                         (_
                          :true)))))})
+          (:namespace-transition
+           {raw-ctx (get-context :namespace-transition raw-ctx)})
           (:get-raw-context
            {raw-ctx raw-ctx})
           (:result
@@ -555,6 +569,8 @@
   (case msg
     ({:exports new-exports}
      {:noreply (set-context :exports new-exports raw-ctx)})
+    ({:options options}
+     {:noreply (set-context :options options raw-ctx)})
     ({:filename filename}
      {:noreply (set-context :filename filename raw-ctx)})
     ({:function-name name}
@@ -563,6 +579,8 @@
      {:noreply (set-context :namespace-name new-namespace-name raw-ctx)})
     ({:line line-annots}
      {:noreply (set-context :line line-annots raw-ctx)})
+    ({:namespace-transition ns-trans}
+     {:noreply (set-context :namespace-transition ns-trans raw-ctx)})
     ({:annots annots}
      {:noreply (set-context :annots annots raw-ctx)})
     ({:add-warning path warning}
@@ -625,6 +643,8 @@
       (case (get-context :scopes raw-ctx)
         ((_ . scopes)
          {:noreply (set-context :scopes scopes raw-ctx)})))
+     (:cleanup-after-transition
+      {:noreply (internal-cleanup-after-transition raw-ctx)})
      ({:add-reference path name arity cerl-var}
       (let (scopes (get-context :scopes raw-ctx))
         (case scopes
@@ -709,6 +729,9 @@
 (defn options-ctx (ctx)
   (gen_server/call ctx :options))
 
+(defn options-ctx (ctx options)
+  (gen_server/cast ctx {:options options}))
+
 (defn exports-ctx (ctx)
   (gen_server/call ctx :exports))
 
@@ -780,6 +803,15 @@
 
 (defn filename-ctx (ctx filename)
   (gen_server/cast ctx {:filename filename}))
+
+(defn namespace-transition-ctx (ctx)
+  (gen_server/call ctx :namespace-transition))
+
+(defn namespace-transition-ctx (ctx namespace-transition)
+  (gen_server/cast ctx {:namespace-transition namespace-transition}))
+
+(defn cleanup-after-transition-ctx (ctx)
+  (gen_server/cast ctx :cleanup-after-transition))
 
 (defn warning-count-ctx (ctx)
   (gen_server/call ctx :warning-count))
@@ -2067,10 +2099,27 @@
     (_
      (add-error-ctx ctx path0 :invalid-form))))
 
+(defspec do-final-comp (context) (erlang/any))
+
+(defn attempt-namespace-transition (path0 ctx namespace-name)
+  (case (namespace-name-ctx ctx)
+    ;; Nothing to do in the case where there is no namespace
+    (:undefined :ok)
+    ;; In the case there is, we need to run the transition and cleanup the context
+    (_
+     (do-final-comp ctx)
+     (let (ns-trans (namespace-transition-ctx ctx))
+       (case ns-trans
+         (:no-transition :no-transition)
+         ({transition-state transition-fun}
+          (namespace-transition-ctx ctx (transition-fun transition-state path0 ctx))))
+       (cleanup-after-transition-ctx ctx)))))
+
 (defn+ make-namespace (path0 ctx forms)
   (let (path1 (traverse-path path0))
     (case forms
       ((:ns . (namespace-name . rest))
+       (attempt-namespace-transition path0 ctx namespace-name)
        (namespace-name-ctx ctx namespace-name)
        (let (annots (annots-from-context [] path0 ctx))
          (lists/foldl
@@ -4219,11 +4268,9 @@
                    errors)))
 
 (defn should-load? (options)
-  (case (proplists/get_value :ast options)
-    (:undefined
-     (case (proplists/get_value :to-core options)
-       (:undefined :true)
-       (_ :false)))
+  (case (lists/member :to_ast options)
+    (:false
+     (erlang/not (lists/member :to_core options)))
     (_
      :false)))
 
@@ -4240,10 +4287,9 @@
       (_
        (erlang/throw {:unable-to-load filename})))))
 
-
-(defn do-final-comp (options ctx)
-  (let (result (compile-context ctx :final))
-    (report-errors-warnings ctx)
+(defn do-final-comp (ctx)
+  (let (options (options-ctx ctx)
+        result (compile-context ctx :final))
     (case result
       (:uncompilable
          :error)
@@ -4265,16 +4311,16 @@
 
 (defn convert-options (options acc)
   (case options
-    (({:to-core :true} . tail)
+    (({:to_core :true} . tail)
      (convert-options tail (:to_core . acc)))
-    (({:ast :true} . tail)
+    (({:to_ast :true} . tail)
      (convert-options tail (:to_ast . acc)))
-    (({:debug-info :true} . tail)
+    (({:debug_info :true} . tail)
      (convert-options tail (:debug_info . acc)))
     ([]
-     acc)
-    ((_ . tail)
-     (convert-options tail acc))))
+     (lists/reverse acc))
+    ((val . tail)
+     (convert-options tail (val . acc)))))
 
 (defn internal-forms (ctx input)
   (case (has-more-data-to-parse input)
@@ -4296,13 +4342,14 @@
 (defn forms (ctx binary options)
   (set-context-all-ctx ctx [{:options (convert-options options [])}])
   (internal-forms ctx binary)
-  (do-final-comp options ctx)
+  (do-final-comp ctx)
   (get-raw-context ctx))
 
 (defn+ forms (binary options)
   (case (start-context)
     ({:ok ctx}
      (let (result (forms ctx binary options))
+       (report-errors-warnings ctx)
        (stop-context ctx)
        result))))
 
@@ -4340,27 +4387,30 @@
      (add-error-ctx ctx (new-path) {:invalid-use :invalid-form form})
      acc)))
 
-(defn internal-info (ctx input)
+(defn internal-info (ctx input acc)
   (case (has-more-data-to-parse input)
     (:false
-     [])
+     (sets/to_list (sets/from_list acc)))
     (:true
      (case (parse ctx input)
        ({:error _}
         [])
-       ({(:ns . (namespace-name . rest)) _}
-        {namespace-name (lists/flatten (lists/foldl (fn (form acc)
-                                                     (case form
-                                                       ((:require . req-rest)
-                                                        ((get-require req-rest []) . acc))
-                                                       ((:use . use-rest)
-                                                        ((get-use ctx use-rest []) . acc))
-                                                       (_
-                                                        acc))) [] rest))})))))
+       ({(:ns . (namespace-name . rest)) rest-input}
+        (internal-info ctx rest-input
+                       (lists/flatten (lists/foldl (fn (form iacc)
+                                                       (case form
+                                                         ((:require . req-rest)
+                                                          ((get-require req-rest []) . iacc))
+                                                         ((:use . use-rest)
+                                                          ((get-use ctx use-rest []) . iacc))
+                                                         (_
+                                                          iacc))) acc rest))))
+       ({_ rest-input}
+        (internal-info ctx rest-input acc))))))
 
 (defn info (ctx binary options)
   (set-context-all-ctx ctx [{:options (convert-options options [])}])
-  (internal-info ctx binary))
+  (internal-info ctx binary []))
 
 (defn+ info (input options)
   (case input
@@ -4441,7 +4491,7 @@
 (defn internal-comp-interactive (ctx interactive-name input result0)
   (case (has-more-data-to-parse input)
     (:false
-     (do-final-comp [] ctx)
+     (do-final-comp ctx)
      result0)
     (:true
      (case (parse ctx input)
@@ -4469,7 +4519,7 @@
     (stop-context ctx)
     raw-ctx))
 
-;; Bootsrap Compilation
+;; Bootstrap Compilation
 ;; --------------------
 ;;
 ;; Infrastructure for non-iterative compilation. This really should
@@ -4506,10 +4556,10 @@
 (defn+ bootstrap-comp (ctx binary options)
   (case (intermediate-bootstrap-comp ctx binary options)
     (:uncompilable
-     (do-final-comp options ctx)
+     (do-final-comp ctx)
      :error)
     (_
-     (do-final-comp options ctx)
+     (do-final-comp ctx)
      (get-raw-context ctx))))
 
 ;; Compilation Dispatch Framework
@@ -4518,9 +4568,9 @@
 ;; This provides a means by which the correct compilation namespace and
 ;; result 'saving' namespace might be found.
 (defn get-extension (options)
-  (case (proplists/get_value :ast options :false)
+  (case (lists/member :to_ast options)
     (:false
-     (case (proplists/get_value :to-core options :false)
+     (case (lists/member :to_core options)
        (:false
         ".beam")
        (:true
@@ -4553,29 +4603,38 @@
     (_
      :true)))
 
+(defn do-file-transition (_trans-state path ctx)
+  (let (result (get-raw-context ctx))
+    (case result
+      (val (when (erlang/== (erlang/element 1 val) :context))
+           (case (has-errors? val)
+             (:false
+              (save-output (get-context :options result)
+                           (get-context :result result) result))
+             (:true
+              (report-errors-warnings ctx)
+              :ok))
+           val)
+      (_
+       :ok)))
+  {:undefined do-file-transition/3})
+
 (defn+ do-compile (filename options)
   (case (start-context)
     ({:ok ctx}
+     (namespace-transition-ctx ctx {:undefined do-file-transition/3})
      (filename-ctx ctx filename)
      (case (file/read_file filename)
        ({:ok binary}
-        (let (result
-              (case (proplists/get_value :bootstrap options :false)
-                (:true
-                 (bootstrap-comp ctx binary options))
-                (:false
-                 (forms ctx binary options))))
+        (let (result  (case (proplists/get_value :bootstrap options :false)
+                        (:true
+                         (bootstrap-comp ctx binary options))
+                        (:false
+                         (forms ctx binary options))))
+          (report-errors-warnings ctx)
+          (do-file-transition :undefined (new-path) ctx)
           (stop-context ctx)
-          (case result
-            (val (when (erlang/== (erlang/element 1 val) :context))
-                 (case (has-errors? val)
-                   (:false
-                    (save-output options (get-context :result result) result))
-                   (:true
-                    :ok))
-                 val)
-            (_
-             result))))
+          result))
        ({:error reason}
         {:error  {:file-access reason filename}})))))
 
@@ -4592,8 +4651,8 @@
                 '()))
 
 (defn+ option-spec-list ()
-  [{:ast \a "ast" {:boolean :false} "compile to core ast"}
-   {:to-core \c "to-core" {:boolean :false} "compile to core erlang"}
+  [{:to_ast \a "to_ast" {:boolean :false} "compile to core ast"}
+   {:to_core \c "to_core" {:boolean :false} "compile to core erlang"}
    {:outdir \o "outdir" {:string "./"} "the directory to output beam files"}
    {:bootstrap \b "bootstrap" {:boolean :false}
                "Use the special limited bootstrap compiler"}])
