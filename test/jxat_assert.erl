@@ -14,7 +14,7 @@
 %%% Tests
 %%%===================================================================
 matches_test() ->
-    Source = <<"(module jxat-matches-test
+    Source = <<"(ns jxat-matches-test
                      (require joxa.assert))
 
                 (defn+ matches ()
@@ -28,7 +28,7 @@ matches_test() ->
     ?assertMatch(false, 'jxat-matches-test':'does-not-match'()).
 
 assert_test() ->
-    Source = <<"(module jxat-assert-test
+    Source = <<"(ns jxat-assert-test
                      (require joxa.assert))
 
                 (defn+ assert-pass()
@@ -47,7 +47,7 @@ assert_test() ->
                  'jxat-assert-test':'assert-fail'()).
 
 assert_match_test() ->
-    Source = <<"(module jxat-assert-match-test
+    Source = <<"(ns jxat-assert-match-test
                      (require joxa.assert))
 
                 (defn+ assert-match-pass()
@@ -68,7 +68,7 @@ assert_match_test() ->
 
 
 assert_not_match_test() ->
-    Source = <<"(module jxat-assert-not-match-test
+    Source = <<"(ns jxat-assert-not-match-test
                      (require joxa.assert))
 
                 (defn+ assert-not-match-pass()
@@ -88,7 +88,7 @@ assert_not_match_test() ->
 
 
 assert_equal_test() ->
-    Source = <<"(module jxat-assert-equal-test
+    Source = <<"(ns jxat-assert-equal-test
                      (require joxa.assert))
 
                 (defn+ assert-equal-pass()
@@ -108,7 +108,7 @@ assert_equal_test() ->
 
 
 assert_not_equal_test() ->
-    Source = <<"(module jxat-assert-not-equal-test
+    Source = <<"(ns jxat-assert-not-equal-test
                      (require joxa.assert))
 
                 (defn+ assert-not-equal-pass()
@@ -126,7 +126,7 @@ assert_not_equal_test() ->
                  'jxat-assert-not-equal-test':'assert-not-equal-fail'()).
 
 assert_exception_test() ->
-    Source = <<"(module jxat-assert-exception-test
+    Source = <<"(ns jxat-assert-exception-test
                      (require joxa.assert))
 
                 (defn+ assert-exception-pass()
@@ -151,7 +151,7 @@ assert_exception_test() ->
                  'jxat-assert-exception-test':'assert-exception-fail'()).
 
 assert_error_test() ->
-    Source = <<"(module jxat-assert-error-test
+    Source = <<"(ns jxat-assert-error-test
                      (require joxa.assert))
 
                 (defn+ assert-error-pass()
@@ -176,7 +176,7 @@ assert_error_test() ->
 
 
 assert_exit_test() ->
-    Source = <<"(module jxat-assert-exit-test
+    Source = <<"(ns jxat-assert-exit-test
                      (require joxa.assert))
 
                 (defn+ assert-exit-pass()
@@ -200,7 +200,7 @@ assert_exit_test() ->
                  'jxat-assert-exit-test':'assert-exit-fail'()).
 
 assert_throw_test() ->
-    Source = <<"(module jxat-assert-throw-test
+    Source = <<"(ns jxat-assert-throw-test
                      (require joxa.assert))
 
                 (defn+ assert-throw-pass()
@@ -224,7 +224,7 @@ assert_throw_test() ->
                  'jxat-assert-exit-test':'assert-exit-fail'()).
 
 assert_not_exception_test() ->
-    Source = <<"(module jxat-assert-not-exception-test
+    Source = <<"(ns jxat-assert-not-exception-test
                      (require joxa.assert))
 
                 (defn+ assert-not-exception-pass()

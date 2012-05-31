@@ -15,7 +15,7 @@
 %%% Tests
 %%%===================================================================
 add_sub_test() ->
-      Source = <<"(module jxat-core-add-test
+      Source = <<"(ns jxat-core-add-test
                     (require io)
                     (use (joxa.core :only (+/1 -/1))))
 

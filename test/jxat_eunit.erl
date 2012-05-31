@@ -14,7 +14,7 @@
 %%% Tests
 %%%===================================================================
 under_eunit_test() ->
-    Source = <<"(module jxat-eunit-under-eunit-test
+    Source = <<"(ns jxat-eunit-under-eunit-test
                      (require joxa.eunit))
 
                 (defn+ under-eunit-pass ()
@@ -25,7 +25,7 @@ under_eunit_test() ->
     ?assertMatch(true, 'jxat-eunit-under-eunit-test':'under-eunit-pass'()).
 
 test_test() ->
-    Source = <<"(module jxat-eunit-test-test
+    Source = <<"(ns jxat-eunit-test-test
                      (require joxa.eunit))
 
                 (defn+ test-test ()
@@ -38,7 +38,7 @@ test_test() ->
     ?assertMatch(foo, Fun()).
 
 assert_test() ->
-    Source = <<"(module jxat-eunit-assert-test
+    Source = <<"(ns jxat-eunit-assert-test
                      (require joxa.eunit))
 
                 (defn+ assert-test ()
@@ -59,7 +59,7 @@ assert_test() ->
 
 
 assert_not_test() ->
-    Source = <<"(module jxat-eunit-assert-not-test
+    Source = <<"(ns jxat-eunit-assert-not-test
                      (require joxa.eunit))
 
                 (defn+ assert-not-test ()
@@ -81,7 +81,7 @@ assert_not_test() ->
 
 
 cmd_test() ->
-    Source = <<"(module jxat-eunit-cmd-test
+    Source = <<"(ns jxat-eunit-cmd-test
                      (require joxa.eunit))
 
                 (defn+ cmd-test ()
@@ -92,7 +92,7 @@ cmd_test() ->
     ?assertMatch({0, [$E, $s, $h, $e, $l, $l |_]}, 'jxat-eunit-cmd-test':'cmd-test'()).
 
 cmd_status_test() ->
-    Source = <<"(module jxat-eunit-cmd-status-test
+    Source = <<"(ns jxat-eunit-cmd-status-test
                      (require joxa.eunit))
 
                 (defn+ cmd-status-test ()
@@ -115,7 +115,7 @@ cmd_status_test() ->
 
 
 assert_cmd_status_test() ->
-    Source = <<"(module jxat-eunit-assert-cmd-status-test
+    Source = <<"(ns jxat-eunit-assert-cmd-status-test
                      (require joxa.eunit))
 
                 (defn+ assert-cmd-status-test ()
@@ -136,7 +136,7 @@ assert_cmd_status_test() ->
                   'jxat-eunit-assert-cmd-status-test':'assert-cmd-status-test2'()).
 
 assert_cmd_output_test() ->
-    Source = <<"(module jxat-eunit-assert-cmd-output-test
+    Source = <<"(ns jxat-eunit-assert-cmd-output-test
                      (require joxa.eunit))
 
                 (defn+ assert-cmd-output-test ()
@@ -158,7 +158,7 @@ assert_cmd_output_test() ->
                  'jxat-eunit-assert-cmd-output-test':'assert-cmd-output-test2'()).
 
 debug_msg_test() ->
-    Source = <<"(module jxat-eunit-debug-msg-test
+    Source = <<"(ns jxat-eunit-debug-msg-test
                      (require joxa.eunit))
 
                 (defn+ debug-msg-test ()

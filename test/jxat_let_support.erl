@@ -5,7 +5,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,has,a,function,that,contains,'\'let\''], _State, _) ->
-   Source = <<"(module jxat-let-support-test
+   Source = <<"(ns jxat-let-support-test
                     (require erlang)
                     (use (io :only (format/2) :rename ((format/2 print)))))
 

@@ -4,7 +4,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,has,a,'receive',clause], _State, _) ->
-   Source = <<"(module jxat-receive-test
+   Source = <<"(ns jxat-receive-test
                     (require erlang))
 
                 (defn+ receive-test1 ()

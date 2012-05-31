@@ -9,9 +9,11 @@
 ;;;
 ;;;
 ;;; This module provides a core set of functions to joxa users.
-
-(module joxa.core
-        (require erlang lists joxa.compiler io))
+(ns joxa.core
+    (require erlang
+             lists
+             joxa.compiler
+             io))
 
 (defmacro+ != (a1 a2)
   `(erlang/:'=/=' ~a1 ~a2))

@@ -4,7 +4,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,has,rest,arguments], _State, _) ->
-     Source1 = <<"(module jxat-rest-test1
+     Source1 = <<"(ns jxat-rest-test1
                     (require erlang io))
 
                   (defn+ do-test0 (one &rest two)
@@ -23,7 +23,7 @@ given([a,module,that,has,rest,arguments], _State, _) ->
                   (do-t do-test0/3))
                  ">>,
 
-     Source2 = <<"(module jxat-rest-test2
+     Source2 = <<"(ns jxat-rest-test2
                     (require erlang io jxat-rest-test1)
                     (use (jxat-rest-test1 :only (do-test0/2) :rename ((do-test0/2 rest-test)))))
 

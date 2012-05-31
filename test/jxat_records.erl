@@ -5,7 +5,7 @@
 
 given([a,module,that,has,defined,records], _State, _) ->
     Source1 = <<"
-(module jxat-records-def-test
+(ns jxat-records-def-test
           (require joxa.records
                    erlang lists))
 
@@ -16,7 +16,7 @@ given([a,module,that,has,defined,records], _State, _) ->
     {ok, Source1};
 given([another,module,uses,those,records], Source1, _) ->
     Source2 = <<"
-(module jxat-records-uses-test
+(ns jxat-records-uses-test
        (require jxat-records-def-test))
 
 (defn+ create1 ()

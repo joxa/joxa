@@ -4,7 +4,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,with,a,valid,module,but,broken,body], _State, _) ->
-  Source = <<"(module jxat-case-test
+  Source = <<"(ns jxat-case-test
                     (require jxat_module_info)
                     (use (erlang :only (==/2 phash2/1 and/2))))
 
@@ -14,7 +14,7 @@ given([a,module,that,with,a,valid,module,but,broken,body], _State, _) ->
                      (phash2 :bar))">>,
     {ok, Source};
 given([a,module,that,has,a,require,'and',use], _State, _) ->
-  Source = <<"(module jxat-case-test
+  Source = <<"(ns jxat-case-test
                     (require jxat_module_info)
                     (use (erlang :only (==/2 phash2/1 and/2))))
 

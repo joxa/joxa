@@ -15,7 +15,7 @@
 %%% Tests
 %%%===================================================================
 incremental_test() ->
-      Source = <<"(module jxat-incremental-test
+      Source = <<"(ns jxat-incremental-test
                     (require io)
                     (use (erlang :only (==/2 and/2))))
 
@@ -34,7 +34,7 @@ incremental_test() ->
 
 
 incremental_fail_test() ->
-      Source = <<"(module jxat-incremental-fail-test
+      Source = <<"(ns jxat-incremental-fail-test
                     (require io)
                     (use (erlang :only (==/2 and/2))))
 

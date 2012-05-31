@@ -5,7 +5,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,bare,module], _State, _) ->
-    Module = <<"(module my-module ; Simple module test
+    Module = <<"(ns my-module ; Simple module test
                  )">>,
     {ok, Module}.
 
@@ -25,6 +25,6 @@ then([a,beam,binary,is,produced], Ctx, _) ->
 
     {ok, Ctx};
 then([the,joxa,context,for,a,bare,module,is,correctly,formed], Ctx, _) ->
-    ?assertMatch('my-module', joxa.compiler:'get-context'('module-name', Ctx)),
+    ?assertMatch('my-module', joxa.compiler:'get-context'('namespace-name', Ctx)),
     {ok, Ctx}.
 

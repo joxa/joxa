@@ -4,7 +4,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,has,a,binary,representatino], _State, _) ->
-      Source = <<"(module jxat-binary-test
+      Source = <<"(ns jxat-binary-test
                     (use (erlang :only (==/2 and/2))))
 
                 (defn internal-test ()

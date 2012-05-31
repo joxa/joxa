@@ -4,7 +4,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,has,a,predicates], _State, _) ->
-      Source = <<"(module jxat-predicate-test
+      Source = <<"(ns jxat-predicate-test
                     (use (joxa.core :only (if/3 unless/2 when/2))))
 
                 (defn+ do-if-test (val)

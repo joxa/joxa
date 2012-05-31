@@ -8,7 +8,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 bad_arity_test() ->
-    Source = <<" (module jxat-invalid-arity-test)
+    Source = <<" (ns jxat-invalid-arity-test)
 
                   (defn rest-used-function-ctx? (name uses)
                       :not-a-reference)
@@ -28,7 +28,7 @@ bad_arity_test() ->
 
 
 bad_call_test() ->
-    Source = <<" (module jxat-invalid-arity-test1)
+    Source = <<" (ns jxat-invalid-arity-test1)
 
                 (defn+ invalid-code-test ()
                       (let (x 1)
@@ -44,7 +44,7 @@ bad_call_test() ->
 segfault_test() ->
         Source = <<"
 
-(module jxat-invalid-arity-test2 (require erlang))
+(ns jxat-invalid-arity-test2 (require erlang))
 
   (defn is-rest-var? (c)
         :ok)
@@ -82,7 +82,7 @@ segfault_test() ->
                  'jxat-invalid-arity-test2':'test-case'({ok, 'not-a-reference'})).
 
 bad_let_test() ->
-    Source = <<" (module jxat-bad-let-test)
+    Source = <<" (ns jxat-bad-let-test)
 
                   (defn+ rest-used-function-ctx? ()
                       (let (x 1)

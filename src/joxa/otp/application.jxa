@@ -2,9 +2,11 @@
 ;;; =============================
 ;;; * author: Eric Merritt
 ;;; * copyright: Erlware, LLC 2012
-(module joxa.otp.application
-        (require erlang joxa.otp)
-        (use (joxa.core :only (try/1 unless/2))))
+(ns joxa.otp.application
+    (require erlang
+             joxa.otp)
+    (use (joxa.core :only (try/1
+                           unless/2))))
 
 (defn+ gen-sup-call (sup-name)
   ;; Start a simple top level supervisor with the usual

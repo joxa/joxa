@@ -4,7 +4,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,catches,an,exception], _State, _) ->
-    Source = <<"(module jxat-throws-test
+    Source = <<"(ns jxat-throws-test
                     (use (erlang :only (throw/1 raise/3 get_stacktrace/0))))
 
                 (defn internal-test ()
@@ -47,5 +47,3 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertThrow({this,is,a,test},
                  'jxat-throws-test':'do-test2'()),
     {ok, State}.
-
-

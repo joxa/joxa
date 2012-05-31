@@ -4,7 +4,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,has,an,anonymous,function], _State, _) ->
-    Source = <<"(module jxat-anon-fun
+    Source = <<"(ns jxat-anon-fun
                     (use (erlang :only (==/2 phash2/1))))
 
                 (defn internal-test ()
