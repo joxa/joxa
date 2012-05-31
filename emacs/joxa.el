@@ -13,6 +13,8 @@
                             ("defn+" . font-lock-keyword-face)
                             ("defn" . font-lock-keyword-face)
                             ("__try" . font-lock-keyword-face)
+                            ("use" . font-lock-keyword-face)
+                            ("ns" . font-lock-keyword-face)
                             ("fn" . font-lock-keyword-face)))
 
   (define-key joxa-mode-map "{" 'paredit-open-curly)
