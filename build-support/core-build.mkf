@@ -86,9 +86,6 @@ $(LIBDIR):
 $(TMPDIR):
 	mkdir -p $(TMPDIR)
 
-$(TMPDIR)/bootstrap_test.jxa: $(TMPDIR)
-	cp $(SRCDIR)/joxa/compiler.jxa $(TMPDIR)/bootstrap_test.jxa
-
 $(BEAMDIR)/joxa:
 	mkdir -p $(BEAMDIR)/joxa
 
@@ -160,19 +157,24 @@ bare-escript: $(ESCRIPT_DIR) $(ESCRIPT_TMP)
 	mv $(ESCRIPT_TMP)/joxa $(ESCRIPT_DIR)/
 	rm -rf $(ESCRIPT_TMP)
 
-
 escript: build bare-escript
 
-test_bootstrap: $(BEAMDIR)/joxa/compiler.beam $(TMPDIR)/bootstrap_test.jxa
+$(TMPDIR)/bootstrap_test.jxa: $(TMPDIR) $(SRCDIR)/joxa/compiler.jxa
+	cp $(SRCDIR)/joxa/compiler.jxa $(TMPDIR)/bootstrap_test.jxa
+
+test_bootstrap: $(TMPDIR)/bootstrap_test.jxa
 	sed -i 's/joxa\.compiler/bootstrap_test/g' $(TMPDIR)/bootstrap_test.jxa
 	`which time` $(ERL) $(ERLFLAGS) -s joxa.compiler main \
 	 -extra --bootstrap -o $(TMPDIR) $(TMPDIR)/bootstrap_test.jxa
 
 pre_bootstrap: test_bootstrap
+## Use the working compiler to build itself
 	$(ERL) $(ERLFLAGS) -s joxa.compiler main \
 	-extra --bootstrap -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
+## Have the working compiler output its own core erlang ast
 	$(ERL) $(ERLFLAGS) -s joxa.compiler main \
 	-extra --bootstrap --ast -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
+## copy that ast into an erl file for useful later building
 	sed -i "s/'joxa\.compiler'/Name/g" $(BEAMDIR)/joxa/compiler.ast
 	sed  '/<<<<REPLACE-THIS-WITH-AST>>>>/r $(BEAMDIR)/joxa/compiler.ast' $(PRIVDIR)/jxa_bootstrap.tmpl \
 	| sed '/<<<<REPLACE-THIS-WITH-AST>>>>/d' > $(SRCDIR)/jxa_bootstrap.erl
