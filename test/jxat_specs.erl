@@ -26,13 +26,7 @@ given([a,module,that,declares,types], _State, _) ->
                (defspec internal-test () (foo :this :is))
 
                (defn internal-test ()
-                {:this :is :a :test})
-
-               (defn+ (foo :this :is) do-test1 ()
-                {:this :is :a :test})
-
-               (defn+ (boo) do-test2 (((boo) z) ((hoo :ok) y))
-                {:this :is z}) ">>,
+                {:this :is :a :test}) ">>,
 
     {ok, Source}.
 
@@ -48,8 +42,6 @@ then([the,described,function,can,be,called,'and',works,correctly],
      State, _) ->
     ?assertMatch([{'--joxa-info',1},
                   {'--joxa-info',2},
-                  {'do-test1',0},
-                  {'do-test2',2},
                   {module_info,0},
                   {module_info,1}],
                  lists:sort('jxat-spec-test':module_info(exports))),

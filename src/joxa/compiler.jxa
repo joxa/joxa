@@ -3153,44 +3153,35 @@
        (add-error-r-nil-ctx ctx path0 :invalid-arg-list)
        {(lists/reverse acc) :false}))))
 
-(defn make-fun-body (path0 ctx is-anon arg-list expressions)
-  (let (body (make-seq (incr-path path0) ctx expressions))
-    (case is-anon
-      (:true
-       (pop-scope-ctx ctx)
-       (incr-fun-index-ctx ctx))
-      (:false
-       (pop-scope-ctx ctx)))
-    {arg-list body}))
-
-(defn make-rest-fun-body (path0 ctx is-anon name arg-list expressions)
-  (case (make-fun-body path0 ctx is-anon arg-list expressions)
-    ({arg-list body}
-     (case is-anon
-       (:false
-        (add-rest-ctx path0 ctx name (erlang/length arg-list))
-        {arg-list body})
-       (:true
-        (let (index (anon-fun-index-ctx ctx))
-          (add-rest-ctx path0 ctx {:anon index} (erlang/length arg-list))
-          {arg-list body}))))))
-
 (defn do-function-body (path0 ctx is-anon name args0 expressions)
   (push-scope-ctx ctx)
-  (let (args1 (lists/foldl (fn (el acc)
-                               (let (arg (case el
-                                           ([_ arg]
-                                            arg)
-                                           (_
-                                            el)))
-                                 (add-reference-to-scope-ctx path0 ctx arg -1 (cerl/c_var arg))
-                                 (arg . acc)))
-                           [] args0))
-    (case (gen-args (traverse-path path0) ctx (lists/reverse args1) [])
-      ({arg-list :true}
-       (make-rest-fun-body path0 ctx is-anon name arg-list expressions))
-      ({arg-list :false}
-       (make-fun-body path0 ctx is-anon arg-list expressions)))))
+  ;; Add all of the args to the current scope
+  (lists/foreach (fn (arg)
+                     (case arg
+                       (_ (when (erlang/is_atom arg))
+                          (add-reference-to-scope-ctx path0 ctx arg -1 (cerl/c_var arg)))
+                       (else
+                        (add-error-ctx ctx path0 {:arg-is-not-proper-name else}))))
+                 args0)
+  (let (arg-detail (gen-args (traverse-path path0) ctx args0 []))
+    ;; Correctly setup forward declarations
+    (case {is-anon arg-detail}
+      ({:true {arg-list :true}}
+       (let (index (anon-fun-index-ctx ctx))
+         (add-rest-ctx path0 ctx {:anon index} (erlang/length arg-list))))
+      ({:false {arg-list :true}}
+       (add-rest-ctx path0 ctx name (erlang/length arg-list)))
+      ({:true {arg-list :false}}
+       (incr-fun-index-ctx ctx))
+      ({:false {arg-list :false}}
+       ;; predefine the function so it can be used recursively
+       (add-def-ctx path0 ctx [] name arg-list :undefined)))
+    ;; go ahead and compile the body
+    (case arg-detail
+      ({arg-list _}
+       (let (result (make-seq (incr-path path0) ctx expressions))
+         (pop-scope-ctx ctx)
+         {arg-list result})))))
 
 (defn make-quasi-tuple (path0 ctx arg0)
   (let (annots  (annots-from-context [] path0 ctx)
@@ -3562,30 +3553,19 @@
     (_
      (add-error-r-nil-ctx ctx path0 :invalid-type-definition))))
 
-(defn make-function1 (path0 ctx return-type name args expressions)
-  (let (spec-args (lists/map (fn (arg)
-                                 (case arg
-                                   ([spec-arg _]
-                                    spec-arg)
-                                   (_
-                                    (default-type)))) args))
-    (make-implicit-spec path0 ctx name spec-args return-type)
-    (function-name-ctx ctx name)
-    (case (do-function-body (incr-path path0) ctx :false name args expressions)
-      ({arg-list body}
-       (function-name-ctx ctx :undefined)
-       {name arg-list body}))))
+(defn make-function1 (path0 ctx name args expressions)
+  (function-name-ctx ctx name)
+  (case (do-function-body (incr-path path0) ctx :false name args expressions)
+    ({arg-list body}
+     (function-name-ctx ctx :undefined)
+     {name arg-list body})))
 
 (defn make-function (path0 ctx form)
   (case form
-    ((return-type . (name . (args . expressions)))
-     (when (erlang/and (erlang/is_atom name)
-                       (erlang/is_list args)))
-     (make-function1 (incr-path path0) ctx return-type name args expressions))
     ((name . (args . expressions))
      (when (and (erlang/is_list args)
                 (erlang/is_atom name)))
-     (make-function1 path0 ctx (default-type) name args expressions))
+     (make-function1 path0 ctx name args expressions))
     (_
      (add-error-ctx ctx path0 :invalid-definition)
      {:no-name [] (cerl/c_nil)})))
@@ -3597,20 +3577,20 @@
       ((:defn+ . details)
        (case (make-function (incr-path path0) ctx details)
          ({name arg-list body}
-          (add-exported-def-ctx path0 ctx annots name arg-list body))))
+          (add-exported-def-ctx path0 ctx annots name arg-list body :replace))))
       ((:defn . details)
        (case (make-function (incr-path path0) ctx details)
          ({name arg-list body}
-          (add-def-ctx path0 ctx annots name arg-list body))))
+          (add-def-ctx path0 ctx annots name arg-list body :replace))))
       ((:definline . details)
        (let (inline-annots (:inline . annots))
          (case (make-function (incr-path path0) ctx details)
            ({name arg-list body}
-            (add-def-ctx path0 ctx inline-annots name arg-list body)))))
+            (add-def-ctx path0 ctx inline-annots name arg-list body :replace)))))
       ((:defmacro+ . details)
        (case (make-function (incr-path path0) ctx details)
          ({name arg-list body}
-          (add-exported-def-ctx path0 ctx annots name arg-list body)
+          (add-exported-def-ctx path0 ctx annots name arg-list body :replace)
           (add-macro-ctx ctx name (erlang/length arg-list) path0))))
       ((:defmacro . details)
        (case (make-function (incr-path path0) ctx details)
@@ -3620,7 +3600,7 @@
           ;; itself. However, we keep a list of macros that need to be
           ;; hidden so that after the fact we can roll through the
           ;; list unexporting things that do not need to be exported.
-          (add-exported-def-ctx path0 ctx annots name arg-list body)
+          (add-exported-def-ctx path0 ctx annots name arg-list body :replace)
           (add-unexported-macro-ctx path0 ctx name (erlang/length arg-list)))))
       ((:deftype+ . _)
        (make-spec path0 ctx form))
@@ -4199,6 +4179,8 @@
      (io_lib/format "invalid reference ~s" [(format-fun-ref ref)]))
     ({:invalid-reference form}
      (io_lib/format "invalid reference (~p)" [form]))
+    ({:arg-is-not-proper-name form}
+     (io_lib/format "argument is not a proper reference name (~p)" [form]))
     (:invalid-receive
      "invalid receive clause")
     ({:invalid-try-expression}
