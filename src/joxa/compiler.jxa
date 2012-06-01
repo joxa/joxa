@@ -289,12 +289,25 @@
                                    (lists/append defs [{{name arity} {cerl-name cerl-body fun-deps}}])
                                    raw-ctx)))))))
 
-(defn internal-rest-remote-reference? (namespace function possible-arity exports)
+(defn propogate-require-info (namespace function possible-arity dict)
   (case (get-joxa-info :rest namespace function)
     (:false
-     :not-a-reference)
+     (ec_dictionary/add {namespace function possible-arity}
+                        {:remote :not-rest {namespace function possible-arity}} dict))
     (arity (when (erlang/is_integer arity))
-           {:remote :rest {namespace function arity}})))
+           (ec_dictionary/add {namespace function :rest}
+                              {:remote :rest {namespace function arity}} dict))))
+
+(defn internal-add-require (namespace raw-ctx)
+  (let (requires (get-context :requires raw-ctx)
+        exports ((erlang/make_fun namespace :module_info 1) :exports)
+        new-requires (lists/foldl (fn (fun-arity dict)
+                                      (case fun-arity
+                                        ({function arity}
+                                         (propogate-require-info namespace function arity dict))))
+                                  requires exports))
+    (set-context :requires new-requires raw-ctx)))
+
 
 (defspec internal-alias? ((erlang/atom) (erlang/atom)
                           (erlang/non_neg_integer) (erlang/term))
@@ -302,17 +315,12 @@
 
 (defn internal-remote-function? (namespace function possible-arity raw-ctx aliased)
   (__try
-   (let (requires (get-context :requires raw-ctx)
-         exports (ec_dictionary/get namespace requires))
-     (case (internal-rest-remote-reference? namespace function possible-arity exports)
-       (:not-a-reference
-        (case (lists/member {function possible-arity} exports)
-          (:true
-           {:remote :not-rest {namespace function possible-arity}})
-          (:false
-           :not-a-reference)))
-       (return-val
-        return-val)))
+   (let (requires (get-context :requires raw-ctx))
+     (case (ec_dictionary/has_key {namespace function :rest} requires)
+       (:true
+        (ec_dictionary/get {namespace function :rest} requires))
+       (:false
+        (ec_dictionary/get {namespace function possible-arity} requires))))
    (catch (_type body)
      (case body
        (:not_found
@@ -621,13 +629,20 @@
                      (ec_dictionary/add aliased-name namespace aliases)
                      raw-ctx)}))
     ({:add-require namespace}
+     {:noreply (internal-add-require namespace raw-ctx)})
+    ({:add-require namespace function arity is-rest}
      (let (requires (get-context :requires raw-ctx)
-           exports ((erlang/make_fun namespace :module_info 1) :exports))
-       {:noreply (set-context :requires
-                              (ec_dictionary/add namespace exports requires)
-                                        raw-ctx)}))
-     ({:add-use alias arity target namespace}
-      (let (use (get-context :uses raw-ctx))
+           new-requires
+           (case is-rest
+             (:false (ec_dictionary/add {namespace function arity}
+                                        {:remote :not-rest {namespace function arity}}
+                                        requires))
+             (:true (ec_dictionary/add {namespace function :rest}
+                                       {:remote :rest {namespace function arity}}
+                                       requires))))
+       {:noreply (set-context :requires new-requires raw-ctx)}))
+    ({:add-use alias arity target namespace}
+     (let (use (get-context :uses raw-ctx))
         {:noreply (set-context :uses (ec_dictionary/add {alias arity}
                                                         {target namespace} use)
                                raw-ctx)}))
@@ -839,6 +854,9 @@
 
 (defn+ add-require-ctx (ctx namespace)
   (gen_server/cast ctx {:add-require namespace}))
+
+(defn+ add-pre-require-ctx (ctx namespace function arity is-rest)
+  (gen_server/cast ctx {:add-require namespace function arity is-rest}))
 
 (defn+ requires-ctx (ctx)
   (gen_server/call ctx :requires))
@@ -2383,10 +2401,8 @@
     (:false
      :ok)
     (external-requires
-     (lists/foreach (fn (mod-info)
-                        (case mod-info
-                          ({mod-name _}
-                           (add-require-ctx ctx mod-name))))
+     (lists/foreach (fn (mod-name)
+                        (add-require-ctx ctx mod-name))
                     external-requires))))
 
 (defn+ make-call (path0 ctx val args macro-only?)
@@ -3502,14 +3518,18 @@
                     (rewrite-spec-args args []))
                    (:false
                     args)))
-    (case is-rest
-      (:true
-       (add-rest-ctx path0 ctx name (erlang/length new-args)))
-      (:false ctx))
-    (let (body (def-anon-function-spec (incr-path 2 path0) ctx args expr))
-      (add-type-ctx ctx name arity {{:c_literal annots :spec}
-                                    {:c_literal annots [{{name arity}
-                                                         [body]}]}}))))
+    (case name
+      ({:--fun namespace function}
+       (add-pre-require-ctx ctx namespace function arity is-rest))
+      (name (when (erlang/is_atom name))
+            (case is-rest
+              (:true
+               (add-rest-ctx path0 ctx name (erlang/length new-args)))
+              (:false ctx))
+            (let (body (def-anon-function-spec (incr-path 2 path0) ctx args expr))
+              (add-type-ctx ctx name arity {{:c_literal annots :spec}
+                                            {:c_literal annots [{{name arity}
+                                                                 [body]}]}}))))))
 
 (defn def-top-level-function-spec (path0 ctx name args expression)
   (let (line1 (case (idx-from-context [] path0 ctx)
@@ -3848,7 +3868,13 @@
 
 (defn make-joxa-info-require-1 (ctx)
   (let (annots [:compiler_generated]
-        requires (ec_dictionary/to_list (requires-ctx ctx)))
+        requires (sets/to_list
+                  (sets/from_list
+                   (lists/foldl (fn (req-info acc)
+                                    (case req-info
+                                      ({{mod _ _} _}
+                                       (mod . acc))))
+                                [] (ec_dictionary/to_list (requires-ctx ctx))))))
     (cerl/ann_c_clause [:compiler_generated]
                        [(cerl/ann_c_atom annots :requires)]
                        (cerl/ann_c_atom annots :true)
@@ -4594,7 +4620,6 @@
               (save-output (get-context :options result)
                            (get-context :result result) result))
              (:true
-              (report-errors-warnings ctx)
               :ok))
            val)
       (_
