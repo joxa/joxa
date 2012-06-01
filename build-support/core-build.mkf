@@ -74,7 +74,8 @@ TESTBEAMS = $(TEST_EBIN)/jxat_anon_fun.beam  \
 	$(TEST_EBIN)/jxat_assert.beam \
 	$(TEST_EBIN)/jxat_eunit.beam \
 	$(TEST_EBIN)/joxa/test-let-match.beam \
-	$(TEST_EBIN)/joxa/test/multiple-namespaces.beam
+	$(TEST_EBIN)/joxa/test/multiple-namespaces.beam \
+	$(TEST_EBIN)/joxa/test/namespace-mutual-recursion.beam
 
 .PHONY: all test_bootstrap pre_bootstrap bootstrap clean \
 	test build get-deps proper eunit \
@@ -111,10 +112,10 @@ $(JOXA_NS)/compiler.beam: $(SRCDIR)/joxa/compiler.jxa $(BOOTSTRAP_NS)/compiler.b
 $(JOXA_NS)/%.beam: $(SRCDIR)/joxa/%.jxa $(JOXA_NS)/.d $(JOXA_NS)/compiler.beam
 	$(COMP) -o $(BEAMDIR) $<
 
-$(OTP_NS)/%.beam: $(SRCDIR)/joxa/otp/%.jxa $(OTP_NS)/.d
+$(OTP_NS)/%.beam: $(SRCDIR)/joxa/otp/%.jxa $(OTP_NS)/.d $(JOXA_NS)/compiler.beam
 	$(COMP) -o $(BEAMDIR) $<
 
-$(BEAMDIR)/%.beam: $(SRCDIR)/%.jxa $(BEAMDIR)/.d
+$(BEAMDIR)/%.beam: $(SRCDIR)/%.jxa $(BEAMDIR)/.d $(JOXA_NS)/compiler.beam
 	$(COMP) -o $(BEAMDIR) $<
 
 $(BEAMDIR)/%.beam: $(SRCDIR)/%.erl $(BEAMDIR)/.d
@@ -123,14 +124,11 @@ $(BEAMDIR)/%.beam: $(SRCDIR)/%.erl $(BEAMDIR)/.d
 $(TEST_EBIN)/%.beam: $(TESTDIR)/%.erl $(TEST_EBIN)/.d
 	$(ERLC) $(ERLCFLAGS) $(TEST_FLAGS) -o $(TEST_EBIN) $<
 
-$(TEST_EBIN)/%.beam: $(TESTDIR)/%.jxa $(TEST_EBIN)/.d
+$(TEST_EBIN)/%.beam: $(TESTDIR)/%.jxa $(TEST_EBIN)/.d $(JOXA_NS)/compiler.beam
 	$(COMP) -o $(TEST_EBIN) $<
 
-$(TEST_EBIN)/test/%.beam: $(TESTDIR)/joxa/test/%.jxa $(TEST_EBIN)/test/.d
+$(TEST_EBIN)/test/%.beam: $(TESTDIR)/joxa/test/%.jxa $(TEST_EBIN)/test/.d $(JOXA_NS)/compiler.beam
 	$(COMP) -o $(TEST_EBIN) $<
-
-$(JOXA_NS)/%.beam: $(TESTDIR)/joxa/%.jxa $(BEAMDIR)/.d
-	$(COMP) -o $(BEAMDIR) $<
 
 $(BEAMDIR)/joxa.app: $(SRCDIR)/joxa.app.src
 	$(ERL) $(ERLFLAGS) -s 'joxa.build-support' 'update-app-config' \
@@ -182,5 +180,5 @@ pre_bootstrap:
 	echo "." >> $(ASTDIR)/joxa/compiler.ast
 
 
-bootstrap: clean build pre_bootstrap $(SRCBEAMS) $(TESTBEAMS) proper cucumber eunit
+bootstrap: clean build pre_bootstrap test
 
