@@ -109,7 +109,6 @@ $(JOXA_NS)/compiler.beam: $(SRCDIR)/joxa/compiler.jxa $(BOOTSTRAP_NS)/compiler.b
 	-extra --bootstrap -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
 
 $(JOXA_NS)/%.beam: $(SRCDIR)/joxa/%.jxa $(JOXA_NS)/.d $(JOXA_NS)/compiler.beam
-	@echo foo!!
 	$(COMP) -o $(BEAMDIR) $<
 
 $(OTP_NS)/%.beam: $(SRCDIR)/joxa/otp/%.jxa $(OTP_NS)/.d
@@ -151,10 +150,11 @@ clean:
 test: build proper eunit cucumber
 
 proper: $(SRCBEAMS) $(TESTBEAMS)
-	$(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa.build-support' main proper $(APPDIR) -s init stop
+	$(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa.build-support' main proper $(TEST_EBIN) -s init stop
 
 eunit: $(SRCBEAMS) $(TESTBEAMS)
-	$(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa.build-support' main eunit $(APPDIR) -s init stop
+	$(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa.build-support' main eunit $(BEAMDIR) -s init stop
+	$(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa.build-support' main eunit $(TEST_EBIN) -s init stop
 
 
 cucumber: $(SRCBEAMS) $(TESTBEAMS)
