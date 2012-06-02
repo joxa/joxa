@@ -1,6 +1,11 @@
-(module joxa.eunit
-        (require erlang joxa.core joxa.assert eunit
-                 eunit_lib io io_lib))
+(ns joxa.eunit
+    (require erlang
+             joxa.core
+             joxa.assert
+             eunit
+             eunit_lib
+             io
+             io_lib))
 
 
 ;; This macro can be used at any time to check whether or not the code
@@ -59,7 +64,7 @@
          ({~--n ~--out} ~--out)
          ({~--new _}
           (erlang/error {:command_failed
-                         [{:module ($module-name)}
+                         [{:module ($namespace)}
                           {:line ($line-number)}
                           {:command (quote  ~cmd)}
                           {:expected_status ~--n}
@@ -83,7 +88,7 @@
          ({~--n ~--out} ~--out)
          ({~--new _}
           (erlang/error {:assertCmd_failed
-                         [{:module ($module-name)}
+                         [{:module ($namespace)}
                           {:line ($line-number)}
                           {:command (quote  ~cmd)}
                           {:expected_status ~--n}
@@ -97,7 +102,7 @@
       ({_ ~t} :ok)
       ({_ ~--new}
        (erlang/error {:assertCmdOutput_failed
-                      [{:module ($module-name)},
+                      [{:module ($namespace)},
                        {:line ($line-number)},
                        {:command (quote ~cmd)},
                        {:expected_output (quote ~t)},
@@ -143,7 +148,7 @@
 
 (defmacro+ testable ()
   `(defn+ test ()
-     (eunit/test ($module-name))))
+     (eunit/test ($namespace))))
 
 (defn+ test (module-name)
   (eunit/test module-name))

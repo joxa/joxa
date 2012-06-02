@@ -1,6 +1,6 @@
-(module joxa.test-let-match
-        (require joxa.eunit joxa.assert)
-        (use (joxa.core :only (let-match/2))))
+(ns joxa.test-let-match
+    (require joxa.eunit joxa.assert)
+    (use (joxa.core :only (let-match/2))))
 
 (defn+ let-match_test ()
   (let-match ({a b} {1 2})

@@ -8,7 +8,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 incr_test() ->
-    Source = <<" (module jxat-core-incr-test
+    Source = <<" (ns jxat-core-incr-test
                         (require (joxa.core :as core)))
 
 

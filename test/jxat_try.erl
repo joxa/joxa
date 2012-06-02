@@ -4,7 +4,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,has,a,function,that,contains,'\'try\''], _State, _) ->
-     Source = <<"(module jxat-try-test
+     Source = <<"(ns jxat-try-test
                     (require erlang io
                              (joxa.core :as core)))
 

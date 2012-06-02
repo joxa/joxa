@@ -4,7 +4,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,declares,types], _State, _) ->
-    Source = <<"(module jxat-spec-test)
+    Source = <<"(ns jxat-spec-test)
 
                (deftype+ tunion () (erlang/union :x :y))
                (deftype+ trange () (erlang/range 1 2))
@@ -54,34 +54,3 @@ then([the,described,function,can,be,called,'and',works,correctly],
                   {module_info,1}],
                  lists:sort('jxat-spec-test':module_info(exports))),
     {ok, State}.
-
-%% has_spec(Beam, FA0)->
-%%     {ok,{_,[{abstract_code,{_,AC}}]}} =
-%%         beam_lib:chunks(Beam,[abstract_code]),
-%%     lists:any(fun({attribute,_,'spec',{FA1,_}}) ->
-%%                       FA0 == FA1;
-%%                  (_) ->
-%%                       false
-%%               end, AC).
-
-%% has_type(Beam, {F, A})->
-%%     {ok,{_,[{abstract_code,{_,AC}}]}} =
-%%         beam_lib:chunks(Beam,[abstract_code]),
-%%     lists:any(fun({attribute,_,'type',{Fun, _, Args}}) ->
-%%                          F == Fun andalso
-%%                              erlang:length(Args) == A;
-%%                  (_) ->
-%%                       false
-%%               end, AC).
-
-
-%% has_exported_type(Beam, FA0)->
-%%     {ok,{_,[{abstract_code,{_,AC}}]}} =
-%%         beam_lib:chunks(Beam,[abstract_code]),
-%%     NTypes = lists:foldl(fun({attribute,_,'export_type', Types}, _) ->
-%%                                  Types;
-%%                             (_, Acc) ->
-%%                                  Acc
-%%                          end, none, AC),
-%%     lists:member(FA0, NTypes).
-

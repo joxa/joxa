@@ -3,19 +3,18 @@
 -export([given/3, 'when'/3, then/3]).
 -include_lib("eunit/include/eunit.hrl").
 
-given([a,module,that,with,a,valid,module,but,broken,body], _State, _) ->
-  Source = <<"(module jxat-case-test
+given([a,module,that,has,a,require,'and',use], _State, _) ->
+  Source = <<"(ns jxat-case-test
                     (require jxat_module_info)
                     (use (erlang :only (==/2 phash2/1 and/2))))
 
                 (defn internal-test (arg1 arg2)
-                 BORKED BORKED BORKED
+                            :ok)
                 (defn internal-test2 (arg1 arg2 arg3)
-                     (phash2 :bar))">>,
-    {ok, Source};
-given([a,module,that,has,a,require,'and',use], _State, _) ->
-  Source = <<"(module jxat-case-test
-                    (require jxat_module_info)
+                     (phash2 :bar))
+
+              (ns jxat-case-test2
+                    (require lists code)
                     (use (erlang :only (==/2 phash2/1 and/2))))
 
                 (defn internal-test (arg1 arg2)
@@ -28,11 +27,8 @@ given([a,module,that,has,a,require,'and',use], _State, _) ->
     Result = joxa.compiler:info(Source, []),
     {ok, Result}.
 
-then([context,is,produced], State = {_, Deps}, _) ->
+then([context,is,produced], Deps, _) ->
     ?assertMatch(true, erlang:is_list(Deps)),
-    {ok, State};
+    {ok, Deps};
 then([context,contains,the,required,information], Deps, _) ->
-    ?assertMatch({'jxat-case-test',[erlang,jxat_module_info]}, Deps).
-
-
-
+      ?assertMatch([lists,code,erlang,jxat_module_info], Deps).

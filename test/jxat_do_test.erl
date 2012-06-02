@@ -15,7 +15,7 @@
 %%% Tests
 %%%===================================================================
 do_test() ->
-      Source = <<"(module jxat-do-test)
+      Source = <<"(ns jxat-do-test)
 
                   (do
                     (defn+ do-test0 (a)

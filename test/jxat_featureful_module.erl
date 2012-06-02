@@ -4,7 +4,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 given([a,featureful,module], _State, _) ->
-    Source = <<"(module jxat-featureful
+    Source = <<"(ns jxat-featureful
               (use string code)
                (attr sfoo 123)
                (use (lists :only (member/2 append/2)

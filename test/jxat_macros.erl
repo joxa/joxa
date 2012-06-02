@@ -4,7 +4,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,contains,macros], _State, _) ->
-    Source = <<"(module jxat-macro-test
+    Source = <<"(ns jxat-macro-test
                     (require erlang))
 
                 (defmacro+ test1 (foo a)

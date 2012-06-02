@@ -16,7 +16,7 @@
 %%%===================================================================
 prop_seive() ->
     Source = <<"
-(module jxat-sieve-of-eratosthenes
+(ns jxat-sieve-of-eratosthenes
         (require lists io)
         (use (joxa.core :as core :only (!=/2))
              (erlang :only (rem/2 +/2))))
@@ -44,7 +44,7 @@ prop_seive() ->
 
 prop_fib() ->
     Source = <<"
-(module jxat-fibonacci
+(ns jxat-fibonacci
         (use (erlang :only (>/2 -/2 +/2))))
 
 (defn+ fibo (n)

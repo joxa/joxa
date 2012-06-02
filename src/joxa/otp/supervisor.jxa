@@ -2,14 +2,16 @@
 ;;; ============================
 ;;; * author: Eric Merritt
 ;;; * copyright: Erlware, LLC 2012
-(module joxa.otp.supervisor
-        (require erlang supervisor joxa.lists))
+(ns joxa.otp.supervisor
+    (require erlang
+             supervisor
+             joxa.lists))
 
 (defmacro+ gen-start-link ()
   ;; Create a default start link function for the most common
   ;; supervisor start method
   `(defn+ start_link ()
-     (supervisor/start_link {:local ($module-name)} ($module-name) [])))
+     (supervisor/start_link {:local ($namespace)} ($namespace) [])))
 
 (defn+ default-init (child-list)
   ;; Create a default supervisor spec based on a list of child

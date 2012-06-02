@@ -15,7 +15,7 @@
 %%% Tests
 %%%===================================================================
 nested_calls_test() ->
-      Source = <<"(module jxat-nested-calls-test
+      Source = <<"(ns jxat-nested-calls-test
                     (require io)
                     (use (erlang :only (==/2 and/2))))
 

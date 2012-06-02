@@ -10,11 +10,13 @@
 ;;;
 ;;; This module provides for the definition and abstraction of structs
 ;;; in joxa.
-(module joxa.records
-        (require (joxa.core :as core)
-                 lists erlang io)
-        (use (erlang :only (+/2
-                            ==/2))))
+(ns joxa.records
+    (require (joxa.core :as core)
+             lists
+             erlang
+             io)
+    (use (erlang :only (+/2
+                        ==/2))))
 
 (defn convert-to-record-description (descs)
   (case  (lists/foldl (fn (desc acc0)

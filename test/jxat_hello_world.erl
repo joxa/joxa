@@ -5,7 +5,7 @@
 
 given([a,module,that,has,a,function,that,calls,
        'io:format',on,an,argument], _State, _) ->
-    Source = <<"(module helloworld
+    Source = <<"(ns helloworld
                  (use (io :only (format/2) :rename ((format/2 print)))))
                (defn+ hello-world (arg)
                  (print \"~p\" [arg]))">>,
