@@ -48,12 +48,11 @@
 
 ;; Given a path to an OTP Application find all modules in said
 ;; application.
-(defn+ gather-modules-from-app (path)
-  (let (ebin-path (filename/join path "ebin"))
-    (filelib/fold_files ebin-path ".+\.beam" :true
-                        (fn (name names)
-                            ((file-name-to-module-name ebin-path name) . names))
-                        [])))
+(defn+ gather-modules-from-app (ebin-path)
+  (filelib/fold_files ebin-path ".+\.beam" :true
+                      (fn (name names)
+                          ((file-name-to-module-name ebin-path name) . names))
+                      []))
 
 (defn+ eunit-test-app (path)
     (joxa.lists/dolist
@@ -85,8 +84,8 @@
                           (_
                            (init/stop 1)))
                         (catch ({_ _}
-                                (init/stop 1)))))
-)
+                                (init/stop 1))))))
+
 (defn+ main (args)
   ;; Path comes in as an atom from the command line
   (case args
