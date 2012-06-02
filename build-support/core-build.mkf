@@ -4,16 +4,24 @@ ESCRIPT_DIR=$(JOXA_BUILD_DIR)/escript
 ESCRIPT_TMP=$(CURDIR)/_build/tmp2
 TMPDIR=$(CURDIR)/_build/tmp
 LOCAL_DEPS=$(TMPDIR)/deps.tar.gz
+GOT_DEPS=$(TMPDIR)/got-em
 
 TEST_EBIN=$(JOXA_BUILD_DIR)/test_ebin
 TEST_FLAGS=-pa $(TEST_EBIN)
-EBIN_DIRS=$(wildcard $(LIBDIR)/*/ebin)
-ERLFLAGS=-noshell $(EBIN_DIRS:%= -pa %)
-ERLCFLAGS=$(EBIN_DIRS:%= -pa %)
 
+DEPS_DIR=$(JOXA_BUILD_DIR)/deps
+
+EBIN_DIRS=$(wildcard $(DEPS_DIR)/*/ebin)
+BASE_ERLCFLAGS=$(EBIN_DIRS:%= -pa %)
+ERLCFLAGS=$(BASE_ERLCFLAGS) -pa $(BEAMDIR)
+ERLFLAGS=-noshell $(ERLCFLAGS)
 
 JOXA_NS=$(BEAMDIR)/joxa
 OTP_NS=$(JOXA_NS)/otp
+
+BOOTSTRAP_NS=$(BOOTSTRAP_BEAMDIR)/joxa
+ASTDIR=$(SRCDIR)/ast
+BOOTSTRAP_ERLFLAGS=-noshell -pa $(BOOTSTRAP_BEAMDIR) $(BASE_ERLCFLAGS)
 
 COMP= $(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa.compiler' main \
       -extra
@@ -83,20 +91,25 @@ all: build
 	@mkdir -p $(@D)
 	@touch $@
 
-$(LOCAL_DEPS): $(TMPDIR)/.d $(LIBDIR)/.d
+$(GOT_DEPS): $(TMPDIR)/.d $(DEPS_DIR)/.d
 	wget --progress=bar https://github.com/downloads/erlware/sinan/deps.tar.gz -O $(LOCAL_DEPS)
 	touch $(LOCAL_DEPS)
-	tar xzf $(LOCAL_DEPS) --directory=$(LIBDIR)
+	tar xzf $(LOCAL_DEPS) --directory=$(DEPS_DIR)
+	touch $(GOT_DEPS)
 
-$(JOXA_NS)/bootstrap_compiler.beam: $(BEAMDIR)/jxa_bootstrap.beam $(JOXA_NS)/.d
-	$(ERL) $(ERLFLAGS) -s jxa_bootstrap do_bootstrap \
-	${BEAMDIR}/joxa/bootstrap_compiler.beam joxa.bootstrap_compiler -s init stop
+$(BOOTSTRAP_BEAMDIR)/%.beam: $(SRCDIR)/%.erl $(BOOTSTRAP_BEAMDIR)/.d
+	$(ERLC) $(ERLCFLAGS) -o $(BOOTSTRAP_BEAMDIR) $<
 
-$(JOXA_NS)/compiler.beam: $(SRCDIR)/joxa/compiler.jxa $(JOXA_NS)/bootstrap_compiler.beam
-	$(ERL) $(ERLFLAGS) -s joxa.bootstrap_compiler main \
+$(BOOTSTRAP_NS)/%.beam: $(ASTDIR)/joxa/%.ast $(BOOTSTRAP_BEAMDIR)/jxa_bootstrap.beam $(BOOTSTRAP_NS)/.d
+	$(ERL) $(BOOTSTRAP_ERLFLAGS) -s jxa_bootstrap do_bootstrap $@ $< -s init stop
+
+$(JOXA_NS)/compiler.beam: $(SRCDIR)/joxa/compiler.jxa $(BOOTSTRAP_NS)/compiler.beam
+	@echo bootstrapping the compiler
+	$(ERL) $(BOOTSTRAP_ERLFLAGS) -s joxa.compiler main \
 	-extra --bootstrap -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
 
-$(JOXA_NS)/%.beam: $(SRCDIR)/joxa/%.jxa $(JOXA_NS)/.d
+$(JOXA_NS)/%.beam: $(SRCDIR)/joxa/%.jxa $(JOXA_NS)/.d $(JOXA_NS)/compiler.beam
+	@echo foo!!
 	$(COMP) -o $(BEAMDIR) $<
 
 $(OTP_NS)/%.beam: $(SRCDIR)/joxa/otp/%.jxa $(OTP_NS)/.d
@@ -126,7 +139,7 @@ $(BEAMDIR)/joxa.app: $(SRCDIR)/joxa.app.src
 
 build: $(SRCBEAMS) $(TESTBEAMS) $(BEAMDIR)/joxa.app
 
-get-deps: $(LOCAL_DEPS)
+get-deps: $(GOT_DEPS)
 
 shell: build
 	$(ERL) $(ERLFLAGS) -s joxa main -s init stop
@@ -149,6 +162,7 @@ cucumber: $(SRCBEAMS) $(TESTBEAMS)
 
 bare-escript: $(ESCRIPT_DIR)/.d $(ESCRIPT_TMP)/.d
 	cp -R $(LIBDIR)/* $(ESCRIPT_TMP)
+	cp -R $(DEPS_DIR)/* $(ESCRIPT_TMP)
 	cd $(ESCRIPT_TMP); zip -r joxa.ez *; \
 	$(ERL) $(ERLFLAGS) -eval "escript:create(\"joxa\", [shebang, {emu_args, []}, {archive, \"./joxa.ez\"}])" -s init stop
 	chmod 777 $(ESCRIPT_TMP)/joxa
@@ -157,25 +171,16 @@ bare-escript: $(ESCRIPT_DIR)/.d $(ESCRIPT_TMP)/.d
 
 escript: build bare-escript
 
-$(TMPDIR)/bootstrap_test.jxa: $(TMPDIR) $(SRCDIR)/joxa/compiler.jxa
-	cp $(SRCDIR)/joxa/compiler.jxa $(TMPDIR)/bootstrap_test.jxa
-
-test_bootstrap: $(TMPDIR)/bootstrap_test.jxa
-	sed -i 's/joxa\.compiler/bootstrap_test/g' $(TMPDIR)/bootstrap_test.jxa
-	`which time` $(ERL) $(ERLFLAGS) -s joxa.compiler main \
-	 -extra --bootstrap -o $(TMPDIR) $(TMPDIR)/bootstrap_test.jxa
-
-pre_bootstrap: test_bootstrap
+pre_bootstrap:
 ## Use the working compiler to build itself
 	$(ERL) $(ERLFLAGS) -s joxa.compiler main \
 	-extra --bootstrap -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
 ## Have the working compiler output its own core erlang ast
 	$(ERL) $(ERLFLAGS) -s joxa.compiler main \
-	-extra --bootstrap --to_ast -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
+	-extra --bootstrap --to_ast -o $(ASTDIR) $(SRCDIR)/joxa/compiler.jxa
 ## copy that ast into an erl file for useful later building
-	sed -i "s/'joxa\.compiler'/Name/g" $(BEAMDIR)/joxa/compiler.ast
-	sed  '/<<<<REPLACE-THIS-WITH-AST>>>>/r $(BEAMDIR)/joxa/compiler.ast' $(PRIVDIR)/jxa_bootstrap.tmpl \
-	| sed '/<<<<REPLACE-THIS-WITH-AST>>>>/d' > $(SRCDIR)/jxa_bootstrap.erl
+	echo "." >> $(ASTDIR)/joxa/compiler.ast
+
 
 bootstrap: clean build pre_bootstrap $(SRCBEAMS) $(TESTBEAMS) proper cucumber eunit
 
