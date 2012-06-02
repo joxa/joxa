@@ -5,18 +5,20 @@ ESCRIPT_TMP=$(CURDIR)/_build/tmp2
 TMPDIR=$(CURDIR)/_build/tmp
 LOCAL_DEPS=$(TMPDIR)/deps.tar.gz
 
+TEST_EBIN=$(JOXA_BUILD_DIR)/test_ebin
+TEST_FLAGS=-pa $(TEST_EBIN)
 EBIN_DIRS=$(wildcard $(LIBDIR)/*/ebin)
 ERLFLAGS=-noshell $(EBIN_DIRS:%= -pa %)
 ERLCFLAGS=$(EBIN_DIRS:%= -pa %)
 
+
 JOXA_NS=$(BEAMDIR)/joxa
 OTP_NS=$(JOXA_NS)/otp
 
-COMP= $(ERL) $(ERLFLAGS) -s 'joxa.compiler' main \
+COMP= $(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa.compiler' main \
       -extra
 
-
-SRCBEAMS= $(BEAMDIR)/joxa/compiler.beam \
+SRCBEAMS=$(BEAMDIR)/joxa/compiler.beam \
 	$(BEAMDIR)/joxa/core.beam \
 	$(BEAMDIR)/joxa/shell.beam \
 	$(BEAMDIR)/joxa.beam \
@@ -30,41 +32,41 @@ SRCBEAMS= $(BEAMDIR)/joxa/compiler.beam \
 	$(BEAMDIR)/joxa/otp/application.beam \
 	$(BEAMDIR)/joxa/otp/supervisor.beam
 
-TESTBEAMS = $(BEAMDIR)/jxat_anon_fun.beam  \
-	$(BEAMDIR)/jxat_examples.beam  \
-	$(BEAMDIR)/jxat_module_info.beam \
-	$(BEAMDIR)/jxat_rest_args.beam \
-	$(BEAMDIR)/jxat_bare_module.beam \
-	$(BEAMDIR)/jxat_featureful_module.beam \
-	$(BEAMDIR)/jxat_nested_calls.beam  \
-	$(BEAMDIR)/jxat_segfault_tests.beam \
-	$(BEAMDIR)/jxat_binary.beam \
-	$(BEAMDIR)/jxat_hello_world.beam \
-	$(BEAMDIR)/jxat_parse.beam \
-	$(BEAMDIR)/jxat_specs.beam \
-	$(BEAMDIR)/jxat_case.beam \
-	$(BEAMDIR)/jxat_implicit_do.beam \
-	$(BEAMDIR)/jxat_path.beam  \
-	$(BEAMDIR)/jxat_throws.beam \
-	$(BEAMDIR)/jxat_core_add.beam \
-	$(BEAMDIR)/jxat_incremental_compile.beam  \
-	$(BEAMDIR)/jxat_peg.beam \
-	$(BEAMDIR)/jxat_try.beam \
-	$(BEAMDIR)/jxat_core_incr.beam  \
-	$(BEAMDIR)/jxat_jxa_parser_proper.beam \
-	$(BEAMDIR)/jxat_predicates.beam \
-	$(BEAMDIR)/jxat_variable_fun_tests.beam \
-	$(BEAMDIR)/jxat_ctx.beam \
-	$(BEAMDIR)/jxat_let_support.beam  \
-	$(BEAMDIR)/jxat_receive.beam   \
-	$(BEAMDIR)/jxat_do_test.beam \
-	$(BEAMDIR)/jxat_macros.beam   \
-	$(BEAMDIR)/jxat_records.beam \
-	$(BEAMDIR)/jxat_module_fun_line_support.beam \
-	$(BEAMDIR)/jxat_assert.beam \
-	$(BEAMDIR)/jxat_eunit.beam \
-	$(BEAMDIR)/joxa/test-let-match.beam \
-	$(BEAMDIR)/joxa/test/multiple-namespaces.beam
+TESTBEAMS = $(TEST_EBIN)/jxat_anon_fun.beam  \
+	$(TEST_EBIN)/jxat_examples.beam  \
+	$(TEST_EBIN)/jxat_module_info.beam \
+	$(TEST_EBIN)/jxat_rest_args.beam \
+	$(TEST_EBIN)/jxat_bare_module.beam \
+	$(TEST_EBIN)/jxat_featureful_module.beam \
+	$(TEST_EBIN)/jxat_nested_calls.beam  \
+	$(TEST_EBIN)/jxat_segfault_tests.beam \
+	$(TEST_EBIN)/jxat_binary.beam \
+	$(TEST_EBIN)/jxat_hello_world.beam \
+	$(TEST_EBIN)/jxat_parse.beam \
+	$(TEST_EBIN)/jxat_specs.beam \
+	$(TEST_EBIN)/jxat_case.beam \
+	$(TEST_EBIN)/jxat_implicit_do.beam \
+	$(TEST_EBIN)/jxat_path.beam  \
+	$(TEST_EBIN)/jxat_throws.beam \
+	$(TEST_EBIN)/jxat_core_add.beam \
+	$(TEST_EBIN)/jxat_incremental_compile.beam  \
+	$(TEST_EBIN)/jxat_peg.beam \
+	$(TEST_EBIN)/jxat_try.beam \
+	$(TEST_EBIN)/jxat_core_incr.beam  \
+	$(TEST_EBIN)/jxat_jxa_parser_proper.beam \
+	$(TEST_EBIN)/jxat_predicates.beam \
+	$(TEST_EBIN)/jxat_variable_fun_tests.beam \
+	$(TEST_EBIN)/jxat_ctx.beam \
+	$(TEST_EBIN)/jxat_let_support.beam  \
+	$(TEST_EBIN)/jxat_receive.beam   \
+	$(TEST_EBIN)/jxat_do_test.beam \
+	$(TEST_EBIN)/jxat_macros.beam   \
+	$(TEST_EBIN)/jxat_records.beam \
+	$(TEST_EBIN)/jxat_module_fun_line_support.beam \
+	$(TEST_EBIN)/jxat_assert.beam \
+	$(TEST_EBIN)/jxat_eunit.beam \
+	$(TEST_EBIN)/joxa/test-let-match.beam \
+	$(TEST_EBIN)/joxa/test/multiple-namespaces.beam
 
 .PHONY: all test_bootstrap pre_bootstrap bootstrap clean \
 	test build get-deps proper eunit \
@@ -106,19 +108,21 @@ $(BEAMDIR)/%.beam: $(SRCDIR)/%.jxa $(BEAMDIR)/.d
 $(BEAMDIR)/%.beam: $(SRCDIR)/%.erl $(BEAMDIR)/.d
 	$(ERLC) $(ERLCFLAGS) -o $(BEAMDIR) $<
 
-$(BEAMDIR)/%.beam: $(TESTDIR)/%.erl $(BEAMDIR)/.d
-	$(ERLC) $(ERLCFLAGS) -o $(BEAMDIR) $<
+$(TEST_EBIN)/%.beam: $(TESTDIR)/%.erl $(TEST_EBIN)/.d
+	$(ERLC) $(ERLCFLAGS) $(TEST_FLAGS) -o $(TEST_EBIN) $<
+
+$(TEST_EBIN)/%.beam: $(TESTDIR)/%.jxa $(TEST_EBIN)/.d
+	$(COMP) -o $(TEST_EBIN) $<
+
+$(TEST_EBIN)/test/%.beam: $(TESTDIR)/joxa/test/%.jxa $(TEST_EBIN)/test/.d
+	$(COMP) -o $(TEST_EBIN) $<
 
 $(JOXA_NS)/%.beam: $(TESTDIR)/joxa/%.jxa $(BEAMDIR)/.d
-	$(COMP) -o $(BEAMDIR) $<
-
-$(JOXA_NS)/test/%.beam: $(TESTDIR)/joxa/test/%.jxa $(JOXA_NS)/test/.d
 	$(COMP) -o $(BEAMDIR) $<
 
 $(BEAMDIR)/joxa.app: $(SRCDIR)/joxa.app.src
 	$(ERL) $(ERLFLAGS) -s 'joxa.build-support' 'update-app-config' \
 	"$(VSN)" "joxa.app" "$(APPDIR)" "$(SRCDIR)/joxa.app.src" -s init stop
-
 
 build: $(SRCBEAMS) $(TESTBEAMS) $(BEAMDIR)/joxa.app
 
@@ -134,14 +138,14 @@ clean:
 test: build proper eunit cucumber
 
 proper: $(SRCBEAMS) $(TESTBEAMS)
-	$(ERL) $(ERLFLAGS) -s 'joxa.build-support' main proper $(APPDIR) -s init stop
+	$(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa.build-support' main proper $(APPDIR) -s init stop
 
 eunit: $(SRCBEAMS) $(TESTBEAMS)
-	$(ERL) $(ERLFLAGS) -s 'joxa.build-support' main eunit $(APPDIR) -s init stop
+	$(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa.build-support' main eunit $(APPDIR) -s init stop
 
 
 cucumber: $(SRCBEAMS) $(TESTBEAMS)
-	$(ERL) $(ERLFLAGS) -s 'joxa.build-support' main cucumberl $(CURDIR) -s init stop
+	$(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa.build-support' main cucumberl $(CURDIR) -s init stop
 
 bare-escript: $(ESCRIPT_DIR)/.d $(ESCRIPT_TMP)/.d
 	cp -R $(LIBDIR)/* $(ESCRIPT_TMP)
