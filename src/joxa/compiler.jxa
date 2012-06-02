@@ -3701,9 +3701,23 @@
       (_
        {:inline inlinables}))))
 
+(definline hipe-option (ctx)
+  (let (attrs (attrs-ctx ctx))
+    (case (lists/any (fn (val)
+                         (case val
+                           ({k v}
+                            (erlang/and (erlang/== (cerl/concrete k) :pragma)
+                                        (erlang/== (cerl/concrete v) :native)))))
+                     attrs)
+      (:true
+       (case (erlang/system_info :hipe_architecture)
+         (:undefined [])
+         (_ :native)))
+      (_ []))))
+
 (definline compile-options (ctx type)
   (let (additional-opts (case type
-                          (:final [:inline (gather-inline-funs ctx)])
+                          (:final [(hipe-option ctx) :inline (gather-inline-funs ctx)])
                           (_ [])))
     (lists/flatten [(options-ctx ctx)
                     additional-opts
