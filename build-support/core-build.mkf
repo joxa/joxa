@@ -9,8 +9,12 @@ EBIN_DIRS=$(wildcard $(LIBDIR)/*/ebin)
 ERLFLAGS=-noshell $(EBIN_DIRS:%= -pa %)
 ERLCFLAGS=$(EBIN_DIRS:%= -pa %)
 
+JOXA_NS=$(BEAMDIR)/joxa
+OTP_NS=$(JOXA_NS)/otp
+
 COMP= $(ERL) $(ERLFLAGS) -s 'joxa.compiler' main \
       -extra
+
 
 SRCBEAMS= $(BEAMDIR)/joxa/compiler.beam \
 	$(BEAMDIR)/joxa/core.beam \
@@ -62,62 +66,54 @@ TESTBEAMS = $(BEAMDIR)/jxat_anon_fun.beam  \
 	$(BEAMDIR)/joxa/test-let-match.beam \
 	$(BEAMDIR)/joxa/test/multiple-namespaces.beam
 
-.PHONY:all test_bootstrap pre_bootstrap bootstrap clean \
+.PHONY: all test_bootstrap pre_bootstrap bootstrap clean \
 	test build get-deps proper eunit \
 	cucumber shell bare-escript
+
+.PRECIOUS: %/.d
 
 FEATURES=./features/*.feature
 
 all: build
 
-$(LOCAL_DEPS): $(TMPDIR) $(LIBDIR)
+## Build all the directories as task dependencies
+%/.d:
+	@mkdir -p $(@D)
+	@touch $@
+
+$(LOCAL_DEPS): $(TMPDIR)/.d $(LIBDIR)/.d
 	wget --progress=bar https://github.com/downloads/erlware/sinan/deps.tar.gz -O $(LOCAL_DEPS)
 	touch $(LOCAL_DEPS)
 	tar xzf $(LOCAL_DEPS) --directory=$(LIBDIR)
 
-$(ESCRIPT_DIR):
-	mkdir -p $(ESCRIPT_DIR)
-
-$(ESCRIPT_TMP):
-	mkdir -p $(ESCRIPT_TMP)
-
-$(LIBDIR):
-	mkdir -p $(LIBDIR)
-
-$(TMPDIR):
-	mkdir -p $(TMPDIR)
-
-$(BEAMDIR)/joxa:
-	mkdir -p $(BEAMDIR)/joxa
-
-$(BEAMDIR)/joxa/bootstrap_compiler.beam: $(BEAMDIR)/joxa $(BEAMDIR)/jxa_bootstrap.beam
+$(JOXA_NS)/bootstrap_compiler.beam: $(BEAMDIR)/jxa_bootstrap.beam $(JOXA_NS)/.d
 	$(ERL) $(ERLFLAGS) -s jxa_bootstrap do_bootstrap \
 	${BEAMDIR}/joxa/bootstrap_compiler.beam joxa.bootstrap_compiler -s init stop
 
-$(BEAMDIR)/joxa/compiler.beam: $(SRCDIR)/joxa/compiler.jxa $(BEAMDIR)/joxa/bootstrap_compiler.beam
+$(JOXA_NS)/compiler.beam: $(SRCDIR)/joxa/compiler.jxa $(JOXA_NS)/bootstrap_compiler.beam
 	$(ERL) $(ERLFLAGS) -s joxa.bootstrap_compiler main \
 	-extra --bootstrap -o $(BEAMDIR) $(SRCDIR)/joxa/compiler.jxa
 
-$(BEAMDIR)/joxa/%.beam: $(SRCDIR)/joxa/%.jxa
-	$(COMP) -o $(BEAMDIR) $?
+$(JOXA_NS)/%.beam: $(SRCDIR)/joxa/%.jxa $(JOXA_NS)/.d
+	$(COMP) -o $(BEAMDIR) $<
 
-$(BEAMDIR)/joxa/otp/%.beam: $(SRCDIR)/joxa/otp/%.jxa
-	$(COMP) -o $(BEAMDIR) $?
+$(OTP_NS)/%.beam: $(SRCDIR)/joxa/otp/%.jxa $(OTP_NS)/.d
+	$(COMP) -o $(BEAMDIR) $<
 
-$(BEAMDIR)/%.beam: $(SRCDIR)/%.jxa
-	$(COMP) -o $(BEAMDIR) $?
+$(BEAMDIR)/%.beam: $(SRCDIR)/%.jxa $(BEAMDIR)/.d
+	$(COMP) -o $(BEAMDIR) $<
 
-$(BEAMDIR)/%.beam: $(SRCDIR)/%.erl
-	$(ERLC) $(ERLCFLAGS) -o $(BEAMDIR) $?
+$(BEAMDIR)/%.beam: $(SRCDIR)/%.erl $(BEAMDIR)/.d
+	$(ERLC) $(ERLCFLAGS) -o $(BEAMDIR) $<
 
-$(BEAMDIR)/%.beam: $(TESTDIR)/%.erl
-	$(ERLC) $(ERLCFLAGS) -o $(BEAMDIR) $?
+$(BEAMDIR)/%.beam: $(TESTDIR)/%.erl $(BEAMDIR)/.d
+	$(ERLC) $(ERLCFLAGS) -o $(BEAMDIR) $<
 
-$(BEAMDIR)/joxa/%.beam: $(TESTDIR)/joxa/%.jxa
-	$(COMP) -o $(BEAMDIR) $?
+$(JOXA_NS)/%.beam: $(TESTDIR)/joxa/%.jxa $(BEAMDIR)/.d
+	$(COMP) -o $(BEAMDIR) $<
 
-$(BEAMDIR)/joxa/test/%.beam: $(TESTDIR)/joxa/test/%.jxa
-	$(COMP) -o $(BEAMDIR) $?
+$(JOXA_NS)/test/%.beam: $(TESTDIR)/joxa/test/%.jxa $(JOXA_NS)/test/.d
+	$(COMP) -o $(BEAMDIR) $<
 
 $(BEAMDIR)/joxa.app: $(SRCDIR)/joxa.app.src
 	$(ERL) $(ERLFLAGS) -s 'joxa.build-support' 'update-app-config' \
@@ -147,7 +143,7 @@ eunit: $(SRCBEAMS) $(TESTBEAMS)
 cucumber: $(SRCBEAMS) $(TESTBEAMS)
 	$(ERL) $(ERLFLAGS) -s 'joxa.build-support' main cucumberl $(CURDIR) -s init stop
 
-bare-escript: $(ESCRIPT_DIR) $(ESCRIPT_TMP)
+bare-escript: $(ESCRIPT_DIR)/.d $(ESCRIPT_TMP)/.d
 	cp -R $(LIBDIR)/* $(ESCRIPT_TMP)
 	cd $(ESCRIPT_TMP); zip -r joxa.ez *; \
 	$(ERL) $(ERLFLAGS) -eval "escript:create(\"joxa\", [shebang, {emu_args, []}, {archive, \"./joxa.ez\"}])" -s init stop
