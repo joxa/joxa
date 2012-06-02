@@ -1,5 +1,5 @@
-;;; The Joxa Compiler
-;;; =================
+;;; The Joxa Entry Point
+;;; ====================
 ;;; * author: Eric Merritt
 ;;; * copyright: Erlware, LLC 2011 - 2012
 ;;;
@@ -11,9 +11,30 @@
 (ns joxa
     (require joxa.compiler
              joxa.shell
-             init))
+             joxa.lists
+             getopt
+             proplists
+             init
+             code
+             lists)
+    (use (joxa.lists :only (dolist/2))))
 
 
+(defn usage (os-list)
+  (getopt/usage os-list "" "[option1 option2 ...] <joxa-file>"
+                '()))
+
+(defn+ option-spec-list ()
+  (lists/append [{:pa  \p "pa" :string "Add a path to the head of the code path"}
+                 {:pz \z "pz" :string "Add a path to the end of the code path"}
+                 {:c \c "compile" :string "Compile the specified file"}]
+                (joxa.compiler/option-spec-list)))
+
+(defn setup-paths (options)
+  (dolist (path (proplists/get_all_values :pa options))
+    (code/add_patha path))
+  (dolist (path (proplists/get_all_values :pz options))
+    (code/add_pathz path)))
 
 ;; An entry point for the system
 ;; -----------------------------
@@ -23,11 +44,16 @@
 ;; the users intent. Right now that intent is indicated by a -c in the
 ;; args
 (defn+ main (args)
-  (case args
-    (("-c" . rest-args)
-     (joxa.compiler/main rest-args))
+  (case (getopt/parse (option-spec-list) args)
+    ({:ok {options rest-args}}
+     (setup-paths options)
+     (case (proplists/get_value :c options :undefined)
+       (:undefined (joxa.shell/start))
+       (target
+        (joxa.compiler/do-compile target options))))
     (_
-     (joxa.shell/start))))
+     (usage (option-spec-list))
+     (init/stop 127))))
 
 (defn+ main ()
   (main (init/get_plain_arguments)))

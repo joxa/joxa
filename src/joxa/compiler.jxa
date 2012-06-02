@@ -4665,8 +4665,7 @@
                "Use the special limited bootstrap compiler"}])
 
 (defn+ main (args)
-  (case
-      (getopt/parse (option-spec-list) args)
+  (case (getopt/parse (option-spec-list) args)
     ({:ok {options [target]}}
      (let (raw-ctx (do-compile target options))
        (case  (has-errors? raw-ctx)
