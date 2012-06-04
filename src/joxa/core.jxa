@@ -42,7 +42,7 @@
     (arg
      arg)))
 
-(defn+ +(&rest args)
+(defn+ + (&rest args)
   (case args
     ([x y]
      (erlang/+ x y))
@@ -51,19 +51,19 @@
     (arg
      arg)))
 
-(defn - (num-list acc)
+(defn internal-sub (num-list acc)
   (case num-list
     ([]
      acc)
     ((a . rest)
-     (- rest  (erlang/- acc a)))))
+     (internal-sub rest  (erlang/- acc a)))))
 
-(defn+ -(&rest args)
+(defn+ - (&rest args)
   (case args
     ([a]
      (erlang/- 0 a))
     ((a . rest)
-     (- rest a))))
+     (internal-sub rest a))))
 
 (defn+ incr (val)
   (erlang/+ val 1))

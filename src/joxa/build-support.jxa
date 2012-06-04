@@ -19,6 +19,7 @@
              io
              file
              io_lib
+             code
              filename
              cucumberl
              joxa.assert)
@@ -57,8 +58,10 @@
 (defn+ eunit-test-app (path)
     (joxa.lists/dolist
      (mod (gather-modules-from-app path))
+     (code/ensure_loaded mod)
      (let (exports (erlang/get_module_info mod :exports))
        (when (lists/member {:test 0} exports)
+         (io/format "Testing ~p~n" [mod])
          (when (== :error (joxa.eunit/test mod))
            (init/stop 1))))))
 
@@ -78,6 +81,7 @@
 
 (defn+ cucumberl-test-app (path)
     (joxa.lists/dolist (feature (gather-features-from-app path))
+                       (io/format "Running feature ~s~n" [feature])
                        (try
                         (case (cucumberl/run feature)
                           ({:ok, _} :ok)

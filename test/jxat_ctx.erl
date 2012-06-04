@@ -26,10 +26,9 @@ test1_test() ->
                                                           joxa.compiler:'get-raw-context'(Ctx)))),
     joxa.compiler:'add-require-ctx'(Ctx, filelib),
 
-    ?assertMatch([{filelib, _}],
-                 ec_dictionary:to_list(
-                   joxa.compiler:'get-context'(requires,
-                                               joxa.compiler:'get-raw-context'(Ctx)))),
+    ?assert(ec_dictionary:has_key({filelib,file_size,2},
+                                  joxa.compiler:'get-context'(requires,
+                                                              joxa.compiler:'get-raw-context'(Ctx)))),
     joxa.compiler:'add-use-ctx'(Ctx, print, 2, format, io),
 
     ?assertMatch([{{print, 2}, {format, io}}],
