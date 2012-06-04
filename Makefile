@@ -20,5 +20,4 @@ BUILD_SUPPORT=$(CURDIR)/build-support
 .SUFFIXES:.jxa
 
 include $(BUILD_SUPPORT)/core-build.mkf
-include $(BUILD_SUPPORT)/debian.mkf
 include $(BUILD_SUPPORT)/doc.mkf
