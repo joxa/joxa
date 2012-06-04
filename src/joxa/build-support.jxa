@@ -5,13 +5,25 @@
 ;; tests from a makefile. Given a path to an OTP application it will
 ;; extract all of the module names from the app and attempt to run the
 ;; proper and eunit tests on said modules.
-(module joxa.build-support
-        (require joxa.eunit joxa.assert joxa.lists
-                 erlang filelib string filename re
-                 proper init io file io_lib filename
-                 cucumberl joxa.assert)
-        (use (joxa.core :only (try/1 if/3 +/1 when/2 unless/2 !=/2))
-             (erlang :only (==/2))))
+(ns joxa.build-support
+    (require joxa.eunit
+             joxa.assert
+             joxa.lists
+             erlang
+             filelib
+             string
+             filename
+             re
+             proper
+             init
+             io
+             file
+             io_lib
+             filename
+             cucumberl
+             joxa.assert)
+    (use (joxa.core :only (try/1 if/3 +/1 when/2 unless/2 !=/2))
+         (erlang :only (==/2))))
 
 (defn file-name-to-module-name (ebin-path name)
   (let (len (erlang/length ebin-path)

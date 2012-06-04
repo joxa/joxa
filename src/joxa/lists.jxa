@@ -1,10 +1,12 @@
 ;; Special operations on lists
 ;; ===========================
 ;;
-
-(module joxa.lists
-        (require lists joxa.core erlang)
-        (use (joxa.core :only (if/3 !=/2))))
+(ns joxa.lists
+    (require lists
+             joxa.core
+             erlang)
+    (use (joxa.core :only (if/3
+                           !=/2))))
 
 (defn needs-catchall? (clause)
   (case clause

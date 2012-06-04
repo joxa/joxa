@@ -1,5 +1,5 @@
-(module example.anonymous-funs
-        (use (erlang :only (==/2))))
+(ns example.anonymous-funs
+    (use (erlang :only (==/2))))
 
 (defn internal-test ()
   (fn (arg1 arg2)

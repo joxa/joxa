@@ -5,8 +5,10 @@
 ;;;
 ;;; This namespace provides utility functions for otp applications. It
 ;;; also serves as the base for the otp decendent namespaces.
-(module joxa.otp
-        (require erlang joxa.lists lists))
+(ns joxa.otp
+    (require erlang
+             joxa.lists
+             lists))
 
 ;; Check that a namespace implements the behaviour callbacks that are expected.
 (defn+ implements-behaviour? (module-name behaviour-name)

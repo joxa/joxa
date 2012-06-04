@@ -1,0 +1,20 @@
+(ns joxa.test.multiple-ns1)
+
+(defn+ make-sure-it-exists ()
+  :it-does)
+
+(ns joxa.test.multiple-ns2)
+
+(defn+ make-sure-it-exists ()
+  :it-does)
+
+(ns joxa.test.multiple-namespaces
+    (require joxa.eunit joxa.assert
+             joxa.test.multiple-ns1
+             joxa.test.multiple-ns2))
+
+(defn+ all-exist_test ()
+  (joxa.assert/assert-equal :it-does (joxa.test.multiple-ns1/make-sure-it-exists))
+  (joxa.assert/assert-equal :it-does (joxa.test.multiple-ns2/make-sure-it-exists)))
+
+(joxa.eunit/testable)

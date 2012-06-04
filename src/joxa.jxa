@@ -8,10 +8,10 @@
 ;;; copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 ;;;
 ;;; This module provides an escript oriented interface to the joxa system.
-(module joxa
-        (require joxa.compiler
-                 joxa.shell
-                 init))
+(ns joxa
+    (require joxa.compiler
+             joxa.shell
+             init))
 
 
 

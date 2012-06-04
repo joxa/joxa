@@ -8,14 +8,17 @@
 ;;; copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 ;;;
 ;;; This module provides a shell or REPL for the joxa language
-(module joxa.shell
-        (require io code lists
-                 ec_dictionary joxa.compiler)
-        (use (erlang :only (atom_to_list/1 list_to_binary/1 apply/3))
-             (joxa.core :as core)))
+(ns joxa.shell
+    (require io
+             code
+             lists
+             ec_dictionary
+             joxa.compiler)
+    (use (erlang :only (atom_to_list/1 list_to_binary/1 apply/3))
+         (joxa.core :as core)))
 
 (defn prompt (ctx)
-  (lists/concat [(atom_to_list (joxa.compiler/module-name-ctx ctx))
+  (lists/concat [(atom_to_list (joxa.compiler/namespace-name-ctx ctx))
                  "> "]))
 (defn read (ctx)
   (case (io/get_line (prompt ctx))
@@ -29,7 +32,7 @@
         comp-res
         (if (joxa.compiler/compilable? ctx)
             (if (erlang/== result :expr)
-                (let (call-fun (erlang/make_fun (joxa.compiler/module-name-ctx ctx) :--joxa-shell 0))
+                (let (call-fun (erlang/make_fun (joxa.compiler/namespace-name-ctx ctx) :--joxa-shell 0))
                   (call-fun))
               :ok)
           (if (erlang/or  (erlang/== result :expr)
@@ -65,7 +68,7 @@
 
 (defn+ start ()
   (let (ctx (joxa.compiler/start-interactive))
-    (joxa.compiler/module-name-ctx ctx :joxa-shell)
+    (joxa.compiler/namespace-name-ctx ctx :joxa-shell)
     (io/format "Joxa 0.0.8a~n~n")
     (loop ctx <<>>)
     (joxa.compiler/stop-interactive ctx)))

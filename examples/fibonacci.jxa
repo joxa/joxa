@@ -1,5 +1,5 @@
-(module jxat-fibonacci
-        (use (erlang :only (>/2 -/2 +/2))))
+(ns jxat-fibonacci
+    (use (erlang :only (>/2 -/2 +/2))))
 
 (defn+ fibo (n)
   (case n

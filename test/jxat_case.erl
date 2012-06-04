@@ -4,7 +4,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,has,a,'case',statement], _State, _) ->
-    Source = <<"(module jxat-case-test
+    Source = <<"(ns jxat-case-test
                     (use (erlang :only (==/2 phash2/1 and/2))))
 
                 (defn internal-test (arg1 arg2)

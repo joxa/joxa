@@ -4,7 +4,7 @@
 
 fun_var_test() ->
         Source = <<"
-(module jxat-fun-var-test )
+(ns jxat-fun-var-test )
 
   (defn get-it0 ()
      (let (f (fn (a b) {a b}))

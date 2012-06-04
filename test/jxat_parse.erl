@@ -15,7 +15,7 @@
 %%% Tests
 %%%===================================================================
 test1_test() ->
-    Source = <<"(module jxat-anon-fun
+    Source = <<"(ns jxat-anon-fun
                     (use (erlang :only (==/2 phash2/1))))
 
                 (defn internal-test ()

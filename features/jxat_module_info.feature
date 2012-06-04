@@ -9,9 +9,3 @@ Feature: Module Introspection
     When joxa info is called on this module
     Then context is produced
     And context contains the required information
-
-  Scenario: Support getting context in broken module
-    Given a module that with a valid module but broken body
-    When joxa info is called on this module
-    Then context is produced
-    And context contains the required information

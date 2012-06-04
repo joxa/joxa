@@ -4,7 +4,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,has,an,anonymous,function], _State, _) ->
-        Source = <<"(module jxat-implicit-do-test
+        Source = <<"(ns jxat-implicit-do-test
                        (require io))
 
                 (defn t1 ()

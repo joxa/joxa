@@ -6,10 +6,10 @@
 given([a,module,that,has,a,function,that,calls,
        module], _State, _) ->
     Source = <<"
-(module jxat-module-fun)
+(ns jxat-module-fun)
 
-   (defn+ get-module ()
-     ($module-name))
+   (defn+ get-namespace ()
+     ($namespace))
 
    (defn+ get-fun()
      ($function-name))
@@ -18,7 +18,7 @@ given([a,module,that,has,a,function,that,calls,
      ($line-number))
 
    (defn+ test-case ()
-     (case (get-module)
+     (case (get-namespace)
        (:jxat-module-fun
            :ok))
      (case (get-fun)
@@ -41,7 +41,7 @@ then([a,beam,binary,is,produced], Ctx, _) ->
                   {'--joxa-info',2},
                   {'get-fun',0},
                   {'get-line',0},
-                  {'get-module',0},
+                  {'get-namespace',0},
                   {module_info,0},
                   {module_info,1},
                   {'test-case',0}],
@@ -49,7 +49,7 @@ then([a,beam,binary,is,produced], Ctx, _) ->
     {ok, Ctx};
 then([the,described,function,returns,the,name,'of',the,module],
      State, _) ->
-    ?assertMatch('jxat-module-fun', 'jxat-module-fun':'get-module'()),
+    ?assertMatch('jxat-module-fun', 'jxat-module-fun':'get-namespace'()),
     ?assertMatch('get-fun', 'jxat-module-fun':'get-fun'()),
     ?assertMatch(11, 'jxat-module-fun':'get-line'()),
     'jxat-module-fun':'test-case'(),

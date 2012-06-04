@@ -1,5 +1,5 @@
-(module example.case
-        (use (erlang :only (==/2 phash2/1 and/2))))
+(ns example.case
+    (use (erlang :only (==/2 phash2/1 and/2))))
 
 (defn internal-test (arg1 arg2)
                       (case {arg1 arg2}

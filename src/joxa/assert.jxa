@@ -7,8 +7,9 @@
 ;;
 ;; These assertions are based directly on the assertions provided by
 ;; Eunit with just a bit of Joxification
-(module joxa.assert
-        (require erlang joxa.core))
+(ns joxa.assert
+    (require erlang
+             joxa.core))
 
 ;; This macro yields 'true' if the value of E matches the guarded
 ;; pattern G, otherwise 'false'.
@@ -26,7 +27,7 @@
         :ok)
        (~__v
         (erlang/error {:assertion_failed
-                       [{:module ($module-name)}
+                       [{:module ($namespace)}
                         {:line ($line-number)}
                         {:expression (quote ~bool-expr)}
                         {:expected (quote :true)}
@@ -39,7 +40,7 @@
     `(case ~expr
        (~guard :ok)
        (~__v (erlang/error {:assertMatch_failed
-                            [{:module ($module-name)}
+                            [{:module ($namespace)}
                              {:line ($line-number)}
                              {:expression (quote ~expr)}
                              {:pattern (quote ~guard)}
@@ -51,7 +52,7 @@
        (case ~__v
          (~guard
           (erlang/error {:assertNotMatch_failed
-                         [{:module ($module-name)}
+                         [{:module ($namespace)}
                           {:line ($line-number)}
                           {:expression  (quote ~expr)}
                           {:pattern (quote ~guard)}
@@ -68,7 +69,7 @@
          (~__x :ok)
          (~__v
           (erlang/error {:assertEqual_failed
-                         [{:module ($module-name)}
+                         [{:module ($namespace)}
                           {:line ($line-number)}
                           {:expression (quote ~expr)}
                           {:expected  ~__x}
@@ -81,7 +82,7 @@
        (case ~expr
          (~__x
           (erlang/error {:assertNotEqual_failed
-                         [{:module ($module-name)}
+                         [{:module ($namespace)}
                           {:line ($line-number)}
                           {:expression (quote ~expr)}
                           {:value ~__x}]}))
@@ -98,7 +99,7 @@
       (let (~__v ~expr)
         (erlang/error
          {:assertException_failed
-          [{:module ($module-name)}
+          [{:module ($namespace)}
            {:line ($line-number)}
            {:expression (quote ~expr)}
            {:pattern
@@ -109,7 +110,7 @@
           ({~__c ~__t}
            (erlang/error
             {:assertException_failed
-             [{:module ($module-name)}
+             [{:module ($namespace)}
               {:line ($line-number)}
               {:expression (quote ~expr)}
               {:pattern {(quote ~class) (quote ~term)}}
@@ -143,7 +144,7 @@
               (case ~__t
                 (~@term
                  (erlang/error {:assertNotException_failed
-                                [{:module ($module-name)}
+                                [{:module ($namespace)}
                                  {:line ($line-number)}
                                  {:expression (quote ~expr)}
                                  {:pattern
