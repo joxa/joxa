@@ -93,7 +93,7 @@ all: build
 	@touch $@
 
 $(GOT_DEPS): $(TMPDIR)/.d $(DEPS_DIR)/.d
-	wget --progress=bar https://github.com/downloads/erlware/sinan/deps.tar.gz -O $(LOCAL_DEPS)
+	wget --progress=bar https://github.com/downloads/erlware/joxa/joxa-deps.tar.gz -O $(LOCAL_DEPS)
 	touch $(LOCAL_DEPS)
 	tar xzf $(LOCAL_DEPS) --directory=$(DEPS_DIR)
 	touch $(GOT_DEPS)
