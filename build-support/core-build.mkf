@@ -150,7 +150,7 @@ bare-escript: $(ESCRIPT_DIR)/.d $(ESCRIPT_TMP)/.d
 	cp -R $(DEPS_DIR)/* $(ESCRIPT_TMP)
 	cd $(ESCRIPT_TMP); zip -r joxa.ez *; \
 	$(ERL) $(ERLFLAGS) -eval "escript:create(\"joxa\", [shebang, {emu_args, []}, {archive, \"./joxa.ez\"}])" -s init stop
-	chmod 777 $(ESCRIPT_TMP)/joxa
+	chmod a+x $(ESCRIPT_TMP)/joxa
 	mv $(ESCRIPT_TMP)/joxa $(ESCRIPT_DIR)/
 	rm -rf $(ESCRIPT_TMP)
 
