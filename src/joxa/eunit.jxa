@@ -17,7 +17,7 @@
                                              :current_function)))
 
 (defmacro+ -test (expr)
-  ` {~($line-number) (fn () ~expr)})
+  ` {($line-number) (fn () ~expr)})
 
 (defmacro+ -assert (bool-expr)
   `(joxa.eunit/-test (joxa.assert/assert ~bool-expr)))
@@ -64,7 +64,7 @@
          ({~--n ~--out} ~--out)
          ({~--new _}
           (erlang/error {:command_failed
-                         [{:module ($namespace)}
+                         [{:namespace ($namespace)}
                           {:line ($line-number)}
                           {:command (quote  ~cmd)}
                           {:expected_status ~--n}
@@ -88,7 +88,7 @@
          ({~--n ~--out} ~--out)
          ({~--new _}
           (erlang/error {:assertCmd_failed
-                         [{:module ($namespace)}
+                         [{:namespace ($namespace)}
                           {:line ($line-number)}
                           {:command (quote  ~cmd)}
                           {:expected_status ~--n}
@@ -102,7 +102,7 @@
       ({_ ~t} :ok)
       ({_ ~--new}
        (erlang/error {:assertCmdOutput_failed
-                      [{:module ($namespace)},
+                      [{:namespace ($namespace)},
                        {:line ($line-number)},
                        {:command (quote ~cmd)},
                        {:expected_output (quote ~t)},
@@ -150,5 +150,5 @@
   `(defn+ test ()
      (eunit/test ($namespace))))
 
-(defn+ test (module-name)
-  (eunit/test module-name))
+(defn+ test (namespace-name)
+  (eunit/test namespace-name))

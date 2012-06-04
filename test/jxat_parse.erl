@@ -41,7 +41,7 @@ test1_test() ->
     test_type_idx([3,1], list, 2, Annots0),
     test_type_idx([2,3,1], list, 2, Annots0),
 
-    ?assertMatch([module,'jxat-anon-fun',
+    ?assertMatch([ns,'jxat-anon-fun',
                   [use,[erlang,[quote,only],[{'--fun','==',2},
                                              {'--fun',phash2,1}]]]],
                  AST0),

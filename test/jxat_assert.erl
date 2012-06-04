@@ -39,7 +39,7 @@ assert_test() ->
     Ctx = joxa.compiler:forms(Source, []),
     ?assertMatch(true,is_binary(joxa.compiler:'get-context'(result, Ctx))),
     ?assertMatch(ok, 'jxat-assert-test':'assert-pass'()),
-    ?assertError({assertion_failed,[{module,'jxat-assert-test'},
+    ?assertError({assertion_failed,[{namespace,'jxat-assert-test'},
                                     {line,8},
                                     {expression,[quote,false]},
                                     {expected,[quote,true]},
@@ -59,7 +59,7 @@ assert_match_test() ->
     ?assertMatch(true,is_binary(joxa.compiler:'get-context'(result, Ctx))),
     ?assertMatch(ok, 'jxat-assert-match-test':'assert-match-pass'()),
 
-    ?assertError({assertMatch_failed,[{module,'jxat-assert-match-test'},
+    ?assertError({assertMatch_failed,[{namespace,'jxat-assert-match-test'},
                                       {line,8},
                                       {expression,[[fn,[],[quote,true]]]},
                                       {pattern,[quote,false]},
@@ -79,7 +79,7 @@ assert_not_match_test() ->
     Ctx = joxa.compiler:forms(Source, []),
     ?assertMatch(true,is_binary(joxa.compiler:'get-context'(result, Ctx))),
     ?assertMatch(ok, 'jxat-assert-not-match-test':'assert-not-match-pass'()),
-    ?assertError({assertNotMatch_failed,[{module,'jxat-assert-not-match-test'},
+    ?assertError({assertNotMatch_failed,[{namespace,'jxat-assert-not-match-test'},
                                          {line,8},
                                          {expression,[[fn,[],[quote,true]]]},
                                          {pattern,[quote,true]},
@@ -99,7 +99,7 @@ assert_equal_test() ->
     Ctx = joxa.compiler:forms(Source, []),
     ?assertMatch(true,is_binary(joxa.compiler:'get-context'(result, Ctx))),
     ?assertMatch(ok, 'jxat-assert-equal-test':'assert-equal-pass'()),
-    ?assertError({assertEqual_failed,[{module,'jxat-assert-equal-test'},
+    ?assertError({assertEqual_failed,[{namespace,'jxat-assert-equal-test'},
                                       {line,8},
                                       {expression,[[fn,[],[quote,true]]]},
                                       {expected,false},
@@ -119,7 +119,7 @@ assert_not_equal_test() ->
     Ctx = joxa.compiler:forms(Source, []),
     ?assertMatch(true,is_binary(joxa.compiler:'get-context'(result, Ctx))),
     ?assertMatch(ok, 'jxat-assert-not-equal-test':'assert-not-equal-pass'()),
-    ?assertError({assertNotEqual_failed,[{module,'jxat-assert-not-equal-test'},
+    ?assertError({assertNotEqual_failed,[{namespace,'jxat-assert-not-equal-test'},
                                          {line,8},
                                          {expression,[[fn,[],[quote,true]]]},
                                          {value,true}]},
@@ -140,13 +140,13 @@ assert_exception_test() ->
     ?assertMatch(true,is_binary(joxa.compiler:'get-context'(result, Ctx))),
     ?assertMatch(ok, 'jxat-assert-exception-test':'assert-exception-pass'()),
     ?assertError({assertException_failed,
-                  [{module,'jxat-assert-exception-test'},
+                  [{namespace,'jxat-assert-exception-test'},
                    {line,9},
                    {expression,[{'--fun',erlang,throw},[quote,'not-foo-bar']]},
                    {pattern,{[quote,error],[quote,'foo-bar']}},
                    {unexpected_exception,
                     {throw,'not-foo-bar',
-                     [{'jxat-assert-exception-test','assert-exception-fail',0}
+                     [{'jxat-assert-exception-test','assert-exception-fail',0, _}
                       | _]}}]},
                  'jxat-assert-exception-test':'assert-exception-fail'()).
 
@@ -165,13 +165,13 @@ assert_error_test() ->
     ?assertMatch(true,is_binary(joxa.compiler:'get-context'(result, Ctx))),
     ?assertMatch(ok, 'jxat-assert-error-test':'assert-error-pass'()),
     ?assertError({assertException_failed,
-                  [{module,'jxat-assert-error-test'},
+                  [{namespace,'jxat-assert-error-test'},
                    {line,10},
                    {expression,[{'--fun',erlang,throw},[quote,'foo-bar']]},
                    {pattern,{[quote,error],[quote,'foo-bar']}},
                    {unexpected_exception,
                     {throw,'foo-bar',
-                     [{'jxat-assert-error-test','assert-error-fail',0} | _]}}]},
+                     [{'jxat-assert-error-test','assert-error-fail',0, _} | _]}}]},
                  'jxat-assert-error-test':'assert-error-fail'()).
 
 
@@ -190,13 +190,13 @@ assert_exit_test() ->
     ?assertMatch(true,is_binary(joxa.compiler:'get-context'(result, Ctx))),
     ?assertMatch(ok, 'jxat-assert-exit-test':'assert-exit-pass'()),
     ?assertError({assertException_failed,
-                  [{module,'jxat-assert-exit-test'},
+                  [{namespace,'jxat-assert-exit-test'},
                    {line,10},
                    {expression,[{'--fun',erlang,throw},[quote,'foo-bar']]},
                    {pattern,{[quote,exit],[quote,'foo-bar']}},
                    {unexpected_exception,
                     {throw,'foo-bar',
-                     [{'jxat-assert-exit-test','assert-exit-fail',0} | _]}}]},
+                     [{'jxat-assert-exit-test','assert-exit-fail',0, _} | _]}}]},
                  'jxat-assert-exit-test':'assert-exit-fail'()).
 
 assert_throw_test() ->
@@ -213,14 +213,17 @@ assert_throw_test() ->
     Ctx = joxa.compiler:forms(Source, []),
     ?assertMatch(true,is_binary(joxa.compiler:'get-context'(result, Ctx))),
     ?assertMatch(ok, 'jxat-assert-exit-test':'assert-exit-pass'()),
+    try 'jxat-assert-exit-test':'assert-exit-fail'() catch E:F ->
+                                                             io:format("~p:~p~n", [E, F])
+                                                     end,
     ?assertError({assertException_failed,
-                  [{module,'jxat-assert-exit-test'},
+                  [{namespace,'jxat-assert-exit-test'},
                    {line,10},
                    {expression,[{'--fun',erlang,throw},[quote,'foo-bar']]},
                    {pattern,{[quote,exit],[quote,'foo-bar']}},
                    {unexpected_exception,
                     {throw,'foo-bar',
-                     [{'jxat-assert-exit-test','assert-exit-fail',0} | _]}}]},
+                     [{'jxat-assert-exit-test','assert-exit-fail',0, _} | _]}}]},
                  'jxat-assert-exit-test':'assert-exit-fail'()).
 
 assert_not_exception_test() ->
@@ -238,14 +241,14 @@ assert_not_exception_test() ->
     ?assertMatch(true,is_binary(joxa.compiler:'get-context'(result, Ctx))),
     ?assertMatch(ok, 'jxat-assert-not-exception-test':'assert-not-exception-pass'()),
     ?assertError({assertNotException_failed,
-                  [{module,'jxat-assert-not-exception-test'},
+                  [{namespace,'jxat-assert-not-exception-test'},
                    {line,9},
                    {expression,[{'--fun',erlang,throw},[quote,'foo-bar']]},
                    {pattern,{[[quote,throw]],[[quote,'foo-bar']]}},
                    {unexpected_exception,
                     {throw,'foo-bar',
                      [{'jxat-assert-not-exception-test',
-                       'assert-not-exception-fail',0}|_]}}]},
+                       'assert-not-exception-fail',0, _}|_]}}]},
                  'jxat-assert-not-exception-test':'assert-not-exception-fail'()).
 %%%===================================================================
 %%% Support Functions

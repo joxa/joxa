@@ -33,7 +33,7 @@ test_test() ->
 
     Ctx = joxa.compiler:forms(Source, []),
     ?assertMatch(true,is_binary(joxa.compiler:'get-context'(result, Ctx))),
-    ?assertMatch({15,_}, 'jxat-eunit-test-test':'test-test'()),
+    ?assertMatch({5,_}, 'jxat-eunit-test-test':'test-test'()),
     {_, Fun} = 'jxat-eunit-test-test':'test-test'(),
     ?assertMatch(foo, Fun()).
 
@@ -46,9 +46,9 @@ assert_test() ->
 
     Ctx = joxa.compiler:forms(Source, []),
     ?assertMatch(true,is_binary(joxa.compiler:'get-context'(result, Ctx))),
-    ?assertMatch({15,_}, 'jxat-eunit-assert-test':'assert-test'()),
+    ?assertMatch({5,_}, 'jxat-eunit-assert-test':'assert-test'()),
     {_, Fun} = 'jxat-eunit-assert-test':'assert-test'(),
-    ?assertError({assertion_failed,[{module,'jxat-eunit-assert-test'},
+    ?assertError({assertion_failed,[{namespace,'jxat-eunit-assert-test'},
                                     {line,5},
                                     {expression,[{'--fun',erlang,'=='},
                                                  [quote,foo],
@@ -67,16 +67,16 @@ assert_not_test() ->
 
     Ctx = joxa.compiler:forms(Source, []),
     ?assertMatch(true,is_binary(joxa.compiler:'get-context'(result, Ctx))),
-    ?assertMatch({15,_}, 'jxat-eunit-assert-not-test':'assert-not-test'()),
+    ?assertMatch({5,_}, 'jxat-eunit-assert-not-test':'assert-not-test'()),
     {_, Fun} = 'jxat-eunit-assert-not-test':'assert-not-test'(),
-    ?assertError({assertion_failed,[{module,'jxat-eunit-assert-not-test'},
-                         {line,5},
-                         {expression,[{'--fun',erlang,'not'},
-                                      [{'--fun',erlang,'=='},
-                                       [quote,foo],
-                                       [quote,foo]]]},
-                         {expected,[quote,true]},
-                         {value,false}]},
+    ?assertError({assertion_failed,[{namespace,'jxat-eunit-assert-not-test'},
+                                    {line,5},
+                                    {expression,[{'--fun',erlang,'not'},
+                                                 [{'--fun',erlang,'=='},
+                                                  [quote,foo],
+                                                  [quote,foo]]]},
+                                    {expected,[quote,true]},
+                                    {value,false}]},
                  Fun()).
 
 
@@ -106,7 +106,7 @@ cmd_status_test() ->
     ?assertMatch([$E, $s, $h, $e, $l, $l |_],
                  'jxat-eunit-cmd-status-test':'cmd-status-test'()),
 
-    ?assertError({command_failed,[{module,'jxat-eunit-cmd-status-test'},
+    ?assertError({command_failed,[{namespace,'jxat-eunit-cmd-status-test'},
                                   {line,8},
                                   {command,"erl -s init stop"},
                                   {expected_status,1},
@@ -128,7 +128,7 @@ assert_cmd_status_test() ->
     ?assertMatch(true,is_binary(joxa.compiler:'get-context'(result, Ctx))),
     ?assertMatch([$E, $s, $h, $e, $l, $l |_],
                  'jxat-eunit-assert-cmd-status-test':'assert-cmd-status-test'()),
-    ?assertError({assertCmd_failed,[{module,'jxat-eunit-assert-cmd-status-test'},
+    ?assertError({assertCmd_failed,[{namespace,'jxat-eunit-assert-cmd-status-test'},
                                     {line,8},
                                     {command,"erl -s init stop"},
                                     {expected_status,1},
@@ -150,7 +150,7 @@ assert_cmd_output_test() ->
     ?assertMatch(ok,
                  'jxat-eunit-assert-cmd-output-test':'assert-cmd-output-test'()),
     ?assertError({assertCmdOutput_failed,
-                  [{module,'jxat-eunit-assert-cmd-output-test'},
+                  [{namespace,'jxat-eunit-assert-cmd-output-test'},
                    {line,8},
                    {command,"erl -s init stop"},
                    {expected_output,"Foo!"},

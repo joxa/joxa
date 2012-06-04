@@ -27,7 +27,7 @@
         :ok)
        (~__v
         (erlang/error {:assertion_failed
-                       [{:module ($namespace)}
+                       [{:namespace ($namespace)}
                         {:line ($line-number)}
                         {:expression (quote ~bool-expr)}
                         {:expected (quote :true)}
@@ -40,7 +40,7 @@
     `(case ~expr
        (~guard :ok)
        (~__v (erlang/error {:assertMatch_failed
-                            [{:module ($namespace)}
+                            [{:namespace ($namespace)}
                              {:line ($line-number)}
                              {:expression (quote ~expr)}
                              {:pattern (quote ~guard)}
@@ -52,7 +52,7 @@
        (case ~__v
          (~guard
           (erlang/error {:assertNotMatch_failed
-                         [{:module ($namespace)}
+                         [{:namespace ($namespace)}
                           {:line ($line-number)}
                           {:expression  (quote ~expr)}
                           {:pattern (quote ~guard)}
@@ -69,7 +69,7 @@
          (~__x :ok)
          (~__v
           (erlang/error {:assertEqual_failed
-                         [{:module ($namespace)}
+                         [{:namespace ($namespace)}
                           {:line ($line-number)}
                           {:expression (quote ~expr)}
                           {:expected  ~__x}
@@ -82,7 +82,7 @@
        (case ~expr
          (~__x
           (erlang/error {:assertNotEqual_failed
-                         [{:module ($namespace)}
+                         [{:namespace ($namespace)}
                           {:line ($line-number)}
                           {:expression (quote ~expr)}
                           {:value ~__x}]}))
@@ -99,7 +99,7 @@
       (let (~__v ~expr)
         (erlang/error
          {:assertException_failed
-          [{:module ($namespace)}
+          [{:namespace ($namespace)}
            {:line ($line-number)}
            {:expression (quote ~expr)}
            {:pattern
@@ -110,7 +110,7 @@
           ({~__c ~__t}
            (erlang/error
             {:assertException_failed
-             [{:module ($namespace)}
+             [{:namespace ($namespace)}
               {:line ($line-number)}
               {:expression (quote ~expr)}
               {:pattern {(quote ~class) (quote ~term)}}
@@ -144,7 +144,7 @@
               (case ~__t
                 (~@term
                  (erlang/error {:assertNotException_failed
-                                [{:module ($namespace)}
+                                [{:namespace ($namespace)}
                                  {:line ($line-number)}
                                  {:expression (quote ~expr)}
                                  {:pattern
