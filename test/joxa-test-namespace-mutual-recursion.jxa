@@ -1,26 +1,26 @@
-(ns joxa.test.nmr-ns1)
+(ns joxa-test-nmr-ns1)
 
 (defn+ final ()
   :got-it)
 
 ; Forward declaration for ns2
-(defspec joxa.test.nmr-ns2/recurse-ns1 () (erlang/any))
+(defspec joxa-test-nmr-ns2/recurse-ns1 () (erlang/any))
 
 (defn+ recurse-ns2 ()
-  (joxa.test.nmr-ns2/recurse-ns1))
+  (joxa-test-nmr-ns2/recurse-ns1))
 
-(ns joxa.test.nmr-ns2)
+(ns joxa-test-nmr-ns2)
 
-(defspec joxa.test.nmr-ns1/final () (erlang/any))
+(defspec joxa-test-nmr-ns1/final () (erlang/any))
 
 (defn+ recurse-ns1 ()
-  (joxa.test.nmr-ns1/final))
+  (joxa-test-nmr-ns1/final))
 
-(ns joxa.test.namespace-mutual-recursion
-    (require joxa.eunit joxa.assert
-             joxa.test.nmr-ns1))
+(ns joxa-test-namespace-mutual-recursion
+    (require joxa-eunit joxa-assert
+             joxa-test-nmr-ns1))
 
 (defn+ all-exist_test ()
-  (joxa.assert/assert-equal :got-it (joxa.test.nmr-ns1/recurse-ns2)))
+  (joxa-assert/assert-equal :got-it (joxa-test-nmr-ns1/recurse-ns2)))
 
-(joxa.eunit/testable)
+(joxa-eunit/testable)

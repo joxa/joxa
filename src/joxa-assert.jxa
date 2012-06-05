@@ -7,9 +7,9 @@
 ;;
 ;; These assertions are based directly on the assertions provided by
 ;; Eunit with just a bit of Joxification
-(ns joxa.assert
+(ns joxa-assert
     (require erlang
-             joxa.core))
+             joxa-core))
 
 ;; This macro yields 'true' if the value of E matches the guarded
 ;; pattern G, otherwise 'false'.
@@ -21,7 +21,7 @@
 ;; The assert macro is written the way it is so as not to cause warnings
 ;; for clauses that cannot match, even if the expression is a constant.
 (defmacro+ assert (bool-expr)
-  (let (__v (joxa.core/gensym))
+  (let (__v (joxa-core/gensym))
     `(case ~bool-expr
        (:true
         :ok)
@@ -36,7 +36,7 @@
                                   (_ {:not_a_boolean ~__v}))}]})))))
 
 (defmacro+ assert-match (guard expr)
-  (let (__v (joxa.core/gensym))
+  (let (__v (joxa-core/gensym))
     `(case ~expr
        (~guard :ok)
        (~__v (erlang/error {:assertMatch_failed
@@ -47,7 +47,7 @@
                              {:value ~__v}]})))))
 
 (defmacro+ assert-not-match (guard expr)
-  (let (__v (joxa.core/gensym))
+  (let (__v (joxa-core/gensym))
     `(let (~__v ~expr)
        (case ~__v
          (~guard
@@ -62,8 +62,8 @@
 ;; This is a convenience macro which gives more detailed reports when
 ;; the expected LHS value is not a pattern, but a computed value
 (defmacro+ assert-equal (expect expr)
-  (let (__x (joxa.core/gensym)
-        __v (joxa.core/gensym))
+  (let (__x (joxa-core/gensym)
+        __v (joxa-core/gensym))
     `(let (~__x ~expect)
        (case ~expr
          (~__x :ok)
@@ -77,7 +77,7 @@
 
 ;; This is the inverse case of assertEqual, for convenience.
 (defmacro+ assert-not-equal (unexpect expr)
-  (let (__x (joxa.core/gensym))
+  (let (__x (joxa-core/gensym))
     `(let (~__x ~unexpect)
        (case ~expr
          (~__x
@@ -92,10 +92,10 @@
 ;; Note: Class and Term are patterns, and can not be used for value.
 ;; Term can be a guarded pattern, but Class cannot.
 (defmacro+ assert-exception (class term expr)
-  (let (__v (joxa.core/gensym)
-        __c (joxa.core/gensym)
-        __t (joxa.core/gensym))
-    `(joxa.core/try
+  (let (__v (joxa-core/gensym)
+        __c (joxa-core/gensym)
+        __t (joxa-core/gensym))
+    `(joxa-core/try
       (let (~__v ~expr)
         (erlang/error
          {:assertException_failed
@@ -119,13 +119,13 @@
                       (erlang/get_stacktrace)}}]}))))))
 
 (defmacro+ assert-error (term expr)
-  `(joxa.assert/assert-exception :error ~term ~expr))
+  `(joxa-assert/assert-exception :error ~term ~expr))
 
 (defmacro+ assert-exit (term expr)
-  `(joxa.assert/assert-exception :exit ~term ~expr))
+  `(joxa-assert/assert-exception :exit ~term ~expr))
 
 (defmacro+ assert-throw (term expr)
-  `(joxa.assert/assert-exception :throw ~term ~expr))
+  `(joxa-assert/assert-exception :throw ~term ~expr))
 
 ;; This is the inverse case of assertException, for convenience.
 ;; Note: Class and Term are patterns, and can not be used for value.
@@ -133,9 +133,9 @@
 ;; guarded expressions both class and term must be enclosed in
 ;; parens. That is it shoud be (:exit) not :exit etc
 (defmacro+ assert-not-exception (class term expr)
-  (let (__c (joxa.core/gensym)
-        __t (joxa.core/gensym))
-    `(joxa.core/try
+  (let (__c (joxa-core/gensym)
+        __t (joxa-core/gensym))
+    `(joxa-core/try
       ~expr
       (catch
           ({~__c ~__t}

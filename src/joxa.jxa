@@ -9,15 +9,15 @@
 ;;;
 ;;; This module provides an escript oriented interface to the joxa system.
 (ns joxa
-    (require joxa.compiler
-             joxa.shell
-             joxa.lists
+    (require joxa-compiler
+             joxa-shell
+             joxa-lists
              getopt
              proplists
              init
              code
              lists)
-    (use (joxa.lists :only (dolist/2))))
+    (use (joxa-lists :only (dolist/2))))
 
 
 (defn usage (os-list)
@@ -28,7 +28,7 @@
   (lists/append [{:pa  \p "pa" :string "Add a path to the head of the code path"}
                  {:pz \z "pz" :string "Add a path to the end of the code path"}
                  {:c \c "compile" :string "Compile the specified file"}]
-                (joxa.compiler/option-spec-list)))
+                (joxa-compiler/option-spec-list)))
 
 (defn setup-paths (options)
   (dolist (path (proplists/get_all_values :pa options))
@@ -48,9 +48,9 @@
     ({:ok {options rest-args}}
      (setup-paths options)
      (case (proplists/get_value :c options :undefined)
-       (:undefined (joxa.shell/start))
+       (:undefined (joxa-shell/start))
        (target
-        (joxa.compiler/do-compile target options))))
+        (joxa-compiler/do-compile target options))))
     (_
      (usage (option-spec-list))
      (init/stop 127))))

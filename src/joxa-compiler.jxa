@@ -16,7 +16,7 @@
 ;;; this severely restricts the syntax you can use in the compler, it
 ;;; does ensure that only a very minimal base language is supported.
 ;;;
-(ns joxa.compiler
+(ns joxa-compiler
     (require init getopt file
              lists unicode sets
              re ets proplists
@@ -464,10 +464,10 @@
      :not-macro)))
 
 (defn+ start-context ()
-  (gen_server/start_link :joxa.compiler [] []))
+  (gen_server/start_link :joxa-compiler [] []))
 
 (defn+ start-context (initial-values)
-  (gen_server/start_link :joxa.compiler [initial-values] []))
+  (gen_server/start_link :joxa-compiler [initial-values] []))
 
 ;; ### gen_server callbacks
 (defn+ init (args0)
@@ -1151,7 +1151,7 @@
   (ets/delete (memo-table-name)))
 
 (defn+ setup-memo ()
-  (erlang/put :parse-memo-table (ets/new :joxa.compiler [:set])))
+  (erlang/put :parse-memo-table (ets/new :joxa-compiler [:set])))
 
 (defn+ p (inp start-index name parse-fun transform-fun)
   (case (get-memo start-index name)
@@ -4439,7 +4439,7 @@
 ;; -----------------------
 ;;
 ;; This section describes interactive compilation. That is the
-;; compilation as it is designed be used in something like joxa.shell
+;; compilation as it is designed be used in something like joxa-shell
 ;; or the eventual swank implementation for joxa. It is probably not
 ;; of interest to your average coder.
 ;;

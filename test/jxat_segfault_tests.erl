@@ -20,11 +20,11 @@ bad_arity_test() ->
                                     :not-a-reference)
                                 (result
                                    result))))">>,
-    RawCtx = joxa.compiler:forms(Source, []),
-    ?assertMatch(true, joxa.compiler:'has-errors?'(RawCtx)),
+    RawCtx = 'joxa-compiler':forms(Source, []),
+    ?assertMatch(true, 'joxa-compiler':'has-errors?'(RawCtx)),
     ?assertMatch([{{'invalid-reference',{'rest-used-function-ctx?',3}},
                    {[],_}}],
-                 joxa.compiler:'get-context'(errors, RawCtx)).
+                 'joxa-compiler':'get-context'(errors, RawCtx)).
 
 
 bad_call_test() ->
@@ -33,11 +33,11 @@ bad_call_test() ->
                 (defn+ invalid-code-test ()
                       (let (x 1)
                            -x))">>,
-    RawCtx = joxa.compiler:forms(Source, []),
-    ?assertMatch(true, joxa.compiler:'has-errors?'(RawCtx)),
+    RawCtx = 'joxa-compiler':forms(Source, []),
+    ?assertMatch(true, 'joxa-compiler':'has-errors?'(RawCtx)),
     ?assertMatch([{{'invalid-reference','not-a-reference','-x'},
                               {[],_}}]
-                 , joxa.compiler:'get-context'(errors, RawCtx)).
+                 , 'joxa-compiler':'get-context'(errors, RawCtx)).
 
 
 
@@ -76,8 +76,8 @@ segfault_test() ->
                       (erlang/throw {:invalid-reference :ok
                                                    {3 3}}))))))))">>,
 
-    Ctx = joxa.compiler:forms(Source, []),
-    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx))),
+    Ctx = 'joxa-compiler':forms(Source, []),
+    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
     ?assertThrow({'invalid-reference', ok, _},
                  'jxat-invalid-arity-test2':'test-case'({ok, 'not-a-reference'})).
 
@@ -87,6 +87,6 @@ bad_let_test() ->
                   (defn+ rest-used-function-ctx? ()
                       (let (x 1)
                        x)) ">>,
-    RawCtx = joxa.compiler:forms(Source, []),
-    ?assertMatch(false, joxa.compiler:'has-errors?'(RawCtx)),
+    RawCtx = 'joxa-compiler':forms(Source, []),
+    ?assertMatch(false, 'joxa-compiler':'has-errors?'(RawCtx)),
     ?assertMatch(1, 'jxat-bad-let-test':'rest-used-function-ctx?'()).
