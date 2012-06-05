@@ -32,11 +32,11 @@ given([a,module,that,declares,types], _State, _) ->
 
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = joxa.compiler:forms(Source, []),
+    Result = 'joxa-compiler':forms(Source, []),
     {ok, Result}.
 
 then([a,beam,binary,is,produced], Ctx,  _) ->
-    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx))),
+    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
     {ok, Ctx};
 then([the,described,function,can,be,called,'and',works,correctly],
      State, _) ->

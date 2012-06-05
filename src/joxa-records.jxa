@@ -10,8 +10,8 @@
 ;;;
 ;;; This module provides for the definition and abstraction of structs
 ;;; in joxa.
-(ns joxa.records
-    (require (joxa.core :as core)
+(ns joxa-records
+    (require (joxa-core :as core)
              lists
              erlang
              io)
@@ -149,7 +149,7 @@
     ((f-name . (value . rest))
      (make-t-body name descs rest
                   (erlang/setelement
-                   (joxa.records/get-field-index f-name descs)
+                   (joxa-records/get-field-index f-name descs)
                    acc value)))))
 
 (defn create-templates (name decl descs)
@@ -161,13 +161,13 @@
         fields (core/gensym)
         pattern-tmp (create-macro-body name descs))
     `(~def t (&rest ~fields)
-           (joxa.records/make-t-body :~name '~descs ~fields :~pattern-tmp))))
+           (joxa-records/make-t-body :~name '~descs ~fields :~pattern-tmp))))
 
 
 (defn+ make-let (obj name descs bindings body)
   (let (pattern-tmp (create-macro-body name descs))
     `(case ~obj
-       (~(joxa.records/make-t-body name descs bindings pattern-tmp)
+       (~(joxa-records/make-t-body name descs bindings pattern-tmp)
          ~@body))))
 
 (defn create-let (name decl descs)
@@ -180,7 +180,7 @@
         bindings (core/gensym)
         rest (core/gensym))
     `(~def let (~obj ~bindings &rest ~rest)
-           (joxa.records/make-let ~obj :~name '~descs ~bindings ~rest))))
+           (joxa-records/make-let ~obj :~name '~descs ~bindings ~rest))))
 
 (defn create-record (name decl descs)
   (let (ells (create-elements decl descs)
