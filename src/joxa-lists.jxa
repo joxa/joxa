@@ -1,11 +1,11 @@
 ;; Special operations on lists
 ;; ===========================
 ;;
-(ns joxa.lists
+(ns joxa-lists
     (require lists
-             joxa.core
+             joxa-core
              erlang)
-    (use (joxa.core :only (if/3
+    (use (joxa-core :only (if/3
                            !=/2))))
 
 (defn needs-catchall? (clause)
@@ -31,7 +31,7 @@
 (defmacro+ dolist (binding &rest body)
   (case binding
     ([val items]
-       (let (arg (joxa.core/gensym "doseq"))
+       (let (arg (joxa-core/gensym "doseq"))
        `(lists/foreach
          (fn (~arg)
              (case ~arg
@@ -41,7 +41,7 @@
                   [`(~val
                      ~@body)])))  ~items)))
     ([val guard items]
-     (let (arg (joxa.core/gensym "dolist"))
+     (let (arg (joxa-core/gensym "dolist"))
        `(lists/foreach
          (fn (~arg)
              (case ~arg
@@ -72,8 +72,8 @@
     :ok)
   (let (acc-var (hd acc-expr)
         acc-expr (lists/nth 2 acc-expr)
-        acc-sym (joxa.core/gensym "foldl")
-        arg (joxa.core/gensym "foldl")
+        acc-sym (joxa-core/gensym "foldl")
+        arg (joxa-core/gensym "foldl")
         body-gen (fn (binding1)
                      (case binding1
                        ([val items]

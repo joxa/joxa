@@ -87,7 +87,7 @@ prop_parser() ->
     ?FORALL({Expr}, {expression()},
             begin
                 BinExpr = to_binary(Expr),
-                {ParsedExpr, _, _} = joxa.compiler:'intermediate-parse'(BinExpr),
+                {ParsedExpr, _, _} = 'joxa-compiler':'intermediate-parse'(BinExpr),
                 compare(Expr, ParsedExpr)
             end).
 

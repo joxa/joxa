@@ -24,7 +24,7 @@ given([a,module,that,has,a,require,'and',use], _State, _) ->
     {ok, Source}.
 
 'when'([joxa,info,is,called,on,this,module], Source, _) ->
-    Result = joxa.compiler:info(Source, []),
+    Result = 'joxa-compiler':info(Source, []),
     {ok, Result}.
 
 then([context,is,produced], Deps, _) ->

@@ -5,9 +5,9 @@
 ;;;
 ;;; This namespace provides utility functions for otp applications. It
 ;;; also serves as the base for the otp decendent namespaces.
-(ns joxa.otp
+(ns joxa-otp
     (require erlang
-             joxa.lists
+             joxa-lists
              lists))
 
 ;; Check that a namespace implements the behaviour callbacks that are expected.

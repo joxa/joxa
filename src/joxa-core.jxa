@@ -9,10 +9,10 @@
 ;;;
 ;;;
 ;;; This module provides a core set of functions to joxa users.
-(ns joxa.core
+(ns joxa-core
     (require erlang
              lists
-             joxa.compiler
+             joxa-compiler
              io))
 
 (defmacro+ != (a1 a2)
@@ -29,7 +29,7 @@
      ([x y]
       `(erlang/and ~x ~y))
      ((a . b)
-      `(erlang/and ~a (joxa.core/and ~@b)))
+      `(erlang/and ~a (joxa-core/and ~@b)))
     (arg
      arg)))
 
@@ -38,7 +38,7 @@
      ([x y]
       `(erlang/or ~x ~y))
      ((a . b)
-      `(erlang/or ~a (joxa.core/and ~@b)))
+      `(erlang/or ~a (joxa-core/and ~@b)))
     (arg
      arg)))
 
@@ -93,12 +93,12 @@
       ~@false-body)))
 
 ;; This is really just a convienience so users don't have to require
-;; both joxa.compiler and core.
+;; both joxa-compiler and core.
 (defn+ gensym ()
-  (joxa.compiler/gensym))
+  (joxa-compiler/gensym))
 
 (defn+ gensym (prefix)
-  (joxa.compiler/gensym prefix))
+  (joxa-compiler/gensym prefix))
 
 ;; Try Support
 ;; -----------
@@ -113,7 +113,7 @@
 ;;
 ;; This try takes following expression and converts it to the primitive try.
 ;;
-;;     (joxa.core/try <expressions>++ (catch <catch-clauses>+))
+;;     (joxa-core/try <expressions>++ (catch <catch-clauses>+))
 ;;       <catch-clauses> :: (<pattern> <expressons>)
 
 

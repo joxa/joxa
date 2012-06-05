@@ -9,7 +9,7 @@
 
 incr_test() ->
     Source = <<" (ns jxat-core-incr-test
-                        (require (joxa.core :as core)))
+                        (require (joxa-core :as core)))
 
 
                   (defn+ test-incr (val)
@@ -18,8 +18,8 @@ incr_test() ->
                  (defn+ test-decr (val)
                       (core/decr val))">>,
 
-    RawCtx = joxa.compiler:forms(Source, []),
-    ?assertMatch(false, joxa.compiler:'has-errors?'(RawCtx)),
+    RawCtx = 'joxa-compiler':forms(Source, []),
+    ?assertMatch(false, 'joxa-compiler':'has-errors?'(RawCtx)),
     ?assertMatch(3, 'jxat-core-incr-test':'test-incr'(2)),
     ?assertMatch(20056, 'jxat-core-incr-test':'test-incr'(20055)),
     ?assertMatch(1, 'jxat-core-incr-test':'test-decr'(2)),
