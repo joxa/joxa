@@ -1,7 +1,11 @@
 VSN=0.0.8a
 ERL=$(shell which erl)
 ERLC=$(shell which erlc)
+REBAR=$(shell which rebar)
 
+ifeq ($(REBAR),)
+	$(error "Rebar not available on this system")
+endif
 # Project Directories (local to $(CURDIR))
 
 SRCDIR=$(abspath $(CURDIR)/src)
@@ -9,14 +13,12 @@ TESTDIR=$(abspath $(CURDIR)/test)
 PRIVDIR=$(abspath $(CURDIR)/priv)
 
 # Build Directories In Build
-JOXA_BUILD_DIR=$(abspath _build/joxa)
-LIBDIR=$(JOXA_BUILD_DIR)/lib
-APPDIR=$(LIBDIR)/joxa-$(VSN)
+APPDIR=$(CURDIR)
 BEAMDIR=$(APPDIR)/ebin
 
 # Bootstrap Directories In Build
-JOXA_BOOTSTRAP_DIR=$(abspath _build/bootstrap)
-BOOTSTRAP_LIBDIR=$(JOXA_BOOTSTRAP_DIR)/lib
+JOXA_BOOTSTRAP_DIR=$(abspath .bootstrap)
+BOOTSTRAP_LIBDIR=$(JOXA_BOOTSTRAP_DIR)
 BOOTSTRAP_APPDIR=$(BOOTSTRAP_LIBDIR)/joxa-$(VSN)
 BOOTSTRAP_BEAMDIR=$(BOOTSTRAP_APPDIR)/ebin
 
