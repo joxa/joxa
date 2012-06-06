@@ -71,7 +71,7 @@ $(TEST_EBIN)/%.beam: $(TESTDIR)/%.erl $(TEST_EBIN)/.d
 $(TEST_EBIN)/%.beam: $(TESTDIR)/%.jxa $(TEST_EBIN)/.d $(BEAMDIR)/joxa-compiler.beam
 	$(COMP) -o $(TEST_EBIN) $<
 
-jxa: $(SRCBEAMS) $(TESTBEAMS)
+jxa: $(SRCBEAMS)
 
 build:
 	$(REBAR) compile
@@ -79,7 +79,7 @@ build:
 get-deps:
 	$(REBAR) get-deps
 
-shell: build
+shell: build $(TESTBEAMS)
 	$(ERL) $(ERLFLAGS) -s joxa main -s init stop
 
 clean:
