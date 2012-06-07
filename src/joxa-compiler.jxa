@@ -4398,21 +4398,24 @@
 (defn internal-info (ctx input acc)
   (case (has-more-data-to-parse input)
     (:false
-     (sets/to_list (sets/from_list acc)))
+     acc)
     (:true
      (case (parse ctx input)
        ({:error _}
         [])
        ({(:ns . (namespace-name . rest)) rest-input}
         (internal-info ctx rest-input
-                       (lists/flatten (lists/foldl (fn (form iacc)
-                                                       (case form
-                                                         ((:require . req-rest)
-                                                          ((get-require req-rest []) . iacc))
-                                                         ((:use . use-rest)
-                                                          ((get-use ctx use-rest []) . iacc))
-                                                         (_
-                                                          iacc))) acc rest))))
+                       ({namespace-name
+                          (lists/flatten (lists/foldl
+                                          (fn (form iacc)
+                                              (case form
+                                                ((:require . req-rest)
+                                                 ((get-require req-rest []) . iacc))
+                                                ((:use . use-rest)
+                                                 ((get-use ctx use-rest []) . iacc))
+                                                (_
+                                                 iacc))) [] rest))
+                          } . acc)))
        ({_ rest-input}
         (internal-info ctx rest-input acc))))))
 

@@ -31,4 +31,5 @@ then([context,is,produced], Deps, _) ->
     ?assertMatch(true, erlang:is_list(Deps)),
     {ok, Deps};
 then([context,contains,the,required,information], Deps, _) ->
-      ?assertMatch([lists,code,erlang,jxat_module_info], Deps).
+      ?assertMatch([{'jxat-case-test2',[erlang,code,lists]},
+                    {'jxat-case-test',[erlang,jxat_module_info]}], Deps).
