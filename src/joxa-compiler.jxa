@@ -3302,7 +3302,7 @@
       ((:receive . ((:after . _) . _))
        (add-error-r-nil-ctx ctx path0 :invalid-receive))
       ((:receive . clauses)
-       (let (cerl-clauses (make-pattern (incr-path 2 path0) ctx clauses []))
+       (let (cerl-clauses (make-pattern (incr-path path0) ctx clauses []))
          (cerl/ann_c_receive annots cerl-clauses)))
       ((:do . args)
        (make-seq (incr-path path0) ctx args))
