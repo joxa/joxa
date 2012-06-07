@@ -396,6 +396,7 @@
 (defn internal-rest-defined-function? (function possible-arity raw-ctx)
   (case (internal-is-local-rest-fun? function possible-arity raw-ctx)
     ({:true arity}
+     (when (erlang/>= possible-arity arity))
      {:apply :rest {function arity}})
     (x
      :not-a-reference)))
