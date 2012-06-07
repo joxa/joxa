@@ -259,35 +259,44 @@
         defs (get-context :definitions raw-ctx)
         fun-deps (get-context :fun-deps raw-ctx)
         cerl-name (cerl/ann_c_fname annots name arity)
-        cerl-body (cerl/ann_c_fun annots vars body))
-
-    (case replace
-      (:replace
-       (case (lists/keymember {name arity} 1 defs)
-         (:true
-          (set-context :definitions
-                       (lists/keyreplace {name arity} 1
-                                         defs
-                                         {{name arity} {cerl-name cerl-body fun-deps}})
-                       raw-ctx))
-         (:false
-          (set-context :definitions
-                       (lists/append defs
-                                     [{{name arity} {cerl-name cerl-body fun-deps}}])
-                       raw-ctx))))
-      (_
-       (let (raw-ctx (lists/foldl (fn (el raw-ctx1)
-                                    (case el
-                                      ({{name arity}, _}
-                                       (internal-add-warning
-                                        {{:function-exists name arity}
-                                         (internal-erri-from-context path raw-ctx1)} raw-ctx1))
-                                      (_
-                                       raw-ctx1))) raw-ctx defs))
-         (set-context :fun-deps (sets/new)
-                      (set-context :definitions
-                                   (lists/append defs [{{name arity} {cerl-name cerl-body fun-deps}}])
-                                   raw-ctx)))))))
+        cerl-body (cerl/ann_c_fun annots vars body)
+        fun-type (case replace
+                   (:ephemeral :ephemeral)
+                   (_ :durable))
+        raw
+        (case replace
+          (:ephemeral
+           ;; we dont warn on an ephemeral we just go ahead and replace
+           (case (lists/keymember {name arity} 1 defs)
+             (:true
+              {raw-ctx defs})
+             (:false
+              {raw-ctx (lists/keystore {name arity} 1 defs
+                                       {{name arity} {cerl-name cerl-body fun-deps fun-type}})})))
+          (:replace
+           ;; Again no warning on a replace its designed simply to be
+           ;; replaced silently. We do however clear the fun deps
+           {(set-context :fun-deps (sets/new) raw-ctx)
+            (lists/keystore {name arity} 1 defs
+                            {{name arity} {cerl-name cerl-body fun-deps fun-type}})})
+          (:no-replace
+           {(lists/foldl (fn (el raw-ctx1)
+                             (case el
+                               ;; With no replace we warn when the last definition was durabl
+                               ;; That is it was both not expected to be replaced
+                               ({{name arity}, {_ _ _ :durable}}
+                                (internal-add-warning
+                                 {{:function-exists name arity}
+                                  (internal-erri-from-context path raw-ctx1)} raw-ctx1))
+                               (_
+                                raw-ctx1)))
+                         ;; Same here the fun deps get cleared
+                         (set-context :fun-deps (sets/new) raw-ctx) defs)
+            (lists/keystore {name arity} 1 defs
+                            {{name arity} {cerl-name cerl-body fun-deps fun-type}})})))
+    (case raw
+      ({new-ctx new-defs}
+       (set-context :definitions new-defs new-ctx)))))
 
 (defn propogate-require-info (namespace function possible-arity dict)
   (case (get-joxa-info :rest namespace function)
@@ -3192,7 +3201,7 @@
        (incr-fun-index-ctx ctx))
       ({:false {arg-list :false}}
        ;; predefine the function so it can be used recursively
-       (add-def-ctx path0 ctx [] name arg-list :undefined)))
+       (add-def-ctx path0 ctx [] name arg-list :undefined :ephemeral)))
     ;; go ahead and compile the body
     (case arg-detail
       ({arg-list _}
@@ -3603,20 +3612,20 @@
       ((:defn+ . details)
        (case (make-function (incr-path path0) ctx details)
          ({name arg-list body}
-          (add-exported-def-ctx path0 ctx annots name arg-list body :replace))))
+          (add-exported-def-ctx path0 ctx annots name arg-list body))))
       ((:defn . details)
        (case (make-function (incr-path path0) ctx details)
          ({name arg-list body}
-          (add-def-ctx path0 ctx annots name arg-list body :replace))))
+          (add-def-ctx path0 ctx annots name arg-list body))))
       ((:definline . details)
        (let (inline-annots (:inline . annots))
          (case (make-function (incr-path path0) ctx details)
            ({name arg-list body}
-            (add-def-ctx path0 ctx inline-annots name arg-list body :replace)))))
+            (add-def-ctx path0 ctx inline-annots name arg-list body)))))
       ((:defmacro+ . details)
        (case (make-function (incr-path path0) ctx details)
          ({name arg-list body}
-          (add-exported-def-ctx path0 ctx annots name arg-list body :replace)
+          (add-exported-def-ctx path0 ctx annots name arg-list body)
           (add-macro-ctx ctx name (erlang/length arg-list) path0))))
       ((:defmacro . details)
        (case (make-function (incr-path path0) ctx details)
@@ -3626,7 +3635,7 @@
           ;; itself. However, we keep a list of macros that need to be
           ;; hidden so that after the fact we can roll through the
           ;; list unexporting things that do not need to be exported.
-          (add-exported-def-ctx path0 ctx annots name arg-list body :replace)
+          (add-exported-def-ctx path0 ctx annots name arg-list body)
           (add-unexported-macro-ctx path0 ctx name (erlang/length arg-list)))))
       ((:deftype+ . _)
        (make-spec path0 ctx form))
@@ -3745,7 +3754,7 @@
         inlinables
         (lists/foldl (fn (cvar acc)
                          (case cvar
-                           ({name-arity {_ body _}}
+                           ({name-arity {_ body _ _}}
                             (case (lists/member :inline  (cerl/get_ann body))
                               (:true
                                (name-arity . acc))
@@ -4064,7 +4073,7 @@
         result (lists/foldl
                 (fn (el acc)
                     (case el
-                      ({var _ deps}
+                      ({var _ deps _}
                        (case acc
                          ({unresolved0 resolved0}
                           (let (element {(cerl/fname_id var) (cerl/fname_arity var)}
@@ -4146,7 +4155,7 @@
                                (compile-types ctx))
            defs (lists/map (fn (def)
                                (case def
-                                 ({var body _}
+                                 ({var body _ _}
                                   {var body})
                                  (else
                                   (erlang/throw {:error-processing-defs else}))))
@@ -4213,6 +4222,10 @@
      (io_lib/format "invalid reference (~p)" [form]))
     ({:arg-is-not-proper-name form}
      (io_lib/format "argument is not a proper reference name (~p)" [form]))
+    ({:function-exists fun-name arity}
+     (io_lib/format "~p/~p already exists" [fun-name arity]))
+    ({:not-a-macro {ref arity}}
+     (io_lib/format "not a macro ~s called with ~p args" [(format-fun-ref ref) arity]))
     (:invalid-receive
      "invalid receive clause")
     ({:invalid-try-expression}
