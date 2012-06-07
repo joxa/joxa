@@ -1,15 +1,12 @@
 ## -*- mode: Makefile; fill-column: 75; comment-column: 50; -*-
 
-ESCRIPT_DIR=$(JOXA_BUILD_DIR)/escript
-ESCRIPT_TMP=$(CURDIR)/_build/tmp2
-TMPDIR=$(CURDIR)/_build/tmp
 LOCAL_DEPS=$(TMPDIR)/deps.tar.gz
 GOT_DEPS=$(TMPDIR)/got-em
 
-TEST_EBIN=$(JOXA_BUILD_DIR)/test_ebin
+TEST_EBIN=$(APPDIR)/.eunit
 TEST_FLAGS=-pa $(TEST_EBIN)
 
-DEPS_DIR=$(JOXA_BUILD_DIR)/deps
+DEPS_DIR=$(CURDIR)/deps
 
 EBIN_DIRS=$(wildcard $(DEPS_DIR)/*/ebin)
 BASE_ERLCFLAGS=$(EBIN_DIRS:%= -pa %)
@@ -25,7 +22,6 @@ COMP= $(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa-compiler' main \
 SRCBEAMS=$(BEAMDIR)/joxa-compiler.beam \
 	$(BEAMDIR)/joxa-core.beam \
 	$(BEAMDIR)/joxa-shell.beam \
-	$(BEAMDIR)/jxa_utils.beam \
 	$(BEAMDIR)/joxa-records.beam \
 	$(BEAMDIR)/joxa-assert.beam \
 	$(BEAMDIR)/joxa-eunit.beam \
@@ -36,45 +32,12 @@ SRCBEAMS=$(BEAMDIR)/joxa-compiler.beam \
 	$(BEAMDIR)/joxa-otp-application.beam \
 	$(BEAMDIR)/joxa-otp-supervisor.beam
 
-TESTBEAMS = $(TEST_EBIN)/jxat_anon_fun.beam  \
-	$(TEST_EBIN)/jxat_examples.beam  \
-	$(TEST_EBIN)/jxat_module_info.beam \
-	$(TEST_EBIN)/jxat_rest_args.beam \
-	$(TEST_EBIN)/jxat_bare_module.beam \
-	$(TEST_EBIN)/jxat_featureful_module.beam \
-	$(TEST_EBIN)/jxat_nested_calls.beam  \
-	$(TEST_EBIN)/jxat_segfault_tests.beam \
-	$(TEST_EBIN)/jxat_binary.beam \
-	$(TEST_EBIN)/jxat_hello_world.beam \
-	$(TEST_EBIN)/jxat_parse.beam \
-	$(TEST_EBIN)/jxat_specs.beam \
-	$(TEST_EBIN)/jxat_case.beam \
-	$(TEST_EBIN)/jxat_implicit_do.beam \
-	$(TEST_EBIN)/jxat_path.beam  \
-	$(TEST_EBIN)/jxat_throws.beam \
-	$(TEST_EBIN)/jxat_core_add.beam \
-	$(TEST_EBIN)/jxat_incremental_compile.beam  \
-	$(TEST_EBIN)/jxat_peg.beam \
-	$(TEST_EBIN)/jxat_try.beam \
-	$(TEST_EBIN)/jxat_core_incr.beam  \
-	$(TEST_EBIN)/jxat_jxa_parser_proper.beam \
-	$(TEST_EBIN)/jxat_predicates.beam \
-	$(TEST_EBIN)/jxat_variable_fun_tests.beam \
-	$(TEST_EBIN)/jxat_ctx.beam \
-	$(TEST_EBIN)/jxat_let_support.beam  \
-	$(TEST_EBIN)/jxat_receive.beam   \
-	$(TEST_EBIN)/jxat_do_test.beam \
-	$(TEST_EBIN)/jxat_macros.beam   \
-	$(TEST_EBIN)/jxat_records.beam \
-	$(TEST_EBIN)/jxat_module_fun_line_support.beam \
-	$(TEST_EBIN)/jxat_assert.beam \
-	$(TEST_EBIN)/jxat_eunit.beam \
-	$(TEST_EBIN)/joxa-test-let-match.beam \
+TESTBEAMS = $(TEST_EBIN)/joxa-test-let-match.beam \
 	$(TEST_EBIN)/joxa-test-multiple-namespaces.beam \
 	$(TEST_EBIN)/joxa-test-namespace-mutual-recursion.beam
 
 .PHONY: all test_bootstrap pre_bootstrap bootstrap clean \
-	test build get-deps proper eunit \
+	jxa test build get-deps proper eunit \
 	cucumber shell bare-escript
 
 .PRECIOUS: %/.d
@@ -87,12 +50,6 @@ all: build
 %/.d:
 	@mkdir -p $(@D)
 	@touch $@
-
-$(GOT_DEPS): $(TMPDIR)/.d $(DEPS_DIR)/.d
-	wget --progress=bar https://github.com/downloads/erlware/joxa/joxa-deps.tar.gz -O $(LOCAL_DEPS)
-	touch $(LOCAL_DEPS)
-	tar xzf $(LOCAL_DEPS) --directory=$(DEPS_DIR)
-	touch $(GOT_DEPS)
 
 $(BOOTSTRAP_BEAMDIR)/%.beam: $(SRCDIR)/%.erl $(BOOTSTRAP_BEAMDIR)/.d
 	$(ERLC) $(ERLCFLAGS) -o $(BOOTSTRAP_BEAMDIR) $<
@@ -108,51 +65,49 @@ $(BEAMDIR)/joxa-compiler.beam: $(SRCDIR)/joxa-compiler.jxa $(BOOTSTRAP_BEAMDIR)/
 $(BEAMDIR)/%.beam: $(SRCDIR)/%.jxa $(BEAMDIR)/.d $(BEAMDIR)/joxa-compiler.beam
 	$(COMP) -o $(BEAMDIR) $<
 
-$(BEAMDIR)/%.beam: $(SRCDIR)/%.erl $(BEAMDIR)/.d
-	$(ERLC) $(ERLCFLAGS) -o $(BEAMDIR) $<
-
 $(TEST_EBIN)/%.beam: $(TESTDIR)/%.erl $(TEST_EBIN)/.d
 	$(ERLC) $(ERLCFLAGS) $(TEST_FLAGS) -o $(TEST_EBIN) $<
 
 $(TEST_EBIN)/%.beam: $(TESTDIR)/%.jxa $(TEST_EBIN)/.d $(BEAMDIR)/joxa-compiler.beam
 	$(COMP) -o $(TEST_EBIN) $<
 
-$(BEAMDIR)/joxa.app: $(SRCDIR)/joxa.app.src
-	$(ERL) $(ERLFLAGS) -s 'joxa-build-support' 'update-app-config' \
-	"$(VSN)" "joxa.app" "$(APPDIR)" "$(SRCDIR)/joxa.app.src" -s init stop
+jxa: $(SRCBEAMS) $(TESTBEAMS)
 
-build: $(SRCBEAMS) $(TESTBEAMS) $(BEAMDIR)/joxa.app
+build:
+	$(REBAR) compile
 
-get-deps: $(GOT_DEPS)
+get-deps:
+	$(REBAR) get-deps
 
 shell: build
 	$(ERL) $(ERLFLAGS) -s joxa main -s init stop
 
 clean:
-	rm -rf _build
-	rm -rf erl_crash.dump
+	$(REBAR) skip_deps=true clean
+	rm -rf $(APPDIR)/joxa
+	rm -rf $(APPDIR)/.bootstrap
+	rm -rf $(APPDIR)/_build
+	rm -rf $(APPDIR)/erl_crash.dump
+
+distclean: clean
+	rm -rf $(APPDIR)/deps
 
 test: build proper eunit cucumber
 
-proper: $(SRCBEAMS) $(TESTBEAMS)
-	$(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa-build-support' main proper $(TEST_EBIN) -s init stop
-
 eunit: $(SRCBEAMS) $(TESTBEAMS)
+	$(REBAR) skip_deps=true eunit
 	$(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa-build-support' main eunit $(BEAMDIR) -s init stop
 	$(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa-build-support' main eunit $(TEST_EBIN) -s init stop
 
+proper: eunit $(SRCBEAMS) $(TESTBEAMS)
+	$(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa-build-support' main proper $(TEST_EBIN) -s init stop
 
-cucumber: $(SRCBEAMS) $(TESTBEAMS)
+
+cucumber: eunit $(SRCBEAMS) $(TESTBEAMS)
 	$(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa-build-support' main cucumberl $(CURDIR) -s init stop
 
-bare-escript: $(ESCRIPT_DIR)/.d $(ESCRIPT_TMP)/.d
-	cp -R $(LIBDIR)/* $(ESCRIPT_TMP)
-	cp -R $(DEPS_DIR)/* $(ESCRIPT_TMP)
-	cd $(ESCRIPT_TMP); zip -r joxa.ez *; \
-	$(ERL) $(ERLFLAGS) -eval "escript:create(\"joxa\", [shebang, {emu_args, []}, {archive, \"./joxa.ez\"}])" -s init stop
-	chmod a+x $(ESCRIPT_TMP)/joxa
-	mv $(ESCRIPT_TMP)/joxa $(ESCRIPT_DIR)/
-	rm -rf $(ESCRIPT_TMP)
+bare-escript:
+	$(REBAR) skip_deps=true escriptize
 
 escript: build bare-escript
 
