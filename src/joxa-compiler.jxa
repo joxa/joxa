@@ -4444,6 +4444,9 @@
        ({:error reason}
         {:error  {:file-access reason input}})))))
 
+(defn+ info (file)
+  (info file []))
+
 ;; Interactive Compilation
 ;; -----------------------
 ;;
