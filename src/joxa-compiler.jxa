@@ -4512,6 +4512,7 @@
   (case (has-more-data-to-parse input)
     (:false
      (do-final-comp ctx)
+     (report-errors-warnings ctx)
      result0)
     (:true
      (case (parse ctx input)
