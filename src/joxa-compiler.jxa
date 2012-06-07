@@ -3285,14 +3285,19 @@
              cerl-clauses (make-pattern (incr-path 2 path0) ctx clauses []))
          (cerl/ann_c_case annots cerl-expr cerl-clauses)))
       ((:receive . ((:after . (timeout . do-exprs)) . clauses))
-       (when (erlang/is_integer timeout))
-       (let (timeout-expr  (make-seq (incr-path 2 (traverse-incr-path path0))
+       (let (timeout-val (make-expr (incr-path (traverse-incr-path path0))
+                                    ctx timeout)
+             timeout-expr  (make-seq (incr-path 2 (traverse-incr-path path0))
                                      ctx do-exprs)
               cerl-clauses (make-pattern (incr-path 2 path0) ctx clauses []))
-         (cerl/ann_c_receive annots
-                             cerl-clauses
-                             (cerl/ann_c_int annots timeout)
-                             timeout-expr)))
+         (case (cerl/is_c_int timeout-val)
+           (:true
+            (cerl/ann_c_receive annots
+                                cerl-clauses
+                                (cerl/ann_c_int annots timeout)
+                                timeout-expr))
+           (:false
+            (add-error-r-nil-ctx ctx path0 :invalid-receive)))))
       ((:receive . ((:after . _) . _))
        (add-error-r-nil-ctx ctx path0 :invalid-receive))
       ((:receive . clauses)

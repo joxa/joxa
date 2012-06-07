@@ -6,6 +6,7 @@
 given([a,module,that,has,a,'receive',clause], _State, _) ->
    Source = <<"(ns jxat-receive-test
                     (require erlang))
+                (defmacro foo-timeout () 300)
 
                 (defn+ receive-test1 ()
                       (receive
@@ -14,7 +15,7 @@ given([a,module,that,has,a,'receive',clause], _State, _) ->
 
                 (defn+ receive-test2 ()
                       (receive
-                        (after 300 123)
+                        (after (foo-timeout) 123)
                         ({:x foo}
                             foo)))
 
