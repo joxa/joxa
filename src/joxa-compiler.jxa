@@ -4185,7 +4185,7 @@
 (defn format-detail (message)
   (case message
     ({:invalid-reference :not-a-reference ref}
-     (io_lib/format "reference does not exist ~s" [ref]))
+     (io_lib/format "reference does not exist: ~s" [ref]))
     ({:invalid-reference ref arity}
      (io_lib/format "invalid reference ~s/~p" [(format-fun-ref ref) arity]))
     ({:invalid-use :invalid-fun-spec inv-f}
