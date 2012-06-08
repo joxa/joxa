@@ -1,5 +1,5 @@
 Frequently Asked Questions
-==========================
+**************************
 
 Joxa is a very small functional language. Its actually designed less
 to be a language as a tool set in which to build domain specific

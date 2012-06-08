@@ -23,7 +23,9 @@ into some examples and descriptions.
 Sieve of Eratosthenes
 ~~~~~~~~~~~~~~~~~~~~~
 
-Here we see the Sieve of Eratosthenes implemented as a Joxa Namespace::
+Here we see the Sieve of Eratosthenes implemented as a Joxa Namespace
+
+.. code-block:: clojure
 
     (ns sieve-of-eratosthenes
             (require lists)
@@ -43,7 +45,9 @@ Here we see the Sieve of Eratosthenes implemented as a Joxa Namespace::
 
 
 Now that we have seen the entire namespace lets start breaking it
-down::
+down
+
+.. code-block:: clojure
 
     (ns sieve-of-eratosthenes
         (require lists)
@@ -62,7 +66,7 @@ the namespace. Which is an atom that identifies that namespace. Though is not
 a requirement its generally a good idea for the namespace name  match the file
 name.
 
-The second part of the ns special form is the ``require`` form. The
+The second part of the ns special form is the `require` form. The
 require form provides a list of those namespaces that will be used by
 the namespace. This is not strictly required (namespaces that are used
 in the namespace being defined but not required will be automatically
@@ -78,7 +82,9 @@ that should be used only where it enhances clarity.
 Any number of require and use statements can appear in the namespace
 in any order.
 
-Next we see the function definition::
+Next we see the function definition
+
+.. code-block:: clojure
 
     (defn sieve (v primes)
       (case v
@@ -88,20 +94,22 @@ Next we see the function definition::
                                  (!= (rem x h) 0)) t)
                   (+ primes 1)))))
 
-We define a function called ``sieve`` that takes two arguments. The
-argument ``v`` and, next, the argument ``primes``. We then have a
-single ``case`` expression that forms the body of the function. A case
+We define a function called `sieve` that takes two arguments. The
+argument `v` and, next, the argument `primes`. We then have a
+single `case` expression that forms the body of the function. A case
 expression allows the author to do pattern matching on the second
 clause of the expression. While he rest of the clauses identify
 patterns and what will be evaluate based on the form of the output of
 the second clause. In this example, you can see that an empty list
-will return the argument ``primes`` unchanged while a cons cell will
-result in a recursive call of ``sieve``, a call to the erlang module
-``lists`` with an anonymous function. You can all see the use of the
+will return the argument `primes` unchanged while a cons cell will
+result in a recursive call of `sieve`, a call to the erlang module
+`lists` with an anonymous function. You can all see the use of the
 functions (not defined in the namespace) that we imported into the
 namespace with the use form.
 
-Finally, we define our public api::
+Finally, we define our public api
+
+.. code-block:: clojure
 
     (defn+ sieve (v)
       (sieve (lists/seq 2 v) 1))
@@ -110,16 +118,18 @@ There are two types of function definitions in Joxa; *exported* and
 *unexported* functions. Exported functions are available outside of
 the namespace while unexported functions are only available inside the
 namespace itself. The difference in declaration is the use of
-``defn+`` for exported functions in place of ``defn`` for unexported
+`defn+` for exported functions in place of `defn` for unexported
 functions. In this example you see us call the unexperted sieve
 function and the use again of the lists erlang module. In Joxa, functions
-must be defined before they are used. So the unexported ``sieve/2``
-had to be defined before the exported ``sieve/1`` function.
+must be defined before they are used. So the unexported `sieve/2`
+had to be defined before the exported `sieve/1` function.
 
 Fibonacci
 ~~~~~~~~~
 
-Here we see the Fibonacci implemented as a Joxa Namespace::
+Here we see the Fibonacci implemented as a Joxa Namespace
+
+.. code-block:: clojure
 
     (ns fibonacci
        (use (erlang :only (>/2 -/2 +/2))))

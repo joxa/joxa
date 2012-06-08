@@ -1,5 +1,5 @@
 The Joxa Programing Language
-============================
+############################
 
 **Joxa is a small semantically clean, functional Lisp**. It is
 desgined as a general-purpose language encouraging interactive
@@ -15,6 +15,7 @@ Contents:
 
 .. toctree::
    :maxdepth: 2
+   :numbered:
 
    introduction
    install
@@ -22,10 +23,9 @@ Contents:
    language
    standard-library
    style
-   appendix
-      contributing
-      getting-help
-
+   contributing
+   getting-help
+   FAQ
 
 
 Indices and tables
