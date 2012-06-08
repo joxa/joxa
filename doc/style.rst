@@ -1,5 +1,6 @@
 Joxa Style Guide
 ****************
+
 Copyright (C) 2012 Eric B. Merritt
 
 CC BY-NC-SA 3.0
@@ -26,16 +27,19 @@ meaningfully, their spirit must be understood; the letter of the
 guidelines serves only to hint at the spirit.  The rationale is just
 as important as the guideline.
 
-## Standard Rules
+Standard Rules
+--------------
 
 These are the standard rules for formatting Lisp code; they are
 repeated here for completeness, although they are surely described
 elsewhere.  These are the rules implemented in Emacs Lisp modes, and
 utilities such as Paredit.
 
-### Parentheses
+Parentheses
+^^^^^^^^^^^
 
-#### Terminology
+Terminology
+"""""""""""
 
 This guide avoids the term *parenthesis* except in the general use of
 *parentheses* or *parenthesized*, because the word's generally
@@ -47,10 +51,10 @@ statements.
 The balanced pair of typographical symbols that mark parentheses in
 English text are *round brackets*, i.e. `(` and `)`.  There are
 several other balanced pairs of typographical symbols, such as *square
-brackets* (commonly called simply `brackets' in programming circles),
-i.e. `[` and `]`; *curly braces* (sometimes called simply `braces'),
-i.e. `{` and `}`; *angle brackets* (sometimes `brokets' (for `broken
-brackets')), i.e. `<` and `>`.
+brackets* (commonly called simply `brackets` in programming circles),
+i.e. `[` and `]`; *curly braces* (sometimes called simply `braces`),
+i.e. `{` and `}`; *angle brackets* (sometimes `brokets` (for `broken
+brackets`)), i.e. `<` and `>`.
 
 In any balanced pair of typographical symbols, the symbol that begins
 the region delimited by the symbols is called the *opening bracket* or
@@ -58,62 +62,84 @@ the *left bracket*, such as `(` or`[` or `{` or `<`.  The symbol that
 ends that region is called the *right bracket* or the *closing bracket*,
 such as `>` or `}` or `]` or `)`.
 
-#### Spacing
-
+Spacing
+^^^^^^^
 If any text precedes an opening bracket or follows a closing bracket,
 separate that text from that bracket with a space.  Conversely, leave
 no space after an opening bracket and before following text, or after
 preceding text and before a closing bracket.
 
-##### Unacceptable
+Unacceptable
+""""""""""""
+.. code-block:: clojure
 
     (foo(bar baz)quux)
     (foo ( bar baz ) quux)
 
-##### Acceptable:
+Acceptable:
+"""""""""""
+
+.. code-block:: clojure
 
     (foo (bar baz) quux)
 
-##### Rationale
+Rationale
+"""""""""
 
 This is the same spacing found in standard typography of western text.
 It is more aesthetically pleasing.
 
-#### Line Separation
+Line Separation
+^^^^^^^^^^^^^^^
 
 Absolutely do *not* place closing brackets on their own lines.
 
-##### Unacceptable:
+Unacceptable
+""""""""""""
+.. code-block:: clojure
 
-    (define (factorial x)
-      (if (< x 2)
-          1
-          (* x (factorial (- x 1
-                          )
-               )
-          )
+     (define (factorial x)
+       (if (< x 2)
+           1
+           (* x (factorial (- x 1
+
+                           )
+
+                )
+
+           )
+
+       )
+
       )
-    )
 
-##### Acceptable:
+
+
+Acceptable
+""""""""""
+.. code-block:: clojure
 
     (define (factorial x)
       (if (< x 2)
           1
           (* x (factorial (- x 1)))))
 
-##### Rationale
+Rationale
+"""""""""
 
 The parentheses grow lonely if their closing brackets are all kept
 separated and segregated.
 
-##### Exceptions to the Above Rule Concerning Line Separation
+Exceptions to the Above Rule Concerning Line Separation
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 Do not heed this section unless you know what you are doing.  Its
 title does *not* make the unacceptable example above acceptable.
 
 When commenting out fragments of expressions with line comments, it may
-be necessary to break a line before a sequence of closing brackets:
+be necessary to break a line before a sequence of closing brackets
+
+.. code-block:: clojure
 
     (define (foo bar)
       (list (frob bar)
@@ -124,7 +150,9 @@ be necessary to break a line before a sequence of closing brackets:
 Finally, it is acceptable to break a line immediately after an opening
 bracket and immediately before a closing bracket for very long lists,
 especially in files under version control.  This eases the maintenance
-of the lists and clarifies version diffs.  Example:
+of the lists and clarifies version diffs.  Example
+
+.. code-block:: clojure
 
     (define colour-names         ;Add more colour names to this list!
       '(
@@ -138,7 +166,8 @@ of the lists and clarifies version diffs.  Example:
         turquoise
         ))
 
-#### Parenthetical Philosophy
+Parenthetical Philosophy
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 The actual bracket characters are simply lexical tokens to which
 little significance should be assigned.  Lisp programmers do not
@@ -152,7 +181,8 @@ readily apparent from the Lisp code.  Placing brackets haphazardly
 about the presentation is jarring to a Lisp programmer, who otherwise
 would not even have seen them for the most part.
 
-## Indentation and Alignment
+Indentation and Alignment
+"""""""""""""""""""""""""
 
 The operator of any form, i.e. the first subform following the opening
 round bracket, determines the rules for indenting or aligning the
@@ -166,12 +196,14 @@ following subforms with that of the second subform.  If the second
 subform is on the following line, align its starting column with that
 of the first subform, and do the same for all remaining subforms.
 
-In general, Emacs will indent Lisp code correctly.  Run `C-M-q'
+In general, Emacs will indent Lisp code correctly.  Run `C-M-q`
 (indent-sexp) on any code to ensure that it is indented correctly, and
 configure Emacs so that any non-standard forms are indented
 appropriately.
 
-##### Unacceptable:
+Unacceptable
+""""""""""""
+.. code-block:: clojure
 
     (+ (sqrt -1)
       (* x y)
@@ -182,7 +214,10 @@ appropriately.
        (* x y)
        (+ p q))
 
-##### Acceptable:
+Acceptable
+""""""""""
+
+.. code-block:: clojure
 
     (+ (sqrt -1)
        (* x y)
@@ -193,7 +228,8 @@ appropriately.
      (* x y)
      (+ p q))
 
-##### Rationale
+Rationale
+"""""""""
 
 The columnar alignment allows the reader to follow the operands of any
 operation straightforwardly, simply by scanning downward or upward to
@@ -201,18 +237,23 @@ match a common column.  Indentation dictates structure; confusing
 indentation is a burden on the reader who wishes to derive structure
 without matching parentheses manually.
 
-#### Non-Symbol Indentation and Alignment
+Non-Symbol Indentation and Alignment
+""""""""""""""""""""""""""""""""""""
 
 The above rules are not exhaustive; some cases may arise with strange
 data in operator positions.
 
-##### Lists
+Lists
+^^^^^
 
 Unfortunately, style varies here from person to person and from editor
 to editor.  Here are some examples of possible ways to indent lists
 whose operators are lists:
 
-##### Questionable:
+Questionable
+""""""""""""
+
+.. code-block:: clojure
 
     ((car x)                            ;Requires hand indentation.
        (cdr x)
@@ -221,20 +262,26 @@ whose operators are lists:
     ((car x) (cdr x)                    ;GNU Emacs
      foo)
 
-##### Preferable:
+Preferable
+""""""""""
+
+.. code-block:: clojure
 
     ((car x)                            ;Any Emacs
      (cdr x)
      foo)
 
 
-#### Rationale
+Rationale
+"""""""""
 
 The operands should be aligned, as if it were any other procedure call
 with a name in the operator position; anything other than this is
 confusing because it gives some operands greater visual distinction,
 allowing others to hide from the viewer's sight.  For example, the
 questionable indentation
+
+.. code-block:: clojure
 
     ((car x) (cdr x)
      foo)
@@ -243,23 +290,32 @@ can make it hard to see that `foo` and `(cdr x)` are both operands here at
 the same level.  However, GNU Emacs will generate that indentation by
 default.
 
-#### Strings
+Strings
+^^^^^^^
 
 If the form in question is meant to be simply a list of literal data,
 all of the subforms should be aligned to the same column, irrespective
 of the first subform.
 
-##### Unacceptable:
+Unacceptable
+""""""""""""
+.. code-block:: clojure
 
     ("foo" "bar" "baz" "quux" "zot"
            "mumble" "frotz" "gargle" "mumph")
 
-##### Questionable, but acceptable:
+Questionable, but acceptable
+""""""""""""""""""""""""""""
+
+.. code-block:: clojure
 
     (3 1 4 1 5 9 2 6 5 3 5 8 9 7 9 3 2 3 8 4 6 2 6 4
        3 3 8 3 2 7 9 5 0 2 8 8 4 1 9 7 1 6 9 3 9 9 3)
 
-##### Acceptable:
+Acceptable
+""""""""""
+
+.. code-block:: clojure
 
     ("foo" "bar" "baz" "quux" "zot"
      "mumble" "frotz" "gargle" "mumph")
@@ -268,7 +324,8 @@ of the first subform.
       "bar" "baz" "quux" "zot"
       "mumble" "frotz" "gargle" "mumph")
 
-##### Rationale:
+Rationale
+"""""""""
 
 Seldom is the first subform distinguished for any reason, if it is a
 literal; usually in this case it indicates pure data, not code.  Some
@@ -276,8 +333,8 @@ editors and pretty-printers, however, will indent unacceptably in the
 example given unless the second subform is on the next line anyway,
 which is why the last way to write the fragment is usually best.
 
-### Names
-
+Names
+^^^^^
 Naming is subtle and elusive.  Bizarrely, it is simultaneously
 insignificant, because an object is independent of and unaffected by
 the many names by which we refer to it, and also of supreme
@@ -292,37 +349,45 @@ consequently, camel case is frowned upon, and not merely because it is
 ugly.  Underscores are unacceptable separators except for names that
 were derived directly from a foreign language without translation.
 
-##### Unacceptable:
+Unacceptable
+""""""""""""
+.. code-block:: clojure
 
     XMLHttpRequest
     foreach
     append_map
 
-##### Acceptable:
+Acceptable
+""""""""""
+.. code-block:: clojure
 
     xml-http-request
     for-each
     append-map
 
-### Funny Characters
+Funny Characters
+^^^^^^^^^^^^^^^^
 
-#### Question Marks: Predicates
+Question Marks: Predicates
+""""""""""""""""""""""""""
 
 Affix a question mark to the end of a name for a procedure whose
 purpose is to ask a question of an object and to yield a boolean
-answer.  Such procedures are called `predicates'.  Do not use a
+answer.  Such procedures are called `predicates`.  Do not use a
 question mark if the procedure may return any object other than a
 boolean.
 
-##### Examples
+Examples
+.. code-block:: clojure
 
     pair? procedure? proper-list?
 
-Pronounce the question mark as if it were the isolated letter `p'.  For
+Pronounce the question mark as if it were the isolated letter `p`.  For
 example, to read the fragment `(pair? object)` aloud, say: `pair-pee
-object.'
+object.`
 
-#### Exclamation Marks: Destructive Operations
+Exclamation Marks: Destructive Operations
+"""""""""""""""""""""""""""""""""""""""""
 
 Affix an exclamation mark to the end of a name for a procedure (or
 macro) whose primary purpose is to modify an object. This is common in
@@ -330,19 +395,23 @@ lisps that support destructive operations. Joxa, of course, does
 not. However, this syntax is useful in situations where the intent is
 to modify an object.
 
-##### Examples
+Examples
+
+.. code-block:: clojure
 
     set-car! append!
 
 Pronounce the exclamation mark as `bang`.  For example, to read the
 fragment (append! list tail) aloud, say: `append-bang list tail`.
 
-#### Asterisks: Variants, Internal Routines, Mutable Globals
-
+Asterisks: Variants, Internal Routines
+""""""""""""""""""""""""""""""""""""""
 Affix an asterisk to the end of a name to make a variation on a theme
 of the original name.
 
-##### Example
+Example
+
+.. code-block:: clojure
 
     let -> let*
 
@@ -350,7 +419,8 @@ Prefer a meaningful name over an asterisk; the asterisk does not
 explain what variation on the theme the name means.
 
 
-#### `with-' and `call-with-': Dynamic State and Cleanup
+`with-` and `call-with-`: Dynamic State and Cleanup
+"""""""""""""""""""""""""""""""""""""""""""""""""""
 
 Prefix `WITH-` to any procedure that establishes dynamic state and
 calls a nullary procedure, which should be the last (required)
@@ -358,7 +428,9 @@ argument.  The dynamic state should be established for the extent of
 the nullary procedure, and should be returned to its original state
 after that procedure returns.
 
-##### Examples
+Examples
+
+.. code-block:: clojure
 
      with-input-from-file
      with-output-to-file
@@ -367,11 +439,9 @@ Prefix `call-with-` to any procedure that calls a procedure, which
 should be its last argument, with some arguments, and is either
 somehow dependent upon the dynamic state or continuation of the
 program, or will perform some action to clean up data after the
-procedure argument returns.  Generally, `CALL-WITH-' procedures should
+procedure argument returns.  Generally, `CALL-WITH-` procedures should
 return the values that the procedure argument returns, after
 performing the cleaning action.
-
-##### Examples
 
 `call-with-input-file` and `call-with-output-file` both accept a
 pathname and a procedure as an argument, open that pathname (for input
@@ -387,10 +457,11 @@ state and instead pass explicit arguments to their procedure arguments,
 whereas `with-...` should do the opposite and establish dynamic state
 while passing zero arguments to their procedure arguments.
 
-### Comments
+Comments
+^^^^^^^^
 
 Write heading comments with at least four semicolons; see also the
-section below titled `Outline Headings'.
+section below titled 'Outline Headings'.
 
 Write top-level comments with three semicolons.
 
@@ -402,7 +473,9 @@ Write margin comments with one semicolon.
 The only comments in which omission of a space between the semicolon
 and the text is acceptable are margin comments.
 
-##### Examples
+Examples
+
+.. code-block:: clojure
 
     ;;;; Frob Grovel
 
@@ -417,7 +490,8 @@ and the text is acceptable are margin comments.
             mumble             ;Zibblefrotz.
             frotz))
 
-### General Layout
+General Layout
+--------------
 
 Contained in the rationale for some of the following rules are
 references to historical limitations of terminals and printers, which
@@ -429,7 +503,8 @@ the rules, and this real reason is not intrinsically related to the
 historical measures, which are mentioned only for the sake of
 providing some arbitrary measure for the limit.
 
-#### File Length
+File Length
+^^^^^^^^^^^
 
 If a file exceeds five hundred twelve lines, begin to consider
 splitting it into multiple files.  Do not write program files that
@@ -437,7 +512,8 @@ exceed one thousand twenty-four lines.  Write a concise but
 descriptive title at the top of each file, and include no content in
 the file that is unrelated to its title.
 
-##### Rationale
+Rationale
+"""""""""
 
 Files that are any larger should generally be factored into smaller
 parts.  (One thousand twenty-four is a nicer number than one
@@ -445,7 +521,8 @@ thousand.)  Identifying the purpose of the file helps to break it into
 parts if necessary and to ensure that nothing unrelated is included
 accidentally.
 
-#### Top-Level Form Length
+Top-Level Form Length
+^^^^^^^^^^^^^^^^^^^^^
 
 Do not write top-level forms that exceed twenty-one lines, except for
 top-level forms that serve only the purpose of listing large sets of
@@ -453,7 +530,8 @@ data.  If a procedure exceeds this length, split it apart and give
 names to its parts.  Avoid names formed simply by appending a number
 to the original procedure's name; give meaningful names to the parts.
 
-##### Rationale
+Rationale
+"""""""""
 
 Top-level forms, especially procedure definitions, that exceed this
 length usually combine too many concepts under one name.  Readers of
@@ -477,12 +555,14 @@ guide often finds it helpful to have at least four such terminals or
 Emacs windows open simultaneously, spread across a twelve-inch laptop
 screen, to view multiple code fragments.
 
-#### Line Length
+Line Length
+^^^^^^^^^^^
 
 Do not write lines that exceed eighty columns, or if possible
 seventy-two.
 
-##### Rationale
+Rationale
+"""""""""
 
 Following multiple lines that span more columns is difficult for
 humans, who must remember the line of focus and scan right to left
@@ -498,9 +578,10 @@ in parallel, something that the author of this guide does very often.
 Seventy-two columns leave room for several nested layers of quotation
 in email messages before the code reaches eighty columns.  Also, a
 fixed column limit yields nicer printed output, especially in
-conjunction with pagination; see the section `Pagination' below.
+conjunction with pagination; see the section 'Pagination' below.
 
-#### Blank Lines
+Blank Lines
+^^^^^^^^^^^
 
 Separate each adjacent top-level form with a single blank line (i.e.
 two line breaks). Do not place blank lines in the middle of a
@@ -508,7 +589,8 @@ procedure body, except to separate internal definitions; if there is a
 blank line for any other reason, split the top-level form up into
 multiple ones.
 
-##### Rationale
+Rationale
+"""""""""
 
 More than one blank line is distracting and sloppy.  If the two
 concepts that are separated by multiple blank lines are really so
@@ -517,21 +599,24 @@ probably better placed on separate pages anyway; see the next section,
 *Pagination*.
 
 
-#### Dependencies
+Dependencies
+^^^^^^^^^^^^
 
 When writing a file or module, minimize its dependencies.  If there
 are too many dependencies, consider breaking the module up into
 several parts, and writing another module that is the sum of the parts
 and that depends only on the parts, not their dependencies.
 
-#### Rationale
+Rationale
+"""""""""
 
 A fragment of a program with fewer dependencies is less of a burden on
 the reader's cognition.  The reader can more easily understand the
 fragment in isolation; humans are very good at local analyses, and
 terrible at global ones.
 
-### Naming
+Naming
+^^^^^^
 
 This section requires an elaborate philosophical discussion which the
 author is too ill to have the energy to write at this moment.
@@ -539,7 +624,8 @@ author is too ill to have the energy to write at this moment.
 Compose concise but meaningful names.  Do not cheat by abbreviating
 words or using contractions.
 
-##### Rationale
+Rationale
+"""""""""
 
 Abbreviating words in names does not make them shorter; it only makes
 them occupy less screen space.  The reader still must understand the
@@ -550,6 +636,8 @@ names that are not long and long names that are not descriptive.  Here
 is an example of a long name that is not descriptive, from SchMUSE, a
 multi-user simulation environment written in MIT Scheme:
 
+.. code-block:: clojure
+
     frisk-descriptor-recursive-subexpr-descender-for-frisk-descr-env
 
 Not only is it long (sixty-four characters) and completely
@@ -559,7 +647,8 @@ some words as well!
 Do not write single-letter variable names.  Give local variables
 meaningful names composed from complete English words.
 
-##### Rationale
+Rationale
+"""""""""
 
 It is tempting to reason that local variables are invisible to other
 code, so it is OK to be messy with their names.  This is faulty
@@ -573,7 +662,8 @@ time reading the code.
 Give names to intermediate values where their expressions do not
 adequately describe them.
 
-##### Rationale
+Rationale
+"""""""""
 
 An `expression` is a term that expresses some value.  Although a
 machine needs no higher meaning for this value, and although it should
@@ -582,7 +672,7 @@ means, the expression might mean something more than just what it says
 where it is used.  Consequently, it is helpful for humans to see names
 given to expressions.
 
-###### Example
+**Example**
 
 A hash table maps foos to bars; `(dict/get dict foo :false)` expresses
 the datum that dict maps foo to, but that expression gives the reader
@@ -596,12 +686,13 @@ the car and cdr of a pair, are acceptable only if they are completely
 unambiguous in the scope.
 
 Avoid functional combinators, or, worse, the point-free (or
-`point-less') style of code that is popular in the Haskell world.  At
+`point-less`) style of code that is popular in the Haskell world.  At
 most, use function composition only where the composition of functions
 is the crux of the idea being expressed, rather than simply a
 procedure that happens to be a composition of two others.
 
-##### Rationale
+Rationale
+"""""""""
 
 Tempting as it may be to recognize patterns that can be structured as
 combinations of functional combinators -- say, 'compose this procedure
@@ -628,7 +719,7 @@ code the structure of the composition is completely irrelevant to the
 real point of the code.
 
 If a parameter is ignored, give it a meaningful name nevertheless and
-say that it is ignored; do not simply call it `ignored'.
+say that it is ignored; do not simply call it 'ignored'.
 
 When naming top-level bindings, assume namespace partitions unless in a
 context where they are certain to be absent.  Do not write explicit
@@ -636,8 +727,8 @@ namespace prefixes, such as foo/bar for an operation BAR in a module
 foo, unless the names will be used in a context known not to have any
 kind of namespace partitions.
 
-##### Rationale
-
+Rationale
+"""""""""
 Explicit namespace prefixes are ugly, and lengthen names without
 adding much semantic content.  Joxa has its package system to separate
 the namespaces of names.  It is better to write clear names which can
@@ -648,13 +739,15 @@ clashes anyway: someone else might choose the same namespace prefix.
 Relegating this issue to a module system removes it from the content
 of the program, where it is uninteresting.
 
-### Comments
+Comments
+^^^^^^^^
 
 Write comments only where the code is incapable of explaining itself.
 Prefer self-explanatory code over explanatory comments.  Avoid
 'literate programming' like the plague.
 
-### Rationale
+Rationale
+"""""""""
 
 If the code is often incapable of explaining itself, then perhaps it
 should be written in a more expressive language.  This may mean using
@@ -662,7 +755,8 @@ a different programming language altogether, or, since we are talking
 about Lisp, it may mean simply building a combinator language or a
 macro language for the purpose.
 
-### Attribution
+Attribution
+-----------
 
 This guide was derived from
 

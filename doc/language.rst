@@ -1,11 +1,11 @@
 The Joxa Language
-=================
+*****************
 
 Type Specs
 ----------
 
 Mutually Recursive Modules
-~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In Joxa code must exist at compile time before it is called. That
 means that if you are compiling a module and it calls other modules
@@ -16,7 +16,9 @@ modules are something to be avoided. However, at times they are needed
 and there is no way to get around that need. When this occurs Joxa
 provides a facility to get around it. This is very similar to its
 forward declarations via defspecs. That way is to define a spec for
-the remote function. Lets take a look at an example of this::
+the remote function. Lets take a look at an example of this
+
+.. code-block:: clojure
 
     (ns joxa.exp.nmr-ns1)
 
