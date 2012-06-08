@@ -3041,15 +3041,15 @@
        (let (literal (make-literal (traverse-incr-path path0) ctx args))
          {guards0 literal}))
       ([:$file-name]
-       (cerl/ann_c_string annots (filename-ctx ctx)))
+       {guards0 (cerl/ann_c_string annots (filename-ctx ctx))})
       ([:$namespace]
-       (cerl/ann_c_atom annots (namespace-name-ctx ctx)))
+       {guards0 (cerl/ann_c_atom annots (namespace-name-ctx ctx))})
       ([:$line-number]
        (case (get-line-annots (path? path0) (annots-ctx ctx))
          ([line-number _]
-          (cerl/ann_c_int annots line-number))))
+          {guards0 (cerl/ann_c_int annots line-number)})))
       ([:$function-name]
-       (cerl/ann_c_atom annots (function-name-ctx ctx)))
+       {guards0 (cerl/ann_c_atom annots (function-name-ctx ctx))})
       ([:string str0]
        (let (literal (make-literal-string (traverse-incr-path path0) annots ctx str0))
          {guards0 literal}))
