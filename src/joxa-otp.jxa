@@ -7,8 +7,8 @@
 ;;; also serves as the base for the otp decendent namespaces.
 (ns joxa-otp
     (require erlang
-             joxa-lists
-             lists))
+             lists)
+    (use (joxa-core :only (if/3))))
 
 ;; Check that a namespace implements the behaviour callbacks that are expected.
 (defn+ implements-behaviour? (module-name behaviour-name)
@@ -17,3 +17,9 @@
     (lists/all (fn (callback)
                    (lists/member callback exports))
                behave-info)))
+
+(defmacro+ behaviour! (name behaviour-name)
+  (case (joxa-otp/implements-behaviour? name behaviour-name)
+    (:true :ok)
+    (:false  (erlang/error {:unimplemented-behaviour behaviour-name})))
+  (do '()))
