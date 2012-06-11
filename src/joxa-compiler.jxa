@@ -3609,6 +3609,9 @@
 (defn+ make-definition (path0 ctx form)
   (let (annots (annots-from-context :traverse  path0 ctx))
     (case form
+      ; An empty form is perfectly acceptable as it helps us have
+      ; macros that do validation but do not return anything compilable
+      ([] :ok)
       ((:defn+ . details)
        (case (make-function (incr-path path0) ctx details)
          ({name arg-list body}
