@@ -24,7 +24,7 @@
                             ({acc1 count}
                              (case desc
                                (d (when (erlang/is_atom d))
-                                  {({d count :undefined} . acc1)
+                                  {({d count `:undefined} . acc1)
                                    (core/incr count)})
                                ({name default}
                                 {({name count default} . acc1)
@@ -45,7 +45,7 @@
                                    `(:~f-name
                                      (erlang/element ~count ~obj))))) descs)
                (_
-                (erlang/throw {:invalid-field ~name}))))
+                (erlang/error {:invalid-field ~name}))))
      `(~decl element! ( ~obj ~name ~value)
              (case ~name
                ~@(lists/map (fn (desc)
@@ -54,16 +54,16 @@
                                    `(:~f-name
                                      (erlang/setelement ~count ~obj ~value))))) descs)
                (_
-                (erlang/throw {:invalid-field ~name}))))]))
+                (erlang/error {:invalid-field ~name}))))]))
 
 
 (defn create-default-body (name descs)
   `(tuple
-    : ~name
+    ~name
     ~@(lists/map (fn (desc)
                      (case desc
                        ({_ _ default}
-                        `'~default))) descs)))
+                        default))) descs)))
 
 
 (defn create-constructors (name decl descs)
@@ -78,6 +78,7 @@
         list-el (core/gensym)
         key (core/gensym)
         value (core/gensym)
+        resolved-name (core/gensym)
         se (fn (desc)
                (case desc
                  ([]
@@ -137,7 +138,7 @@
                             (_
                              acc))) -1 descs)
     (-1
-     (erlang/throw {:invalid-field f-name}))
+     (erlang/error {:invalid-field f-name}))
     (val
      val)))
 
@@ -161,7 +162,7 @@
         fields (core/gensym)
         pattern-tmp (create-macro-body name descs))
     `(~def t (&rest ~fields)
-           (joxa-records/make-t-body :~name '~descs ~fields :~pattern-tmp))))
+           (joxa-records/make-t-body ~name '~descs ~fields :~pattern-tmp))))
 
 
 (defn+ make-let (obj name descs bindings body)
@@ -180,7 +181,7 @@
         bindings (core/gensym)
         rest (core/gensym))
     `(~def let (~obj ~bindings &rest ~rest)
-           (joxa-records/make-let ~obj :~name '~descs ~bindings ~rest))))
+           (joxa-records/make-let ~obj ~name '~descs ~bindings ~rest))))
 
 (defn create-record (name decl descs)
   (let (ells (create-elements decl descs)
