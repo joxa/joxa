@@ -40,11 +40,17 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
 
     erlang:send(Pid, {x, 'got-it'}),
 
+    Id = erlang:make_ref(),
+    Self = erlang:self(),
     erlang:spawn_link(fun () ->
-                         ?assertMatch(123,
-                                      'jxat-receive-test':'receive-test2'())
-                 end),
+                              Self ! {done, Id, 'jxat-receive-test':'receive-test2'()}
+
+                      end),
+    receive
+        {done, Id, Value} ->
+            ?assertMatch(123, Value)
+    after 1000 ->
+            ?assertMatch(fail, right_now)
+    end,
+
     {ok, State}.
-
-
-
