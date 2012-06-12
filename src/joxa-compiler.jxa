@@ -4343,19 +4343,6 @@
 ;; implements the normal iterative approach to compilation that allows
 ;; the full use of the language.
 
-(defn convert-options (options acc)
-  (case options
-    (({:to_core :true} . tail)
-     (convert-options tail (:to_core . acc)))
-    (({:to_ast :true} . tail)
-     (convert-options tail (:to_ast . acc)))
-    (({:debug_info :true} . tail)
-     (convert-options tail (:debug_info . acc)))
-    ([]
-     (lists/reverse acc))
-    ((val . tail)
-     (convert-options tail (val . acc)))))
-
 (defn internal-forms (ctx input)
   (case (has-more-data-to-parse input)
     (:false
@@ -4374,7 +4361,7 @@
            (internal-forms ctx rest))))))))
 
 (defn forms (ctx binary options)
-  (set-context-all-ctx ctx [{:options (convert-options options [])}])
+  (set-context-all-ctx ctx [{:options options}])
   (internal-forms ctx binary)
   (do-final-comp ctx)
   (get-raw-context ctx))
@@ -4446,7 +4433,7 @@
         (internal-info ctx rest-input acc))))))
 
 (defn info (ctx binary options)
-  (set-context-all-ctx ctx [{:options (convert-options options [])}])
+  (set-context-all-ctx ctx [{:options options}])
   (internal-info ctx binary []))
 
 (defn+ info (input options)
@@ -4552,7 +4539,7 @@
              (internal-comp-interactive ctx interactive-name rest result1)))))))))
 
 (defn+ comp-interactive (ctx interactive-name input options)
-  (set-context-all-ctx ctx [{:options (convert-options options [])}])
+  (set-context-all-ctx ctx [{:options options}])
   (internal-comp-interactive ctx interactive-name input :defn))
 
 (defn+ stop-interactive (ctx)
@@ -4582,7 +4569,7 @@
 
 (defn intermediate-bootstrap-comp (ctx binary options)
   (set-context-all-ctx ctx
-                       [{:options (convert-options options [])}])
+                       [{:options options}])
   (case (parse-all ctx binary [])
     (:error
      :error)
@@ -4691,10 +4678,10 @@
                 '()))
 
 (defn+ option-spec-list ()
-  [{:to_ast \a "to_ast" {:boolean :false} "compile to core ast"}
-   {:to_core \c "to_core" {:boolean :false} "compile to core erlang"}
+  [{:to_ast \a "to_ast" :undefined "compile to core ast"}
+   {:to_core \c "to_core" :undefined "compile to core erlang"}
    {:outdir \o "outdir" {:string "./"} "the directory to output beam files"}
-   {:bootstrap \b "bootstrap" {:boolean :false}
+   {:bootstrap \b "bootstrap" :undefined
                "Use the special limited bootstrap compiler"}])
 
 (defn+ main (args)
