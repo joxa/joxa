@@ -2079,30 +2079,34 @@
 ;;
 ;;    [string :as str]
 ;;
+(defn with-namespace-transition (path0 ctx namespace-name do-work)
+     (case (namespace-exists? namespace-name)
+       (:true
+        (do-work))
+       (:false
+        (let (idx (idx-from-context [] path0 ctx))
+          (add-error-ctx ctx path0
+                         {:invalid-require-clause
+                          {:bad-namespace namespace-name}})))))
+
 (defn+ make-require (path0 ctx form)
   (case form
     ([]
      ctx)
     ((namespace-name . rest)
      (when (erlang/is_atom namespace-name))
-     (case (namespace-exists? namespace-name)
-       (:true
-        (add-require-ctx ctx namespace-name)
-        (make-require (incr-path path0) ctx rest))
-       (:false
-        (let (idx (idx-from-context [] path0 ctx))
-          (add-error-ctx ctx path0  {:invalid-require-clause {:bad-namespace namespace-name}})))))
+     (with-namespace-transition path0 ctx namespace-name
+                                (fn ()
+                                    (add-require-ctx ctx namespace-name)
+                                    (make-require (incr-path path0) ctx rest))))
     (([namespace-name [quote as] namespace-alias]  . rest)
      (when (and (erlang/is_atom namespace-name)
                 (erlang/is_atom namespace-alias)))
-     (case (namespace-exists? namespace-name)
-       (:true
-        (add-require-ctx ctx namespace-name)
-        (add-alias-ctx ctx namespace-alias namespace-name)
-        (make-require (incr-path path0) ctx rest))
-       (:false
-        (let (idx (idx-from-context [] path0 ctx))
-          (add-error-ctx ctx path0 {:invalid-require-clause {:bad-namespace namespace-name}})))))
+     (with-namespace-transition path0 ctx namespace-name
+                                (fn ()
+                                    (add-require-ctx ctx namespace-name)
+                                    (add-alias-ctx ctx namespace-alias namespace-name)
+                                    (make-require (incr-path path0) ctx rest))))
     (clause
      (let (idx (idx-from-context :traverse path0 ctx))
        (add-error-ctx ctx path0 {:invalid-require-clause clause})))))
