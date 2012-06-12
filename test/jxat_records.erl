@@ -9,7 +9,7 @@ given([a,module,that,has,defined,records], _State, _) ->
           (require joxa-records
                    erlang lists))
 
-(joxa-records/defrecord+ my-records name age {sex male} {address \"unknown\"})
+(joxa-records/defrecord+ :my-records name age {sex :male} {address \"unknown\"})
 
 ">>,
 
