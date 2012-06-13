@@ -4308,18 +4308,21 @@
     (_
      :false)))
 
-(defn post-compile-load (ctx)
-  (let (namespace-name (namespace-name-ctx ctx)
-        filename (filename-ctx ctx)
-        load-result (code/load_binary namespace-name filename (result-ctx ctx)))
-    (case load-result
-      ({:module namespace-name}
-       ;; The current namespace should always have up to date
-       ;; requirements
-       (add-require-ctx ctx namespace-name)
-       :ok)
-      (_
-       (erlang/throw {:unable-to-load filename})))))
+(defn post-compile-process (ctx)
+  (case (should-load? (options-ctx ctx))
+    (:false :ok)
+    (:true
+     (let (namespace-name (namespace-name-ctx ctx)
+                          filename (filename-ctx ctx)
+                          load-result (code/load_binary namespace-name filename (result-ctx ctx)))
+       (case load-result
+         ({:module namespace-name}
+          ;; The current namespace should always have up to date
+          ;; requirements
+          (add-require-ctx ctx namespace-name)
+          :ok)
+         (_
+          (erlang/throw {:unable-to-load filename})))))))
 
 (defn do-final-comp (ctx)
   (let (options (options-ctx ctx)
@@ -4329,12 +4332,7 @@
          :error)
       (:error
        :error)
-      (:ok
-       (case (should-load? options)
-         (:true
-          (post-compile-load ctx))
-         (:false
-          :ok))))))
+      (:ok (post-compile-process ctx)))))
 
 ;; Iterative Compilation
 ;; ---------------------
@@ -4357,7 +4355,7 @@
           (:uncompilable
            (internal-forms ctx rest))
           (:ok
-           (post-compile-load ctx)
+           (post-compile-process ctx)
            (internal-forms ctx rest))))))))
 
 (defn forms (ctx binary options)
@@ -4535,7 +4533,7 @@
             (:uncompilable
              (internal-comp-interactive ctx interactive-name rest result1))
             (:ok
-             (post-compile-load ctx)
+             (post-compile-process ctx)
              (internal-comp-interactive ctx interactive-name rest result1)))))))))
 
 (defn+ comp-interactive (ctx interactive-name input options)
