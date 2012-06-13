@@ -4302,11 +4302,10 @@
                    errors)))
 
 (defn should-load? (options)
-  (case (lists/member :to_ast options)
-    (:false
-     (erlang/not (lists/member :to_core options)))
-    (_
-     :false)))
+  (erlang/not
+   (lists/any (fn (no-compile-option)
+                  (lists/member no-compile-option options))
+              '(to_ast to_core bootstrap))))
 
 (defn post-compile-process (ctx)
   (case (should-load? (options-ctx ctx))
@@ -4545,48 +4544,8 @@
     (stop-context ctx)
     raw-ctx))
 
-;; Bootstrap Compilation
-;; --------------------
-;;
-;; Infrastructure for non-iterative compilation. This really should
-;; only be used by the compiler itself as it removes the ability to
-;; have macros and the like. So generally, if you are not working on
-;; the compiler you should ignore this interface.
-(defn parse-all (ctx input acc)
-  (case (has-more-data-to-parse input)
-    (:false
-     (case input
-       ({:parse-output _ _ _}
-        (lists/reverse acc))))
-    (:true
-     (case (parse ctx input)
-       ({ast0 rest}
-        (parse-all ctx rest (ast0 . acc)))
-       (:error
-        :error)))))
 
-(defn intermediate-bootstrap-comp (ctx binary options)
-  (set-context-all-ctx ctx
-                       [{:options options}])
-  (case (parse-all ctx binary [])
-    (:error
-     :error)
-    (ast
-     (lists/foldl (fn (def path)
-                      (make-forms (traverse-path path)
-                                  ctx def)
-                      (incr-path path))
-                  (new-path)  ast)
-     (compile-context ctx :intermediate))))
 
-(defn+ bootstrap-comp (ctx binary options)
-  (case (intermediate-bootstrap-comp ctx binary options)
-    (:uncompilable
-     (do-final-comp ctx)
-     :error)
-    (_
-     (do-final-comp ctx)
-     (get-raw-context ctx))))
 
 ;; Compilation Dispatch Framework
 ;; ------------------------------
@@ -4651,11 +4610,7 @@
      (filename-ctx ctx filename)
      (case (file/read_file filename)
        ({:ok binary}
-        (let (result  (case (proplists/get_value :bootstrap options :false)
-                        (:true
-                         (bootstrap-comp ctx binary options))
-                        (:false
-                         (forms ctx binary options))))
+        (let (result (forms ctx binary options))
           (report-errors-warnings ctx)
           (do-file-transition :undefined (new-path) ctx)
           (stop-context ctx)
