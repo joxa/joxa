@@ -1873,8 +1873,9 @@
      (gather-fun-alias-pairs path ctx rest ({{fun arity} alias} . acc)))
     ([]
      acc)
-    (_
-     (add-error-ctx ctx path {:invalid_use :invalid-fun-spec}))))
+    (inv-f
+     (add-error-ctx ctx path {:invalid-use :invalid-fun-spec inv-f})
+     acc)))
 
 (defn populate-use-into-context (ctx namespace-name imports)
   (case imports
