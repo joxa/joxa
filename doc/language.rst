@@ -117,34 +117,34 @@ the remote function. Lets take a look at an example of this
 
 .. code-block:: clojure
 
-    (ns joxa.exp.nmr-ns1)
+    (ns Joxa-exp-nmr-ns1)
 
     (defn+ final ()
        :got-it)
 
     ;; Forward declaration for ns2
-    (defspec joxa.exp.nmr-ns2/recurse-ns1 () (erlang/any))
+    (defspec Joxa-exp-nmr-ns2/recurse-ns1 () (erlang/any))
 
     (defn+ recurse-ns2 ()
-      (joxa.test.nmr-ns2/recurse-ns1))
+      (joxa-test-nmr-ns2/recurse-ns1))
 
     ;; ======
 
-    (ns joxa.exp.nmr-ns2)
+    (ns joxa-exp-nmr-ns2)
 
-    (defspec joxa.exp.nmr-ns1/final () (erlang/any))
+    (defspec joxa-exp-nmr-ns1/final () (erlang/any))
 
     (defn+ recurse-ns1 ()
-       (joxa.exp.nmr-ns1/final))
+       (joxa-exp-nmr-ns1/final))
 
-Notice that joxa.exp.nmr-ns1 has a dependency on joxa.exp.nmr-ns2 and
-vice versa. In normal Joxa code this would not be compilable because
-the code that is being called must be available before it is
+Notice that `joxa-exp-nmr-ns1` has a dependency on `joxa-exp-nmr-ns2`
+and vice versa. In normal Joxa code this would not be compilable
+because the code that is being called must be available before it is
 called. However, we have gotten around this problem by providing
-remote defspecs. In joxa.exp.nmr-ns1 we pre-declare
-joxa.exp.nmr-ns2/recurse-ns1 while in joxa.exp.nmr-ns2 we pre-declare
-joxa.exp.nmr-ns1/final. This allows the Joxa compiler to check the
-function against the specs instead of the real module. Of course,
-there is no way for the compiler to know if those functions actually
-exist, so if you make a mistake you may actually get runtime
+remote defspecs. In `joxa-exp-nmr-ns1` we pre-declare
+`joxa-exp-nmr-ns2/recurse-ns1` while in `joxa-exp-nmr-ns2` we
+pre-declare `joxa-exp-nmr-ns1/final`. This allows the Joxa compiler to
+check the function against the specs instead of the real module. Of
+course, there is no way for the compiler to know if those functions
+actually exist, so if you make a mistake you may actually get runtime
 errors. So be careful.
