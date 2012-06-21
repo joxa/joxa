@@ -1,8 +1,402 @@
 Standard Library
 ****************
 
+Core
+====
+
+!=
+--
+
+
+This is a 'not equal' operator for Joxa. It is basically equivelent to
+(not (= ...)) or the erlang `=:=`
+
+Example
+^^^^^^^
+
+.. code-block:: clojure
+
+    joxa-is> (joxa-core/!= 1 2)
+    :true
+
+    joxa-is> (joxa-core/!= 1 1)
+    :false
+
+
+lte
+---
+
+Less then or equal to. Basically equivalent to `=<`. However this has
+some issue in Joxa's syntax but `lte` solves these problems.
+
+Example
+^^^^^^^
+
+.. code-block:: clojure
+
+    joxa-is> (joxa-core/lte 1 2)
+    :true
+
+    joxa-is> (joxa-core/lte 1 1)
+    :true
+
+    joxa-is> (joxa-core/lte 10 1)
+    :false
+
+gte
+---
+
+Greater then or equal to. Basically equivalent to `>=`. However this has
+some issue in Joxa's syntax but `gte` solves these problems.
+
+Example
+^^^^^^^
+
+.. code-block:: clojure
+
+    joxa-is> (joxa-core/gte 1 2)
+    :false
+
+    joxa-is> (joxa-core/gte 1 1)
+    :true
+
+    joxa-is> (joxa-core/gte 10 1)
+    :true
+
+and
+---
+
+This is a boolean `and` operation. The main difference between this
+and `erlang/and/2` is that this allows an unlimited number of
+arguments, in the tradition of lisp.
+
+Example
+^^^^^^^
+
+.. code-block:: clojure
+
+    joxa-is> (joxa-core/and :true :true :false)
+    :false
+
+    joxa-is> (joxa-core/and :true :true :true (joxa-core/!= 1 2))
+    :true
+
+
+or
+--
+
+This is a boolean `or` operation. The main difference between this
+and `erlang/or/2` is that this allows an unlimited number of
+arguments, in the tradition of lisp.
+
+Example
+^^^^^^^
+
+.. code-block:: clojure
+
+    joxa-is> (joxa-core/or :true :true :false)
+    :true
+
+    joxa-is> (joxa-core/or :true :true :true (joxa-core/!= 1 2))
+    :true
+
+    joxa-is> (joxa-core/or :false :false :false)
+    :false
+
+
+
++
+--
+
+This is the multi-argument version of `erlang/+`. It does a simple
+arithmetic addition for an unlimited number of arguments.
+
+Example
+^^^^^^^
+
+.. code-block:: clojure
+
+    joxa-is> (joxa-core/+ 1 2 3 4 5 6 7)
+    28
+
+
+-
+-
+
+This is the multi-argument version of `erlang/-`. It does a simple
+arithmetic subtraction for an unlimited number of arguments.
+
+Example
+^^^^^^^
+
+.. code-block:: clojure
+
+    joxa-is> (joxa-core/+ 1 2 3 4 5 6 7)
+    -26
+
+
+incr
+----
+
+This increments a numeric value (either float or integer)
+
+Example
+^^^^^^^
+
+.. code-block:: clojure
+
+   joxa-is> (joxa-core/incr 1)
+   2
+
+   joxa-is> (joxa-core/incr 1.0)
+   2.0
+
+
+decr
+----
+
+This decrements a numeric value (either float or integer)
+
+Example
+^^^^^^^
+
+.. code-block:: clojure
+
+   joxa-is> (joxa-core/decr 1)
+   0
+
+   joxa-is> (joxa-core/incr 1.0)
+   0.0
+
+
+if
+--
+
+.. code-block:: none
+
+    if test-form then-form else-form => result*
+
+Arguments and Values
+^^^^^^^^^^^^^^^^^^^^
+
+test-form
+  a form.
+
+then-form
+  a form.
+
+else-form
+  a form.
+
+results
+  if the test-form yielded true, the values returned by the then-form;
+  otherwise, the values returned by the else-form.
+
+Description
+^^^^^^^^^^^
+
+if allows the execution of a form to be dependent on a single
+test-form.
+
+First test-form is evaluated. If the result is true, then then-form is
+selected; otherwise else-form is selected. Whichever form is selected
+is then evaluated.
+
+Examples
+^^^^^^^^
+
+.. code-block:: none
+
+    joxa-is> (joxa-core/if :true 1 2)
+    1
+    joxa-is> (joxa-core/if :false 1 2)
+    2
+
+
+when
+----
+
+.. code-block:: none
+
+    when test-form form* => result*
+
+Arguments and Values
+^^^^^^^^^^^^^^^^^^^^
+
+test-form
+  a form.
+
+forms
+  an implicit do.
+
+results
+  the values of the forms in a when form if the test-form yields `:true`
+  or in an unless form if the test-form yields `:false`; otherwise `:ok`.
+
+Description
+^^^^^^^^^^^
+when allows the execution of forms to be dependent on a single test-form.
+
+In a when form, if the test-form yields true, the forms are evaluated
+in order from left to right and the values returned by the forms are
+returned from the when form. Otherwise, if the test-form yields false,
+the forms are not evaluated, and the when form returns `:ok`.
+
+Examples
+^^^^^^^^
+
+.. code-block:: none
+
+    joxa-is> (joxa-core/when :true :hello)
+    hello
+    joxa-is> (joxa-core/when :false :hello)
+    ok
+    joxa-is> (joxa-core/when :true (io/format "1") (io/format "2") (io/format "3"))
+    123
+
+
+unless
+------
+
+.. code-block:: none
+
+    unless test-form form* => result*
+
+Arguments and Values
+^^^^^^^^^^^^^^^^^^^^
+test-form
+  a form.
+
+forms
+  an implicit do.
+
+results
+  the values of the forms in a when form if the test-form yields `:true`
+  or in an unless form if the test-form yields `:false`; otherwise `:ok`.
+
+Description:
+
+unless allows the execution of forms to be dependent on a single test-form.
+
+In an unless form, if the test-form yields false, the forms are
+evaluated in order from left to right and the values returned by the
+forms are returned from the unless form. Otherwise, if the test-form
+yields `:false`, the forms are not evaluated, and the unless form returns
+`:ok`.
+
+Examples
+^^^^^^^^
+
+.. code-block:: none
+
+    joxa-is> (joxa-core/unless :true :hello)
+    ok
+    joxa-is> (joxa-core/unless :false :hello)
+    hello
+    joxa-is> (joxa-core/unless :true (io/format "1") (io/format "2") (io/format "3"))
+    ok
+    joxa-is> (joxa-core/unless :false  (io/format "1") (io/format "2") (io/format "3"))
+    123
+
+
+gensym
+------
+
+.. code-block:: none
+
+    gensym => new-atom
+    gensym x => new-atom
+
+Arguments and Values
+^^^^^^^^^^^^^^^^^^^^
+
+x
+  a string.
+
+new-symbol
+  a fresh, atom.
+
+Description
+^^^^^^^^^^^
+
+Creates and returns a fresh, atom.
+
+The name of the new-symbol is the concatenation of a prefix, which
+defaults to "G", and a suffix, which is a randomly generated number.
+
+If x is supplied, then that string is used as a prefix instead of "G"
+for this call to gensym only.
+
+Examples
+^^^^^^^^
+
+   joxa-is> (joxa-core/gensym)
+   '#:GAEECC9'
+   joxa-is> (joxa-core/gensym "T")
+   '#:|T66BA871|'
+
+try
+---
+
+let-match
+---------
+
+define
+------
+
+.. code-block:: none
+
+    define name value => form
+
+Arguments and Values
+^^^^^^^^^^^^^^^^^^^^
+name
+  an atom that represents the defined name
+
+forms
+  an arbitrary value
+
+form
+  a new defmacro that evaluates to the value
+
+Description:
+
+Defines a new macro that creates a compile time mapping between the
+name and the value.
+
+
+Examples
+^^^^^^^^
+
+.. code-block:: none
+
+    joxa-is> (joxa-core/define :true :hello)
+    ok
+    joxa-is> (joxa-core/unless :false :hello)
+    hello
+    joxa-is> (joxa-core/unless :true (io/format "1") (io/format "2") (io/format "3"))
+    ok
+    joxa-is> (joxa-core/unless :false  (io/format "1") (io/format "2") (io/format "3"))
+    123
+
+
+
+
+Lists
+=====
+
+dolist
+
+hd
+
+tl
+
+foldl
+
+map
+
 Records
--------
+=======
 
 Records in Joxa are equivalent and compatible with records in
 Erlang. However, like many things in Joxa they are used in very
@@ -16,7 +410,7 @@ to access various parts of the record. With multiple records in the
 same namespace those function names that are generated will conflict.
 
 Overview
-~~~~~~~~
+--------
 
 Having a namespace per record is no big deal sense you can have
 multiple namespaces per file. So to get started lets look at a
@@ -69,7 +463,7 @@ records. Now lets jump into some detail.
 
 
 Definition
-~~~~~~~~~~
+----------
 
 `joxa-records` is the namespace that contains the record system for
 Joxa. The two functions that you will interact the most are
@@ -97,7 +491,7 @@ This is really all there is to it. The `defrecord` macro generates a
 bunch of functions and macros used to interact with the record.
 
 Creating Records
-~~~~~~~~~~~~~~~~
+----------------
 
 Once the record is defined we want to create it in the code that is
 making use of the record. When a record is defined two functions are
@@ -137,7 +531,7 @@ the case of `sex` the value will default to `mail` while in the case
 of `city` it will default to `undefined`.
 
 Getters and Setters
-~~~~~~~~~~~~~~~~~~~
+-------------------
 
 `defrecord` generates several different ways of getting and setting
 values from a function. The most strait forward of these is the field
@@ -190,7 +584,7 @@ true for `age` and `address`.
 
 
 Pattern Matching
-~~~~~~~~~~~~~~~~
+----------------
 
 Joxa has pattern matching and, of course, you want to be able to
 trivially match on records. To that end the Joxa record system
@@ -233,7 +627,7 @@ or even
           :did-not-match)))
 
 Meta Data
-~~~~~~~~~
+---------
 
 Finally the record system wants to give you the ability to do
 unanticipated things when the need arises. So two functions are
@@ -260,7 +654,7 @@ field. So if we called `field-info` with `name` we would get
     {name,2,undefined}
 
 Future Directions
-~~~~~~~~~~~~~~~~~
+-----------------
 
 There is still a lot that can be added to records. Things like
 
@@ -269,3 +663,4 @@ There is still a lot that can be added to records. Things like
 
 and more. However, the core defined here shouldn't change
 significantly.
+
