@@ -1,6 +1,150 @@
 The Joxa Language
 *****************
 
+Special Forms
+-------------
+
+let*
+^^^^
+
+.. code-block:: clojure
+
+  (let* (val val-expr ...) expr ...)
+
+
+try*
+^^^^
+
+.. code-block:: clojure
+
+    (try* expr (catch (error-class error-type) catch-expr ...))
+
+
+case
+^^^^
+
+.. code-block:: clojure
+
+   (case expr (pattern <optional-guard> expr ...) ...)
+
+
+
+receive
+^^^^^^^
+
+.. code-block:: clojure
+
+    (receive <optional-after> (pattern <optional-guard> expr ...) ...)
+
+
+do
+^^
+
+.. code-block:: clojure
+
+   (do expr ...)
+
+
+binary
+^^^^^^
+
+$filename
+^^^^^^^^^
+
+.. code-block:: clojure
+
+    ($filename)
+
+
+$namespace
+^^^^^^^^^^
+
+.. code-block:: clojure
+
+    ($namespace)
+
+
+$line-number
+^^^^^^^^^^^^
+
+.. code-block:: clojure
+
+    ($line-number)
+
+
+$function-name
+^^^^^^^^^^^^^^
+
+.. code-block:: clojure
+
+    ($function-name)
+
+
+apply
+^^^^^
+
+.. code-block:: clojure
+
+    (apply fun [args ...])
+
+
+quote
+^^^^^
+
+.. code-block:: clojure
+
+    (quote expr ...)
+    'expr
+    :atom
+
+quasiquote
+^^^^^^^^^^
+
+.. code-block:: clojure
+
+   `expr
+
+
+string
+^^^^^^
+
+.. code-block:: clojure
+
+   (string "values")
+
+
+list
+^^^^
+
+.. code-block:: clojure
+
+   (list expr ...)
+   [expr ...]
+
+tuple
+^^^^^
+
+.. code-block:: clojure
+
+   (tuple expr ...)
+   {expr ...}
+
+macroexpand-1
+^^^^^^^^^^^^^
+
+.. code-block:: clojure
+
+   (macroexpand-1 expr ...)
+
+
+fn
+^^^
+
+.. code-block:: clojure
+
+   (fn (arg ...) expr ...)
+
+
 Namespaces
 ----------
 

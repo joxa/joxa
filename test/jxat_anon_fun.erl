@@ -12,7 +12,7 @@ given([a,module,that,has,an,anonymous,function], _State, _) ->
                         {:hello arg1 arg2}))
 
                 (defn+ do-test ()
-                      (let (z (internal-test)
+                      (let* (z (internal-test)
                             c '(one two three)
                             x (fn (arg1 arg2)
                                 {:hello arg1 arg2})
@@ -41,4 +41,3 @@ then([the,described,function,can,be,called,'and',works,correctly],
                   {module_info,1}],
                  lists:sort('jxat-anon-fun':module_info(exports))),
     {ok, State}.
-

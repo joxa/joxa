@@ -12,14 +12,14 @@
 
 ;; Check that a namespace implements the behaviour callbacks that are expected.
 (defn+ implements-behaviour? (namespace-name behaviour-name)
-  (let (behave-info ((erlang/make_fun behaviour-name :behaviour_info 1) :callbacks)
+  (let* (behave-info ((erlang/make_fun behaviour-name :behaviour_info 1) :callbacks)
         exports ((erlang/make_fun namespace-name :module_info 1) :exports))
     (lists/all (fn (callback)
                    (lists/member callback exports))
                behave-info)))
 
 (defmacro+ behaviour! (namespace-name behaviour-name)
-  (let (behave-info ((erlang/make_fun behaviour-name
+  (let* (behave-info ((erlang/make_fun behaviour-name
                                       :behaviour_info 1)
                      :callbacks)
         exports ((erlang/make_fun namespace-name :module_info 1) :exports))

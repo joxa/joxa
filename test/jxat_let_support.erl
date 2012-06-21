@@ -13,7 +13,7 @@ given([a,module,that,has,a,function,that,contains,'\'let\''], _State, _) ->
                       [1 2 3 4 5 6 7 8])
 
                 (defn+ do-test ()
-                      (let (foo 1
+                      (let* (foo 1
                             z (erlang/phash2 22)
                             a 1
                             a1 (internal-test)
@@ -47,4 +47,3 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
                   'super-dooper',73439361,1,[1,2,3,4,5,6,7,8]},
                  'jxat-let-support-test':'do-test'()),
     {ok, State}.
-

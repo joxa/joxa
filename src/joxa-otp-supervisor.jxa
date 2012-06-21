@@ -24,7 +24,7 @@
 
 (defmacro+ gen-init (child-list)
   ;; Create an entire default init based on a list of child modules.
-  (let (args (joxa-core/gensym "supervisor"))
+  (let* (args (joxa-core/gensym "supervisor"))
     `(defn+ init (~args)
        (joxa-otp-supervisor/default-init ~child-list))))
 

@@ -28,11 +28,11 @@
      else)))
 
 (defn eval (parse ctx)
-  (let (result (joxa-compiler/comp-interactive ctx :--joxa-shell parse [])
+  (let* (result (joxa-compiler/comp-interactive ctx :--joxa-shell parse [])
         comp-res
         (if (joxa-compiler/compilable? ctx)
             (if (erlang/== result :expr)
-                (let (call-fun (erlang/make_fun (joxa-compiler/namespace-name-ctx ctx) :--joxa-shell 0))
+                (let* (call-fun (erlang/make_fun (joxa-compiler/namespace-name-ctx ctx) :--joxa-shell 0))
                   (call-fun))
               :ok)
           (if (erlang/or  (erlang/== result :expr)
@@ -67,7 +67,7 @@
         (loop ctx <<>>)))))
 
 (defn+ start ()
-  (let (ctx (joxa-compiler/start-interactive))
+  (let* (ctx (joxa-compiler/start-interactive))
     (joxa-compiler/namespace-name-ctx ctx :joxa-is)
     (io/format "Joxa 0.0.8a~n~n")
     (loop ctx <<>>)

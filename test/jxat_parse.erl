@@ -23,7 +23,7 @@ test1_test() ->
                         {:hello arg1 arg2}))
 
                 (defn+ do-test ()
-                      (let (z (internal-test)
+                      (let* (z (internal-test)
                             x (fn (arg1 arg2)
                                 {:hello arg1 arg2})
                             a erlang/phash2/1
@@ -70,7 +70,7 @@ test1_test() ->
 
     ?assertMatch(
        ['defn+','do-test',[],
-        ['let',
+        ['let*',
          [z,['internal-test'],
           x,[fn,[arg1,arg2],{[quote,hello],arg1,arg2}],
           a,{'--fun',erlang,phash2,1},

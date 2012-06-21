@@ -11,7 +11,7 @@ given([a,module,that,has,a,binary,representatino], _State, _) ->
                     <<\\a \\b \\c>>)
 
                 (defn internal-test2 ()
-                       (let (a 1
+                       (let* (a 1
                              b 17
                              c 42)
                             <<a b (c :size 16)>>))
@@ -56,5 +56,3 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch(<<"This is a test">>, 'jxat-binary-test':'do-test4'()),
 
     {ok, State}.
-
-

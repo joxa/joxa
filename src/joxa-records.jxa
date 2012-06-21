@@ -34,7 +34,7 @@
      (lists/reverse acc))))
 
 (defn create-elements (decl descs)
-  (let (obj (core/gensym)
+  (let* (obj (core/gensym)
         name (core/gensym)
         value (core/gensym))
     [`(~decl element ( ~obj ~name)
@@ -67,7 +67,7 @@
 
 
 (defn create-constructors (name decl descs)
-  (let (args (lists/map (fn (desc)
+  (let* (args (lists/map (fn (desc)
                             (case desc
                               ({arg-name _ _}
                                arg-name))) descs)
@@ -88,17 +88,17 @@
                              :~el-name
                              ~el-name)))))
     [`(~decl make ~args
-             (let (~obj ~body)
+             (let* (~obj ~body)
                ~(se descs)))
      `(~decl make-fields (~field-arg)
-             (let (~obj ~body)
+             (let* (~obj ~body)
                (lists/foldl (fn (~list-el ~obj1)
                                 (case ~list-el
                                   ({~key ~value}
                                    (element! ~obj1 ~key ~value)))) ~obj ~field-arg)))]))
 
 (defn create-field-info (decl descs)
-  (let (field (core/gensym))
+  (let* (field (core/gensym))
     [`(~decl field-info ()
              '~descs)
      `(~decl field-info (~field)
@@ -110,12 +110,12 @@
                                      '~el)))) descs)))]))
 
 (defn create-accessors (decl descs)
-  (let (obj (core/gensym)
+  (let* (obj (core/gensym)
         value (core/gensym))
     (lists/foldl (fn (desc acc)
                    (case desc
                      ({name count _}
-                      (let (setter-name (erlang/list_to_atom
+                      (let* (setter-name (erlang/list_to_atom
                                          (lists/append
                                           (erlang/atom_to_list name) "!")))
                         (`(~decl ~name (~obj)
@@ -154,7 +154,7 @@
                    acc value)))))
 
 (defn create-templates (name decl descs)
-  (let (def (case decl
+  (let* (def (case decl
               (:defn+
                :defmacro+)
               (:defn
@@ -166,13 +166,13 @@
 
 
 (defn+ make-let (obj name descs bindings body)
-  (let (pattern-tmp (create-macro-body name descs))
+  (let* (pattern-tmp (create-macro-body name descs))
     `(case ~obj
        (~(joxa-records/make-t-body name descs bindings pattern-tmp)
          ~@body))))
 
 (defn create-let (name decl descs)
-  (let (def (case decl
+  (let* (def (case decl
               (:defn+
                :defmacro+)
               (:defn
@@ -184,7 +184,7 @@
            (joxa-records/make-let ~obj ~name '~descs ~bindings ~rest))))
 
 (defn create-record (name decl descs)
-  (let (ells (create-elements decl descs)
+  (let* (ells (create-elements decl descs)
         constr (create-constructors name decl descs)
         field-info (create-field-info decl descs)
         accessors (create-accessors decl descs)
