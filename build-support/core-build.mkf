@@ -83,14 +83,14 @@ get-deps:
 shell: build $(TESTBEAMS)
 	$(ERL) $(ERLFLAGS) -s joxa main -s init stop
 
-clean:
+jxa-clean:
 	$(REBAR) skip_deps=true clean
 	rm -rf $(APPDIR)/joxa
 	rm -rf $(APPDIR)/.bootstrap
 	rm -rf $(APPDIR)/_build
 	rm -rf $(APPDIR)/erl_crash.dump
 
-distclean: clean
+jxa-distclean: jxa-clean
 	rm -rf $(APPDIR)/deps
 
 test: build proper eunit cucumber
