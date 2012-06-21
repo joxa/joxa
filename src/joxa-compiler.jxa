@@ -1795,10 +1795,10 @@
          ({annotations1 p-val}
 
           {(make-annots (path? path0) filename type idx
-                       (make-annots (traverse-and-get-path path0)
-                                    filename
-                                   :ident idx
-                                   annotations1))
+                        (make-annots (traverse-and-get-path path0)
+                                     filename
+                                     :ident idx
+                                     annotations1))
            [type, p-val]}))))
     ({type val idx}
      {(make-annots (path? path0) filename type idx annotations) val})))
@@ -2393,8 +2393,13 @@
              cerl-t (make-list (incr-path path0)  ctx t))
          (cerl/ann_c_cons annots cerl-h cerl-t))))))
 
-(defn call-macro (namespace function args)
-  (erlang/apply namespace function args))
+(defn call-macro (path ctx namespace function args)
+  (__try
+   (erlang/apply namespace function args)
+   (catch (type body)
+     (add-error-r-nil-ctx ctx path {:macro-failure {namespace function
+                                                              (erlang/length args)}
+                                                   {type body}}))))
 
 ;; We auto require anything required by the namespace exporting the
 ;; macro. The reduces by quite a bit the confusion involved in using
@@ -2416,20 +2421,20 @@
       (case (resolve-reference-ctx path0 ctx val possible-arity)
         ({:apply :not-rest :macro {function arity}}
             (make-expr path0 ctx
-                       (call-macro (namespace-name-ctx ctx) function args)))
+                       (call-macro path0 ctx (namespace-name-ctx ctx) function args)))
            ({:apply :rest :macro {function arity}}
             (make-expr path0 ctx
-                       (call-macro (namespace-name-ctx ctx) function
-                                              (runtime-args-to-arity args 1 arity []))))
+                       (call-macro path0 ctx (namespace-name-ctx ctx) function
+                                   (runtime-args-to-arity args 1 arity []))))
            ({:remote :not-rest :macro {namespace function arity}}
             (auto-require ctx namespace)
             (make-expr path0 ctx
-                       (call-macro  namespace function
+                       (call-macro path0 ctx namespace function
                                               args)))
            ({:remote :rest :macro {namespace function arity}}
             (auto-require ctx namespace)
             (make-expr path0 ctx
-                       (call-macro namespace function
+                       (call-macro path0 ctx namespace function
                                    (runtime-args-to-arity args 1 arity []))))
            (ref
             (let (arg-list (eval-args (incr-path path0) ctx args))
@@ -3074,22 +3079,22 @@
        (case (resolve-reference-ctx path0 ctx var (erlang/length args))
          ({:apply :not-rest :macro {function arity}}
           (make-pattern-element path0 ctx guards0
-                                (call-macro (namespace-name-ctx ctx)
+                                (call-macro path0 ctx (namespace-name-ctx ctx)
                                             function
                                             args)))
          ({:apply :rest :macro {function arity}}
           (make-pattern-element path0 ctx guards0
-                                (call-macro (namespace-name-ctx ctx) function
+                                (call-macro path0 ctx (namespace-name-ctx ctx) function
                                             (runtime-args-to-arity args 1 arity []))))
          ({:remote :not-rest :macro {namespace function arity}}
           (auto-require ctx namespace)
           (make-pattern-element path0 ctx guards0
-                                (call-macro  namespace function
-                                             args)))
+                                (call-macro path0 ctx namespace function
+                                            args)))
          ({:remote :rest :macro {namespace function arity}}
           (auto-require ctx namespace)
           (make-pattern-element path0 ctx guards0
-                                (call-macro namespace function
+                                (call-macro path0 ctx namespace function
                                             (runtime-args-to-arity args 1 arity []))))
          (_
           (add-error-r-nil-ctx ctx path0 :invalid-definition))))
@@ -3643,20 +3648,20 @@
        (case (resolve-reference-ctx path0 ctx var (erlang/length args))
          ({:apply :not-rest :macro {function arity}}
           (make-forms path0 ctx
-                     (call-macro (namespace-name-ctx ctx) function args)))
+                     (call-macro path0 ctx (namespace-name-ctx ctx) function args)))
          ({:apply :rest :macro {function arity}}
           (make-forms path0 ctx
-                     (call-macro (namespace-name-ctx ctx) function
+                     (call-macro path0 ctx (namespace-name-ctx ctx) function
                                  (runtime-args-to-arity args 1 arity []))))
          ({:remote :not-rest :macro {namespace function arity}}
           (auto-require ctx namespace)
           (make-forms path0 ctx
-                     (call-macro  namespace function
+                     (call-macro path0 ctx namespace function
                                   args)))
          ({:remote :rest :macro {namespace function arity}}
           (auto-require ctx namespace)
           (make-forms path0 ctx
-                     (call-macro namespace function
+                     (call-macro path0 ctx namespace function
                                  (runtime-args-to-arity args 1 arity []))))
          (_
           (add-error-ctx ctx path0 {:invalid-definition-or-macro var}))))
@@ -4242,6 +4247,9 @@
      (io_lib/format "invalid definition or macro (~s)" [(format-fun-ref name)]))
     ({:renamed-fun-does-not-exist {fun arity}}
      (io_lib/format "function ~p/~p defined in rename does not exist" [fun arity]))
+    ({:macro-failure {namespace function arity} error-info}
+     (io_lib/format "error during evaluation of macro ~p/~p/~p: (~p)" [namespace function arity
+                                                                                 error-info]))
     (:invalid-definition
      "invalid definition")
     (:invalid-pattern
