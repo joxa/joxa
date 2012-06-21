@@ -26,7 +26,7 @@ given([a,module,that,has,a,'case',statement], _State, _) ->
                            (phash2 :bar))))
 
                 (defn+ do-test (arg1 arg2 arg3)
-                      (let (z (internal-test arg1 arg2)
+                      (let* (z (internal-test arg1 arg2)
                             x (internal-test2 arg1 arg2 arg3))
                            {z x}))">>,
 
@@ -50,5 +50,3 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch({ok, 73439361}, 'jxat-case-test':'do-test'({22, 22, 33}, 22, 4)),
     ?assertMatch({ok, 4557629}, 'jxat-case-test':'do-test'(an_atom, 22, [1, 2, 3])),
     {ok, State}.
-
-

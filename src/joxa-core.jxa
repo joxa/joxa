@@ -156,11 +156,11 @@
              clauses))
 
 (defmacro+ try (&rest body)
-  (let (type (gensym)
+  (let* (type (gensym)
         err (gensym))
     (case (split-try-body body [] [])
       ({exprs clauses}
-       `(__try
+       `(try*
          (do
              ~@exprs)
          (catch (~type ~err)
@@ -171,8 +171,8 @@
                                     (erlang/raise ~type ~err (erlang/get_stacktrace)))])
                  clauses))))))))
 
-(defmacro+ let-match (args &rest body)
-  (let (process-arg-body
+(defmacro+ let (args &rest body)
+  (let* (process-arg-body
         (fn (arg)
             (case arg
               ([r e]
@@ -181,7 +181,7 @@
               ((r . (e . rest))
                `(case ~e
                   (~r ~(process-arg-body rest))))
-              (detail (erlang/error {:malformed-let-match-expression detail})))))
+              (detail (erlang/error {:malformed-let-expression detail})))))
     (process-arg-body args)))
 
 (defmacro+ define (name value)

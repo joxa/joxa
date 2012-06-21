@@ -7,11 +7,11 @@ fun_var_test() ->
 (ns jxat-fun-var-test )
 
   (defn get-it0 ()
-     (let (f (fn (a b) {a b}))
+     (let* (f (fn (a b) {a b}))
         f))
 
   (defn get-it1 ()
-     (let (f (fn (a b) {a b}))
+     (let* (f (fn (a b) {a b}))
         f/2))
 
   (defn+ test-case0 ()

@@ -13,7 +13,7 @@
   ;; defaults. *NOTE* that this function either returns a pid or
   ;; *throws* an exception with the error returned by start sup. You
   ;; should take this into account when calling this function.
-  (let (start-sup (erlang/make_fun sup-name :start_link 0))
+  (let* (start-sup (erlang/make_fun sup-name :start_link 0))
     (case (start-sup)
       ({:ok pid}
        pid)
@@ -24,7 +24,7 @@
   ;; This macro defines a start function that creates the common
   ;; 'start top level supervisor' call that exists in most
   ;; applications.
-  (let (start-type (joxa-core/gensym "application")
+  (let* (start-type (joxa-core/gensym "application")
         start-args (joxa-core/gensym "application"))
     `(defn+ start (~start-type ~start-args)
        (try
@@ -35,7 +35,7 @@
 
 (defmacro+ gen-stop ()
   ;; Generate a default stop function for an application
-  (let (state (joxa-core/gensym "application"))
+  (let* (state (joxa-core/gensym "application"))
     `(defn+ stop (~state)
        :ok)))
 

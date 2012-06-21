@@ -8,7 +8,7 @@ given([a,module,that,has,an,anonymous,function], _State, _) ->
                        (require io))
 
                 (defn t1 ()
-                      (let (a 1)
+                      (let* (a 1)
                          (io/format \"~p\" [a])
                          :booha))
 
@@ -39,4 +39,3 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
                     {module_info,1}],
                  lists:sort('jxat-implicit-do-test':module_info(exports))),
     {ok, State}.
-

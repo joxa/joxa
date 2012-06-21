@@ -14,7 +14,7 @@ bad_arity_test() ->
                       :not-a-reference)
 
                  (defn used-function-ctx? (name possible-arity ctx)
-                      (let (uses [])
+                      (let* (uses [])
                           (case (rest-used-function-ctx? name possible-arity uses)
                                 (:not-a-reference
                                     :not-a-reference)
@@ -31,7 +31,7 @@ bad_call_test() ->
     Source = <<" (ns jxat-invalid-arity-test1)
 
                 (defn+ invalid-code-test ()
-                      (let (x 1)
+                      (let* (x 1)
                            -x))">>,
     RawCtx = 'joxa-compiler':forms(Source, []),
     ?assertMatch(true, 'joxa-compiler':'has-errors?'(RawCtx)),
@@ -85,7 +85,7 @@ bad_let_test() ->
     Source = <<" (ns jxat-bad-let-test)
 
                   (defn+ rest-used-function-ctx? ()
-                      (let (x 1)
+                      (let* (x 1)
                        x)) ">>,
     RawCtx = 'joxa-compiler':forms(Source, []),
     ?assertMatch(false, 'joxa-compiler':'has-errors?'(RawCtx)),

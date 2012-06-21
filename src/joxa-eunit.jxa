@@ -56,10 +56,10 @@
   (eunit_lib/command cmd))
 
 (defmacro+ cmd-status (n cmd)
-  (let (--out (joxa-core/gensym)
+  (let* (--out (joxa-core/gensym)
         --n (joxa-core/gensym)
         --new (joxa-core/gensym))
-    `(let (~--n ~n)
+    `(let* (~--n ~n)
        (case (joxa-eunit/-cmd- ~cmd)
          ({~--n ~--out} ~--out)
          ({~--new _}
@@ -80,10 +80,10 @@
   `(joxa-eunit/-test (joxa-eunit/cmd ~cmd)))
 
 (defmacro+ assert-cmd-status (n cmd)
-    (let (--out (joxa-core/gensym)
+    (let* (--out (joxa-core/gensym)
         --n (joxa-core/gensym)
         --new (joxa-core/gensym))
-    `(let (~--n ~n)
+    `(let* (~--n ~n)
        (case (joxa-eunit/-cmd- ~cmd)
          ({~--n ~--out} ~--out)
          ({~--new _}
@@ -97,7 +97,7 @@
   `(joxa-eunit/assert-cmd-status 0 ~cmd))
 
 (defmacro+ assert-cmd-output (t cmd)
-  (let (--new (joxa-core/gensym "--new"))
+  (let* (--new (joxa-core/gensym "--new"))
     `(case (joxa-eunit/-cmd- ~cmd)
       ({_ ~t} :ok)
       ({_ ~--new}
@@ -134,10 +134,10 @@
        (joxa-eunit/debug-fmt <<"~s = ~P">> [(quote ~e) ~e 15])
        ~e))
 (defmacro+ debug-time (s e)
-  (let (--t0 (joxa-core/gensym)
+  (let* (--t0 (joxa-core/gensym)
         --t1 (joxa-core/gensym)
         --v (joxa-core/gensym))
-    `(joxa-core/let-match
+    `(joxa-core/let
       ({~--t0 _} (erlang/statistics :wall_clock)
        ~--v ~e
        {~--t1 _} (erlang/statistics :wall_clock))

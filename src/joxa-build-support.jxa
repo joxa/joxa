@@ -27,7 +27,7 @@
          (erlang :only (==/2))))
 
 (defn file-name-to-module-name (ebin-path name)
-  (let (len (erlang/length ebin-path)
+  (let* (len (erlang/length ebin-path)
         pre-mod (case (string/substr name (+ len 2))
                   ((\/ . rest)
                    rest)
@@ -59,7 +59,7 @@
     (joxa-lists/dolist
      (mod (gather-modules-from-app path))
      (code/ensure_loaded mod)
-     (let (exports (erlang/get_module_info mod :exports))
+     (let* (exports (erlang/get_module_info mod :exports))
        (when (lists/member {:test 0} exports)
          (io/format "Testing ~p~n" [mod])
          (when (== :error (joxa-eunit/test mod))
@@ -68,12 +68,12 @@
 (defn+ proper-test-app (path)
     (joxa-lists/dolist
      (mod (gather-modules-from-app path))
-     (let (exports (erlang/get_module_info mod :exports))
+     (let* (exports (erlang/get_module_info mod :exports))
          (unless (== [] (proper/module mod))
            (init/stop 1)))))
 
 (defn+ gather-features-from-app (path)
-  (let (feature-path (filename/join path "features"))
+  (let* (feature-path (filename/join path "features"))
     (filelib/fold_files feature-path ".+\.feature" :true
                         (fn (name names)
                             (name . names))
@@ -107,7 +107,7 @@
      (erlang/error {:invalid-args invalid}))))
 
 (defn update-app-config (vsn app-name app-path input-path)
-  (let (mods (gather-modules-from-app app-path)
+  (let* (mods (gather-modules-from-app app-path)
         app-file-path (filename/join [app-path "ebin" app-name]))
     (case (file/consult input-path)
       ({:ok [{:application name  mod-info}]}
@@ -137,9 +137,9 @@
 ;; Unit tests for the module
 ;;
 (defn+ filename-to-module-name_test ()
-  (let (ebin-path "/foo/bar/baz"
-        uber-path "/foo/bar/baz/namespace/module-name.beam"
-        uber-path2 "/foo/bar/baz/module-name.beam")
+  (let* (ebin-path "/foo/bar/baz"
+         uber-path "/foo/bar/baz/namespace/module-name.beam"
+         uber-path2 "/foo/bar/baz/module-name.beam")
     (joxa-assert/assert-equal :namespace.module-name
                               (file-name-to-module-name ebin-path uber-path))
     (joxa-assert/assert-equal :module-name
