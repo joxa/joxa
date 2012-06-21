@@ -2546,7 +2546,7 @@
          (push-scope-ctx ctx)
          (add-reference-to-scope-ctx path0 ctx value -1 value-var)
          (add-reference-to-scope-ctx path0 ctx type -1 type-var)
-         (let (cerl-catch (make-expr (incr-path
+         (let (cerl-catch (make-expr (traverse-incr-path 2
                                       (traverse-incr-path 2 path0))
                                      ctx catch-expr))
            (pop-scope-ctx ctx)
