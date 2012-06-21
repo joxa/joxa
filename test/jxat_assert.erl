@@ -141,7 +141,7 @@ assert_exception_test() ->
     ?assertMatch(ok, 'jxat-assert-exception-test':'assert-exception-pass'()),
     ?assertError({assertException_failed,
                   [{namespace,'jxat-assert-exception-test'},
-                   {line,9},
+                   {line,_},
                    {expression,[{'--fun',erlang,throw},[quote,'not-foo-bar']]},
                    {pattern,{[quote,error],[quote,'foo-bar']}},
                    {unexpected_exception,
@@ -166,7 +166,7 @@ assert_error_test() ->
     ?assertMatch(ok, 'jxat-assert-error-test':'assert-error-pass'()),
     ?assertError({assertException_failed,
                   [{namespace,'jxat-assert-error-test'},
-                   {line,10},
+                   {line,_},
                    {expression,[{'--fun',erlang,throw},[quote,'foo-bar']]},
                    {pattern,{[quote,error],[quote,'foo-bar']}},
                    {unexpected_exception,
@@ -191,7 +191,7 @@ assert_exit_test() ->
     ?assertMatch(ok, 'jxat-assert-exit-test':'assert-exit-pass'()),
     ?assertError({assertException_failed,
                   [{namespace,'jxat-assert-exit-test'},
-                   {line,10},
+                   {line,_},
                    {expression,[{'--fun',erlang,throw},[quote,'foo-bar']]},
                    {pattern,{[quote,exit],[quote,'foo-bar']}},
                    {unexpected_exception,
@@ -218,7 +218,7 @@ assert_throw_test() ->
                                                      end,
     ?assertError({assertException_failed,
                   [{namespace,'jxat-assert-exit-test'},
-                   {line,10},
+                   {line,_},
                    {expression,[{'--fun',erlang,throw},[quote,'foo-bar']]},
                    {pattern,{[quote,exit],[quote,'foo-bar']}},
                    {unexpected_exception,
@@ -242,7 +242,7 @@ assert_not_exception_test() ->
     ?assertMatch(ok, 'jxat-assert-not-exception-test':'assert-not-exception-pass'()),
     ?assertError({assertNotException_failed,
                   [{namespace,'jxat-assert-not-exception-test'},
-                   {line,9},
+                   {line,_},
                    {expression,[{'--fun',erlang,throw},[quote,'foo-bar']]},
                    {pattern,{[[quote,throw]],[[quote,'foo-bar']]}},
                    {unexpected_exception,
@@ -253,5 +253,3 @@ assert_not_exception_test() ->
 %%%===================================================================
 %%% Support Functions
 %%%===================================================================
-
-
