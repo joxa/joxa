@@ -122,4 +122,4 @@ pre_bootstrap:
 ## copy that ast into an erl file for useful later building
 	echo "." >> $(ASTDIR)/joxa-compiler.ast
 
-bootstrap: clean build pre_bootstrap test
+bootstrap: pre_bootstrap clean build test
