@@ -8,43 +8,43 @@
 -include_lib("eunit/include/eunit.hrl").
 
 bad_arity_test() ->
-    Source = <<" (module jxat-invalid-arity-test)
+    Source = <<" (ns jxat-invalid-arity-test)
 
                   (defn rest-used-function-ctx? (name uses)
                       :not-a-reference)
 
                  (defn used-function-ctx? (name possible-arity ctx)
-                      (let (uses [])
+                      (let* (uses [])
                           (case (rest-used-function-ctx? name possible-arity uses)
                                 (:not-a-reference
                                     :not-a-reference)
                                 (result
                                    result))))">>,
-    RawCtx = joxa.compiler:forms(Source, []),
-    ?assertMatch(true, joxa.compiler:'has-errors?'(RawCtx)),
+    RawCtx = 'joxa-compiler':forms(Source, []),
+    ?assertMatch(true, 'joxa-compiler':'has-errors?'(RawCtx)),
     ?assertMatch([{{'invalid-reference',{'rest-used-function-ctx?',3}},
                    {[],_}}],
-                 joxa.compiler:'get-context'(errors, RawCtx)).
+                 'joxa-compiler':'get-context'(errors, RawCtx)).
 
 
 bad_call_test() ->
-    Source = <<" (module jxat-invalid-arity-test1)
+    Source = <<" (ns jxat-invalid-arity-test1)
 
                 (defn+ invalid-code-test ()
-                      (let (x 1)
+                      (let* (x 1)
                            -x))">>,
-    RawCtx = joxa.compiler:forms(Source, []),
-    ?assertMatch(true, joxa.compiler:'has-errors?'(RawCtx)),
+    RawCtx = 'joxa-compiler':forms(Source, []),
+    ?assertMatch(true, 'joxa-compiler':'has-errors?'(RawCtx)),
     ?assertMatch([{{'invalid-reference','not-a-reference','-x'},
                               {[],_}}]
-                 , joxa.compiler:'get-context'(errors, RawCtx)).
+                 , 'joxa-compiler':'get-context'(errors, RawCtx)).
 
 
 
 segfault_test() ->
         Source = <<"
 
-(module jxat-invalid-arity-test2 (require erlang))
+(ns jxat-invalid-arity-test2 (require erlang))
 
   (defn is-rest-var? (c)
         :ok)
@@ -76,17 +76,17 @@ segfault_test() ->
                       (erlang/throw {:invalid-reference :ok
                                                    {3 3}}))))))))">>,
 
-    Ctx = joxa.compiler:forms(Source, []),
-    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx))),
+    Ctx = 'joxa-compiler':forms(Source, []),
+    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
     ?assertThrow({'invalid-reference', ok, _},
                  'jxat-invalid-arity-test2':'test-case'({ok, 'not-a-reference'})).
 
 bad_let_test() ->
-    Source = <<" (module jxat-bad-let-test)
+    Source = <<" (ns jxat-bad-let-test)
 
                   (defn+ rest-used-function-ctx? ()
-                      (let (x 1)
+                      (let* (x 1)
                        x)) ">>,
-    RawCtx = joxa.compiler:forms(Source, []),
-    ?assertMatch(false, joxa.compiler:'has-errors?'(RawCtx)),
+    RawCtx = 'joxa-compiler':forms(Source, []),
+    ?assertMatch(false, 'joxa-compiler':'has-errors?'(RawCtx)),
     ?assertMatch(1, 'jxat-bad-let-test':'rest-used-function-ctx?'()).

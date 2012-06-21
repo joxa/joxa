@@ -5,18 +5,18 @@
 
 given([a,module,that,has,defined,records], _State, _) ->
     Source1 = <<"
-(module jxat-records-def-test
-          (require joxa.records
+(ns jxat-records-def-test
+          (require joxa-records
                    erlang lists))
 
-(joxa.records/defrecord+ my-records name age {sex male} {address \"unknown\"})
+(joxa-records/defrecord+ :my-records name age {sex :male} {address \"unknown\"})
 
 ">>,
 
     {ok, Source1};
 given([another,module,uses,those,records], Source1, _) ->
     Source2 = <<"
-(module jxat-records-uses-test
+(ns jxat-records-uses-test
        (require jxat-records-def-test))
 
 (defn+ create1 ()
@@ -66,15 +66,15 @@ given([another,module,uses,those,records], Source1, _) ->
     {ok, {Source1, Source2}}.
 
 'when'([joxa,is,called,on,these,modules], {Source1, Source2}, _) ->
-    Result1 = joxa.compiler:forms(Source1, []),
-    Result2 = joxa.compiler:forms(Source2, []),
+    Result1 = 'joxa-compiler':forms(Source1, []),
+    Result2 = 'joxa-compiler':forms(Source2, []),
     {ok, {Result1, Result2}}.
 
 then([a,beam,binary,is,produced,for,both], {Ctx1, Ctx2}, _) ->
-    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx1))),
-    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx2))),
-    ?assertMatch(false, joxa.compiler:'has-errors?'(Ctx1)),
-    ?assertMatch(false, joxa.compiler:'has-errors?'(Ctx2)),
+    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx1))),
+    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx2))),
+    ?assertMatch(false, 'joxa-compiler':'has-errors?'(Ctx1)),
+    ?assertMatch(false, 'joxa-compiler':'has-errors?'(Ctx2)),
     {ok, ok};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
 
@@ -123,5 +123,3 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
                   "wanderer"},
                  'jxat-records-def-test':'address!'(B, "wanderer")),
   {ok, State}.
-
-

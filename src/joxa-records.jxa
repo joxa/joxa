@@ -10,11 +10,13 @@
 ;;;
 ;;; This module provides for the definition and abstraction of structs
 ;;; in joxa.
-(module joxa.records
-        (require (joxa.core :as core)
-                 lists erlang io)
-        (use (erlang :only (+/2
-                            ==/2))))
+(ns joxa-records
+    (require (joxa-core :as core)
+             lists
+             erlang
+             io)
+    (use (erlang :only (+/2
+                        ==/2))))
 
 (defn convert-to-record-description (descs)
   (case  (lists/foldl (fn (desc acc0)
@@ -22,7 +24,7 @@
                             ({acc1 count}
                              (case desc
                                (d (when (erlang/is_atom d))
-                                  {({d count :undefined} . acc1)
+                                  {({d count `:undefined} . acc1)
                                    (core/incr count)})
                                ({name default}
                                 {({name count default} . acc1)
@@ -32,7 +34,7 @@
      (lists/reverse acc))))
 
 (defn create-elements (decl descs)
-  (let (obj (core/gensym)
+  (let* (obj (core/gensym)
         name (core/gensym)
         value (core/gensym))
     [`(~decl element ( ~obj ~name)
@@ -43,7 +45,7 @@
                                    `(:~f-name
                                      (erlang/element ~count ~obj))))) descs)
                (_
-                (erlang/throw {:invalid-field ~name}))))
+                (erlang/error {:invalid-field ~name}))))
      `(~decl element! ( ~obj ~name ~value)
              (case ~name
                ~@(lists/map (fn (desc)
@@ -52,20 +54,20 @@
                                    `(:~f-name
                                      (erlang/setelement ~count ~obj ~value))))) descs)
                (_
-                (erlang/throw {:invalid-field ~name}))))]))
+                (erlang/error {:invalid-field ~name}))))]))
 
 
 (defn create-default-body (name descs)
   `(tuple
-    : ~name
+    ~name
     ~@(lists/map (fn (desc)
                      (case desc
                        ({_ _ default}
-                        `'~default))) descs)))
+                        default))) descs)))
 
 
 (defn create-constructors (name decl descs)
-  (let (args (lists/map (fn (desc)
+  (let* (args (lists/map (fn (desc)
                             (case desc
                               ({arg-name _ _}
                                arg-name))) descs)
@@ -76,6 +78,7 @@
         list-el (core/gensym)
         key (core/gensym)
         value (core/gensym)
+        resolved-name (core/gensym)
         se (fn (desc)
                (case desc
                  ([]
@@ -85,17 +88,17 @@
                              :~el-name
                              ~el-name)))))
     [`(~decl make ~args
-             (let (~obj ~body)
+             (let* (~obj ~body)
                ~(se descs)))
      `(~decl make-fields (~field-arg)
-             (let (~obj ~body)
+             (let* (~obj ~body)
                (lists/foldl (fn (~list-el ~obj1)
                                 (case ~list-el
                                   ({~key ~value}
                                    (element! ~obj1 ~key ~value)))) ~obj ~field-arg)))]))
 
 (defn create-field-info (decl descs)
-  (let (field (core/gensym))
+  (let* (field (core/gensym))
     [`(~decl field-info ()
              '~descs)
      `(~decl field-info (~field)
@@ -107,12 +110,12 @@
                                      '~el)))) descs)))]))
 
 (defn create-accessors (decl descs)
-  (let (obj (core/gensym)
+  (let* (obj (core/gensym)
         value (core/gensym))
     (lists/foldl (fn (desc acc)
                    (case desc
                      ({name count _}
-                      (let (setter-name (erlang/list_to_atom
+                      (let* (setter-name (erlang/list_to_atom
                                          (lists/append
                                           (erlang/atom_to_list name) "!")))
                         (`(~decl ~name (~obj)
@@ -135,7 +138,7 @@
                             (_
                              acc))) -1 descs)
     (-1
-     (erlang/throw {:invalid-field f-name}))
+     (erlang/error {:invalid-field f-name}))
     (val
      val)))
 
@@ -147,11 +150,11 @@
     ((f-name . (value . rest))
      (make-t-body name descs rest
                   (erlang/setelement
-                   (joxa.records/get-field-index f-name descs)
+                   (joxa-records/get-field-index f-name descs)
                    acc value)))))
 
 (defn create-templates (name decl descs)
-  (let (def (case decl
+  (let* (def (case decl
               (:defn+
                :defmacro+)
               (:defn
@@ -159,17 +162,17 @@
         fields (core/gensym)
         pattern-tmp (create-macro-body name descs))
     `(~def t (&rest ~fields)
-           (joxa.records/make-t-body :~name '~descs ~fields :~pattern-tmp))))
+           (joxa-records/make-t-body ~name '~descs ~fields :~pattern-tmp))))
 
 
 (defn+ make-let (obj name descs bindings body)
-  (let (pattern-tmp (create-macro-body name descs))
+  (let* (pattern-tmp (create-macro-body name descs))
     `(case ~obj
-       (~(joxa.records/make-t-body name descs bindings pattern-tmp)
+       (~(joxa-records/make-t-body name descs bindings pattern-tmp)
          ~@body))))
 
 (defn create-let (name decl descs)
-  (let (def (case decl
+  (let* (def (case decl
               (:defn+
                :defmacro+)
               (:defn
@@ -178,10 +181,10 @@
         bindings (core/gensym)
         rest (core/gensym))
     `(~def let (~obj ~bindings &rest ~rest)
-           (joxa.records/make-let ~obj :~name '~descs ~bindings ~rest))))
+           (joxa-records/make-let ~obj ~name '~descs ~bindings ~rest))))
 
 (defn create-record (name decl descs)
-  (let (ells (create-elements decl descs)
+  (let* (ells (create-elements decl descs)
         constr (create-constructors name decl descs)
         field-info (create-field-info decl descs)
         accessors (create-accessors decl descs)

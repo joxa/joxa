@@ -1,48 +1,53 @@
-(module joxa.eunit
-        (require erlang joxa.core joxa.assert eunit
-                 eunit_lib io io_lib))
+(ns joxa-eunit
+    (require erlang
+             joxa-core
+             joxa-assert
+             eunit
+             eunit_lib
+             io
+             io_lib))
 
 
 ;; This macro can be used at any time to check whether or not the code
 ;; is currently running directly under eunit. Note that it does not work
 ;; in secondary processes if they have been assigned a new group leader.
 (defmacro+ under-eunit? ()
-  `(joxa.assert/matches {:current_function,{:eunit_proc,_,_}}
+  `(joxa-assert/matches {:current_function,{:eunit_proc,_,_}}
                         (erlang/process_info (erlang/group_leader)
                                              :current_function)))
 
 (defmacro+ -test (expr)
-  ` {~($line-number) (fn () ~expr)})
+  ` {($line-number) (fn () ~expr)})
 
 (defmacro+ -assert (bool-expr)
-  `(joxa.eunit/-test (joxa.assert/assert ~bool-expr)))
+  `(joxa-eunit/-test (joxa-assert/assert ~bool-expr)))
 
 (defmacro+ -assert-not (bool-expr)
-  `(joxa.eunit/-test (joxa.assert/assert (erlang/not  ~bool-expr))))
+  `(joxa-eunit/-test (joxa-assert/assert (erlang/not  ~bool-expr))))
 
 (defmacro+ -assert-match (guard expr)
-  `(joxa.eunit/-test (joxa.assert/assert-match ~guard ~expr)))
+  `(joxa-eunit/-test (joxa-assert/assert-match ~guard ~expr)))
 
 (defmacro+ -assert-not-match (guard expr)
-  `(joxa.eunit/-test (joxa.assert/assert-not-match ~guard ~expr)))
+  `(joxa-eunit/-test (joxa-assert/assert-not-match ~guard ~expr)))
 
 (defmacro+ -assert-equal (expect expr)
-  `(joxa.eunit/-test (joxa.assert/assert-equal ~expect ~expr)))
+  `(joxa-eunit/-test (joxa-assert/assert-equal ~expect ~expr)))
 
 (defmacro+ -assert-not-equal (unexpected expr)
-  `(joxa.eunit/-test (joxa.assert/assert-not-equal ~unexpected ~expr)))
+  `(joxa-eunit/-test (joxa-assert/assert-not-equal ~unexpected ~expr)))
 
 (defmacro+ -assert-exception (class term expr)
-  `(joxa.eunit/-test (joxa.assert/assert-exception ~class ~term ~expr)))
+  `(joxa-eunit/-test (joxa-assert/assert-exception ~class ~term ~expr)))
 
 (defmacro+ -assert-error (term expr)
-  `(joxa.eunit/-test (joxa.assert/assert-error ~term ~expr)))
+  `(joxa-eunit/-test (joxa-assert/assert-error ~term ~expr)))
 
 (defmacro+ -assert-exit (term expr)
-  `(joxa.eunit/-test (joxa.assert/assert-exit ~term ~expr)))
+  `(joxa-eunit/-test (joxa-assert/assert-exit ~term ~expr)))
 
 (defmacro+ -assert-throw (term expr)
-  `(joxa.eunit/-test (joxa.assert/assert-throw ~term ~expr)))
+  `(joxa-eunit/-test (joxa-assert/assert-throw ~term ~expr)))
 
 ;; Macros for running operating system commands. (Note that these
 ;; require EUnit to be present at runtime, or at least eunit_lib.)
@@ -51,66 +56,66 @@
   (eunit_lib/command cmd))
 
 (defmacro+ cmd-status (n cmd)
-  (let (--out (joxa.core/gensym)
-        --n (joxa.core/gensym)
-        --new (joxa.core/gensym))
-    `(let (~--n ~n)
-       (case (joxa.eunit/-cmd- ~cmd)
+  (let* (--out (joxa-core/gensym)
+        --n (joxa-core/gensym)
+        --new (joxa-core/gensym))
+    `(let* (~--n ~n)
+       (case (joxa-eunit/-cmd- ~cmd)
          ({~--n ~--out} ~--out)
          ({~--new _}
           (erlang/error {:command_failed
-                         [{:module ($module-name)}
+                         [{:namespace ($namespace)}
                           {:line ($line-number)}
                           {:command (quote  ~cmd)}
                           {:expected_status ~--n}
                           {:status  ~--new}]}))))))
 
 (defmacro+ -cmd-status (n cmd)
-  `(joxa.eunit/-test (joxa.eunit/cmd-status ~n ~cmd)))
+  `(joxa-eunit/-test (joxa-eunit/cmd-status ~n ~cmd)))
 
 (defmacro+ cmd (c)
-  `(joxa.eunit/cmd-status 0 ~c))
+  `(joxa-eunit/cmd-status 0 ~c))
 
 (defmacro+ -cmd (cmd)
-  `(joxa.eunit/-test (joxa.eunit/cmd ~cmd)))
+  `(joxa-eunit/-test (joxa-eunit/cmd ~cmd)))
 
 (defmacro+ assert-cmd-status (n cmd)
-    (let (--out (joxa.core/gensym)
-        --n (joxa.core/gensym)
-        --new (joxa.core/gensym))
-    `(let (~--n ~n)
-       (case (joxa.eunit/-cmd- ~cmd)
+    (let* (--out (joxa-core/gensym)
+        --n (joxa-core/gensym)
+        --new (joxa-core/gensym))
+    `(let* (~--n ~n)
+       (case (joxa-eunit/-cmd- ~cmd)
          ({~--n ~--out} ~--out)
          ({~--new _}
           (erlang/error {:assertCmd_failed
-                         [{:module ($module-name)}
+                         [{:namespace ($namespace)}
                           {:line ($line-number)}
                           {:command (quote  ~cmd)}
                           {:expected_status ~--n}
                           {:status  ~--new}]}))))))
 (defmacro+ assert-cmd (cmd)
-  `(joxa.eunit/assert-cmd-status 0 ~cmd))
+  `(joxa-eunit/assert-cmd-status 0 ~cmd))
 
 (defmacro+ assert-cmd-output (t cmd)
-  (let (--new (joxa.core/gensym "--new"))
-    `(case (joxa.eunit/-cmd- ~cmd)
+  (let* (--new (joxa-core/gensym "--new"))
+    `(case (joxa-eunit/-cmd- ~cmd)
       ({_ ~t} :ok)
       ({_ ~--new}
        (erlang/error {:assertCmdOutput_failed
-                      [{:module ($module-name)},
+                      [{:namespace ($namespace)},
                        {:line ($line-number)},
                        {:command (quote ~cmd)},
                        {:expected_output (quote ~t)},
                        {:output ~--new}]})))))
 
 (defmacro+ -assert-cwd-status (n cmd)
-  `(joxa.eunit/-test (joxa.eunit/assert-cmd-status ~n ~cmd)))
+  `(joxa-eunit/-test (joxa-eunit/assert-cmd-status ~n ~cmd)))
 
 (defmacro+ -assert-cmd (cmd)
-  `(joxa.eunit/-test (joxa.eunit/assert-cmd cmd)))
+  `(joxa-eunit/-test (joxa-eunit/assert-cmd cmd)))
 
 (defmacro+ -assert-cmd-output (t cmd)
-  `(joxa.eunit/-test (joxa.eunit/assert-cmd-output ~t ~cmd)))
+  `(joxa-eunit/-test (joxa-eunit/assert-cmd-output ~t ~cmd)))
 
 ;; Macros to simplify debugging. (n particular, they work even when the
 ;; standard output is being redirected by EUnit while running tests)
@@ -119,31 +124,31 @@
               [($file-name) ($line-number) (erlang/self) ~s]))
 
 (defmacro+ debug-here ()
-  `(joxa.eunit/debug-msg "<-"))
+  `(joxa-eunit/debug-msg "<-"))
 
 (defmacro+ debug-fmt (s as)
-  `(joxa.eunit/debug-msg (io_lib/format ~s ~as)))
+  `(joxa-eunit/debug-msg (io_lib/format ~s ~as)))
 
 (defmacro+ debug-val (e)
   `(do
-       (joxa.eunit/debug-fmt <<"~s = ~P">> [(quote ~e) ~e 15])
+       (joxa-eunit/debug-fmt <<"~s = ~P">> [(quote ~e) ~e 15])
        ~e))
 (defmacro+ debug-time (s e)
-  (let (--t0 (joxa.core/gensym)
-        --t1 (joxa.core/gensym)
-        --v (joxa.core/gensym))
-    `(joxa.core/let-match
+  (let* (--t0 (joxa-core/gensym)
+        --t1 (joxa-core/gensym)
+        --v (joxa-core/gensym))
+    `(joxa-core/let
       ({~--t0 _} (erlang/statistics :wall_clock)
        ~--v ~e
        {~--t1 _} (erlang/statistics :wall_clock))
-      (joxa.eunit/debug-fmt <<"~s: ~.3f s">>, [~s, (erlang/:'/'
+      (joxa-eunit/debug-fmt <<"~s: ~.3f s">>, [~s, (erlang/:'/'
                                                     (erlang/- ~--t1 ~--t0)
                                                     1000)])
       ~--v)))
 
 (defmacro+ testable ()
   `(defn+ test ()
-     (eunit/test ($module-name))))
+     (eunit/test ($namespace))))
 
-(defn+ test (module-name)
-  (eunit/test module-name))
+(defn+ test (namespace-name)
+  (eunit/test namespace-name))

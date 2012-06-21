@@ -5,16 +5,29 @@
 ;; tests from a makefile. Given a path to an OTP application it will
 ;; extract all of the module names from the app and attempt to run the
 ;; proper and eunit tests on said modules.
-(module joxa.build-support
-        (require joxa.eunit joxa.assert joxa.lists
-                 erlang filelib string filename re
-                 proper init io file io_lib filename
-                 cucumberl joxa.assert)
-        (use (joxa.core :only (try/1 if/3 +/1 when/2 unless/2 !=/2))
-             (erlang :only (==/2))))
+(ns joxa-build-support
+    (require joxa-eunit
+             joxa-assert
+             joxa-lists
+             erlang
+             filelib
+             string
+             filename
+             re
+             proper
+             init
+             io
+             file
+             io_lib
+             code
+             filename
+             cucumberl
+             joxa-assert)
+    (use (joxa-core :only (try/1 if/3 +/1 when/2 unless/2 !=/2))
+         (erlang :only (==/2))))
 
 (defn file-name-to-module-name (ebin-path name)
-  (let (len (erlang/length ebin-path)
+  (let* (len (erlang/length ebin-path)
         pre-mod (case (string/substr name (+ len 2))
                   ((\/ . rest)
                    rest)
@@ -36,45 +49,47 @@
 
 ;; Given a path to an OTP Application find all modules in said
 ;; application.
-(defn+ gather-modules-from-app (path)
-  (let (ebin-path (filename/join path "ebin"))
-    (filelib/fold_files ebin-path ".+\.beam" :true
-                        (fn (name names)
-                            ((file-name-to-module-name ebin-path name) . names))
-                        [])))
+(defn+ gather-modules-from-app (ebin-path)
+  (filelib/fold_files ebin-path ".+\.beam" :true
+                      (fn (name names)
+                          ((file-name-to-module-name ebin-path name) . names))
+                      []))
 
 (defn+ eunit-test-app (path)
-    (joxa.lists/dolist
+    (joxa-lists/dolist
      (mod (gather-modules-from-app path))
-     (let (exports (erlang/get_module_info mod :exports))
+     (code/ensure_loaded mod)
+     (let* (exports (erlang/get_module_info mod :exports))
        (when (lists/member {:test 0} exports)
-         (when (== :error (joxa.eunit/test mod))
+         (io/format "Testing ~p~n" [mod])
+         (when (== :error (joxa-eunit/test mod))
            (init/stop 1))))))
 
 (defn+ proper-test-app (path)
-    (joxa.lists/dolist
+    (joxa-lists/dolist
      (mod (gather-modules-from-app path))
-     (let (exports (erlang/get_module_info mod :exports))
+     (let* (exports (erlang/get_module_info mod :exports))
          (unless (== [] (proper/module mod))
            (init/stop 1)))))
 
 (defn+ gather-features-from-app (path)
-  (let (feature-path (filename/join path "features"))
+  (let* (feature-path (filename/join path "features"))
     (filelib/fold_files feature-path ".+\.feature" :true
                         (fn (name names)
                             (name . names))
                         [])))
 
 (defn+ cucumberl-test-app (path)
-    (joxa.lists/dolist (feature (gather-features-from-app path))
+    (joxa-lists/dolist (feature (gather-features-from-app path))
+                       (io/format "Running feature ~s~n" [feature])
                        (try
                         (case (cucumberl/run feature)
                           ({:ok, _} :ok)
                           (_
                            (init/stop 1)))
                         (catch ({_ _}
-                                (init/stop 1)))))
-)
+                                (init/stop 1))))))
+
 (defn+ main (args)
   ;; Path comes in as an atom from the command line
   (case args
@@ -92,12 +107,12 @@
      (erlang/error {:invalid-args invalid}))))
 
 (defn update-app-config (vsn app-name app-path input-path)
-  (let (mods (gather-modules-from-app app-path)
+  (let* (mods (gather-modules-from-app app-path)
         app-file-path (filename/join [app-path "ebin" app-name]))
     (case (file/consult input-path)
       ({:ok [{:application name  mod-info}]}
        (io/format "writing ~s~n" [app-file-path])
-     (joxa.assert/assert-equal
+     (joxa-assert/assert-equal
       :ok
       (file/write_file
        app-file-path
@@ -122,12 +137,12 @@
 ;; Unit tests for the module
 ;;
 (defn+ filename-to-module-name_test ()
-  (let (ebin-path "/foo/bar/baz"
-        uber-path "/foo/bar/baz/namespace/module-name.beam"
-        uber-path2 "/foo/bar/baz/module-name.beam")
-    (joxa.assert/assert-equal :namespace.module-name
+  (let* (ebin-path "/foo/bar/baz"
+         uber-path "/foo/bar/baz/namespace/module-name.beam"
+         uber-path2 "/foo/bar/baz/module-name.beam")
+    (joxa-assert/assert-equal :namespace.module-name
                               (file-name-to-module-name ebin-path uber-path))
-    (joxa.assert/assert-equal :module-name
+    (joxa-assert/assert-equal :module-name
                               (file-name-to-module-name ebin-path uber-path2))))
 
-(joxa.eunit/testable)
+(joxa-eunit/testable)

@@ -18,8 +18,8 @@ to_string({'unquote-splicing', Value, _}) ->
    "~@" ++ to_string(Value);
 to_string({binary, Values, _}) ->
    "<<" ++ lists:flatten([to_string(Value) || Value <- Values]) ++ ">>";
-to_string({fun_ref, {Module, Fun, Arity}, _}) ->
-    Module ++ ":" ++
+to_string({fun_ref, {Namespace, Fun, Arity}, _}) ->
+    Namespace ++ ":" ++
         Fun ++ "/" ++
         integer_to_list(Arity);
 to_string({fun_ref, {Fun, Arity}, _}) ->
@@ -87,7 +87,7 @@ prop_parser() ->
     ?FORALL({Expr}, {expression()},
             begin
                 BinExpr = to_binary(Expr),
-                {ParsedExpr, _, _} = joxa.compiler:'intermediate-parse'(BinExpr),
+                {ParsedExpr, _, _} = 'joxa-compiler':'intermediate-parse'(BinExpr),
                 compare(Expr, ParsedExpr)
             end).
 

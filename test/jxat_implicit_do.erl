@@ -4,11 +4,11 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,has,an,anonymous,function], _State, _) ->
-        Source = <<"(module jxat-implicit-do-test
+        Source = <<"(ns jxat-implicit-do-test
                        (require io))
 
                 (defn t1 ()
-                      (let (a 1)
+                      (let* (a 1)
                          (io/format \"~p\" [a])
                          :booha))
 
@@ -24,11 +24,11 @@ given([a,module,that,has,an,anonymous,function], _State, _) ->
 
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = joxa.compiler:forms(Source, []),
+    Result = 'joxa-compiler':forms(Source, []),
     {ok, Result}.
 
 then([a,beam,binary,is,produced], Ctx, _) ->
-    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx))),
+    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
     {ok, Ctx};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
       ?assertMatch([{'--joxa-info',1},
@@ -39,4 +39,3 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
                     {module_info,1}],
                  lists:sort('jxat-implicit-do-test':module_info(exports))),
     {ok, State}.
-

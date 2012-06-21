@@ -15,7 +15,7 @@
 %%% Tests
 %%%===================================================================
 do_test() ->
-      Source = <<"(module jxat-do-test)
+      Source = <<"(ns jxat-do-test)
 
                   (do
                     (defn+ do-test0 (a)
@@ -26,8 +26,8 @@ do_test() ->
                   (defn+ do-test2 (c)
                       c)
                    ">>,
-    Ctx = joxa.compiler:forms(Source, []),
-    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx))),
+    Ctx = 'joxa-compiler':forms(Source, []),
+    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
     ?assertMatch([{'--joxa-info',1},
                   {'--joxa-info',2},
                   {'do-test0',1},

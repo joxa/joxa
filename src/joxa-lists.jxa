@@ -1,10 +1,12 @@
 ;; Special operations on lists
 ;; ===========================
 ;;
-
-(module joxa.lists
-        (require lists joxa.core erlang)
-        (use (joxa.core :only (if/3 !=/2))))
+(ns joxa-lists
+    (require lists
+             joxa-core
+             erlang)
+    (use (joxa-core :only (if/3
+                           !=/2))))
 
 (defn needs-catchall? (clause)
   (case clause
@@ -29,7 +31,7 @@
 (defmacro+ dolist (binding &rest body)
   (case binding
     ([val items]
-       (let (arg (joxa.core/gensym "doseq"))
+       (let* (arg (joxa-core/gensym "doseq"))
        `(lists/foreach
          (fn (~arg)
              (case ~arg
@@ -39,7 +41,7 @@
                   [`(~val
                      ~@body)])))  ~items)))
     ([val guard items]
-     (let (arg (joxa.core/gensym "dolist"))
+     (let* (arg (joxa-core/gensym "dolist"))
        `(lists/foreach
          (fn (~arg)
              (case ~arg
@@ -68,10 +70,10 @@
   (if (!= 2 (erlang/length acc-expr))
       (erlang/error {:badarg acc-expr})
     :ok)
-  (let (acc-var (hd acc-expr)
+  (let* (acc-var (hd acc-expr)
         acc-expr (lists/nth 2 acc-expr)
-        acc-sym (joxa.core/gensym "foldl")
-        arg (joxa.core/gensym "foldl")
+        acc-sym (joxa-core/gensym "foldl")
+        arg (joxa-core/gensym "foldl")
         body-gen (fn (binding1)
                      (case binding1
                        ([val items]
@@ -98,3 +100,30 @@
                         ~fun-body)  `(_ ~acc-sym)]
                    [`(~acc-var
                       ~fun-body)]))) ~acc-expr ~items)))))
+
+(defmacro+ map (binding &rest body)
+  (let* (catcher (joxa-core/gensym "map")
+        acc-sym (joxa-core/gensym "map")
+        arg (joxa-core/gensym "map")
+        body-gen (fn (binding1)
+                     (case binding1
+                       ([val items]
+                        {`(case ~arg
+                            ~@(if (needs-catchall? val)
+                                  [`(~val
+                                     ((do ~@body) . ~acc-sym))  `(_ ~acc-sym)]
+                                [`(~val
+                                   ((do ~@body) . ~acc-sym))])) items})
+                       ([val guard items]
+                        {`(case ~arg
+                            (~val ~guard
+                                  ((do ~@body) . ~acc-sym))
+                            (_ ~acc-sym)) items})
+                       (invalid
+                        (erlang/error {:invalid-binding invalid })))))
+    (case (body-gen binding)
+      ({fun-body items}
+       `(lists/reverse
+         (lists/foldl
+          (fn (~arg ~acc-sym)
+              ~fun-body) [] ~items))))))

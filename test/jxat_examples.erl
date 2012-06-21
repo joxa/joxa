@@ -16,9 +16,9 @@
 %%%===================================================================
 prop_seive() ->
     Source = <<"
-(module jxat-sieve-of-eratosthenes
+(ns jxat-sieve-of-eratosthenes
         (require lists io)
-        (use (joxa.core :as core :only (!=/2))
+        (use (joxa-core :as core :only (!=/2))
              (erlang :only (rem/2 +/2))))
 
 (defn sieve (v primes)
@@ -32,11 +32,11 @@ prop_seive() ->
 (defn+ sieve (v)
   (sieve (lists/seq 2 v) 1))">>,
 
-    Ctx = joxa.compiler:forms(Source, []),
+    Ctx = 'joxa-compiler':forms(Source, []),
     ?FORALL(STarget, range(3, 1000),
             begin
-                (is_binary(joxa.compiler:'get-context'(result, Ctx))
-                 andalso (not joxa.compiler:'has-errors?'(Ctx))
+                (is_binary('joxa-compiler':'get-context'(result, Ctx))
+                 andalso (not 'joxa-compiler':'has-errors?'(Ctx))
                  andalso eratosthenes(STarget) == 'jxat-sieve-of-eratosthenes':sieve(STarget))
             end).
 
@@ -44,7 +44,7 @@ prop_seive() ->
 
 prop_fib() ->
     Source = <<"
-(module jxat-fibonacci
+(ns jxat-fibonacci
         (use (erlang :only (>/2 -/2 +/2))))
 
 (defn+ fibo (n)
@@ -54,11 +54,11 @@ prop_fib() ->
     (_ (when (> n 0))
      (+ (fibo (- n 1))
         (fibo (- n 2)))))) ">>,
-    Ctx = joxa.compiler:forms(Source, []),
+    Ctx = 'joxa-compiler':forms(Source, []),
     ?FORALL(FibTarget, range(0, 15),
             begin
-                (is_binary(joxa.compiler:'get-context'(result, Ctx))
-                 andalso (not joxa.compiler:'has-errors?'(Ctx))
+                (is_binary('joxa-compiler':'get-context'(result, Ctx))
+                 andalso (not 'joxa-compiler':'has-errors?'(Ctx))
                  andalso fibo(FibTarget) == 'jxat-fibonacci':fibo(FibTarget))
             end).
 

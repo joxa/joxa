@@ -12,4 +12,6 @@ Machine. So either install that
 packaging system on your distribution.
 
 
-How to properly install your project. Ideally, your project should be installable via a common (simplistic) method: PyPI for Python, PEAR for PHP, CPAN for Perl, RubyGems for Ruby, etc.
+How to properly install your project. Ideally, your project should be
+installable via a common (simplistic) method: PyPI for Python, PEAR
+for PHP, CPAN for Perl, RubyGems for Ruby, etc.

@@ -4,7 +4,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,has,an,anonymous,function], _State, _) ->
-    Source = <<"(module jxat-anon-fun
+    Source = <<"(ns jxat-anon-fun
                     (use (erlang :only (==/2 phash2/1))))
 
                 (defn internal-test ()
@@ -12,7 +12,7 @@ given([a,module,that,has,an,anonymous,function], _State, _) ->
                         {:hello arg1 arg2}))
 
                 (defn+ do-test ()
-                      (let (z (internal-test)
+                      (let* (z (internal-test)
                             c '(one two three)
                             x (fn (arg1 arg2)
                                 {:hello arg1 arg2})
@@ -27,10 +27,10 @@ given([a,module,that,has,an,anonymous,function], _State, _) ->
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = joxa.compiler:forms(Source, []),
+    Result = 'joxa-compiler':forms(Source, []),
     {ok, Result}.
 then([a,beam,binary,is,produced], Ctx, _) ->
-    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx))),
+    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
     {ok, Ctx};
 then([the,described,function,can,be,called,'and',works,correctly],
      State, _) ->
@@ -41,4 +41,3 @@ then([the,described,function,can,be,called,'and',works,correctly],
                   {module_info,1}],
                  lists:sort('jxat-anon-fun':module_info(exports))),
     {ok, State}.
-

@@ -5,7 +5,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,has,a,function,that,contains,'\'let\''], _State, _) ->
-   Source = <<"(module jxat-let-support-test
+   Source = <<"(ns jxat-let-support-test
                     (require erlang)
                     (use (io :only (format/2) :rename ((format/2 print)))))
 
@@ -13,7 +13,7 @@ given([a,module,that,has,a,function,that,contains,'\'let\''], _State, _) ->
                       [1 2 3 4 5 6 7 8])
 
                 (defn+ do-test ()
-                      (let (foo 1
+                      (let* (foo 1
                             z (erlang/phash2 22)
                             a 1
                             a1 (internal-test)
@@ -29,12 +29,12 @@ given([a,module,that,has,a,function,that,contains,'\'let\''], _State, _) ->
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = joxa.compiler:forms(Source, []),
+    Result = 'joxa-compiler':forms(Source, []),
     {ok, Result}.
 
 
 then([a,beam,binary,is,produced], Ctx, _) ->
-    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx))),
+    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
     {ok, Ctx};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch([{'--joxa-info',1},
@@ -47,4 +47,3 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
                   'super-dooper',73439361,1,[1,2,3,4,5,6,7,8]},
                  'jxat-let-support-test':'do-test'()),
     {ok, State}.
-
