@@ -29,3 +29,7 @@ BUILD_SUPPORT=$(CURDIR)/build-support
 
 include $(BUILD_SUPPORT)/core-build.mkf
 include $(BUILD_SUPPORT)/doc.mkf
+
+clean: jxa-clean doc-clean
+
+distclean: jxa-distclean doc-distclean
