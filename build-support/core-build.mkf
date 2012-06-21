@@ -34,7 +34,8 @@ SRCBEAMS=$(BEAMDIR)/joxa-compiler.beam \
 
 TESTBEAMS = $(TEST_EBIN)/joxa-test-let-match.beam \
 	$(TEST_EBIN)/joxa-test-multiple-namespaces.beam \
-	$(TEST_EBIN)/joxa-test-namespace-mutual-recursion.beam
+	$(TEST_EBIN)/joxa-test-namespace-mutual-recursion.beam \
+	$(TEST_EBIN)/joxa-test-joxification.beam
 
 .PHONY: all test_bootstrap pre_bootstrap bootstrap clean \
 	jxa test build get-deps proper eunit \

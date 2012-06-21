@@ -1,0 +1,36 @@
+(ns joxa-test-joxification
+    (require joxa-eunit joxa-assert
+             (gb_trees :joxify)
+             (erl_prim_loader :joxify)))
+
+(defn+ successful-rename_test ()
+  ;; we are mostly just calling these so we know they got
+  ;; renamed correctly
+  (gb-trees/empty)
+  (erl-prim-loader/get_path)
+  (erl-prim-loader/get-path))
+
+(joxa-eunit/testable)
+
+(ns joxa-test-joxification-use1
+    (require joxa-eunit joxa-assert)
+    (use (erl_prim_loader :joxify)))
+
+(defn+ successful-rename_test ()
+  ;; we are mostly just calling these so we know they got
+  ;; renamed correctly
+  (get-path))
+
+(joxa-eunit/testable)
+
+(ns joxa-test-joxification-use2
+    (require joxa-eunit joxa-assert)
+    (use (erl_prim_loader :joxify
+                          :rename ((get_path/0 get-path-renamed)))))
+
+(defn+ successful-rename_test ()
+  ;; we are mostly just calling these so we know they got
+  ;; renamed correctly
+  (get-path-renamed))
+
+(joxa-eunit/testable)

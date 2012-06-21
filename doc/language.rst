@@ -1,6 +1,226 @@
 The Joxa Language
 *****************
 
+Namespaces
+----------
+
+`ns` declarations are used to define the namespace in which a set of
+definitions live. The generally also define the context, that is what
+other namespaces are available, what functions from other namespaces
+are imported and what attributes are defined. A basic namespace
+declaration looks as follows.
+
+.. code-block:: clojure
+
+    (ns my-super-module)
+
+This defines a namespace the `defn` and `defmacro` definitions that
+follow are part of that namespace. The namespace must be defined
+before the functions using that namespace. You may also have as many
+namespaces as you would like per file, though that is not encouraged.
+
+Namespace Body
+""""""""""""""
+
+The namespace body may consist of any number of `require`, `use` and
+clauses in any order and in any conversation.
+
+Requiring Namespaces
+^^^^^^^^^^^^^^^^^^^^
+
+Other namespaces are *not* available in your namespace until you
+declare your need in a `require` or `use` clause. For example the
+following namespace will fail during compile.
+
+.. code-block:: clojure
+
+    (ns my-converter)
+
+    (defn+ convert-string (str)
+        (erlang/binary_to_list str))
+
+This would fail during compilation because you have not declared your
+that you are going to use the erlang namespace. We can fix this by
+adding a require clause.
+
+.. code-block:: clojure
+
+    (ns my-converter
+       (require erlang))
+
+    (defn+ convert-string (str)
+        (erlang/binary_to_list str))
+
+Suddenly everything compiles happily.
+
+There are several variations to the require clause that you can
+use. The variation you use is really up to you. For example to require
+multiple namespaces you could have them all in the same require clause
+or each on individual require clauses.
+
+
+.. code-block:: clojure
+
+    (require erlang string test)
+
+    (require erlang)
+    (require string)
+    (require test)
+
+in general it is much more common to include everything in a single
+require clause.
+
+Aliasing with Require
+"""""""""""""""""""""
+
+Sometimes namespaces names are very long and its annoying to use them
+in the namespace body. To avoid this you can add an `:as` element to
+the require clause. This allows you to use both the original name and
+the aliased name in your namespace body. For example, if we use
+erl_prim_loader we might want to rename it as loader.
+
+.. code-block:: clojure
+
+     (ns my-example
+        (require (erl_prim_loader :as loader)))
+
+     (defn name-example ()
+        (erl_prim_loader/get_path))
+
+     (defn alias-example ()
+        (loader/get_path))
+
+Both of these examples are functionally equivalent.
+
+Making Erlang Modules Appear Like Joxa Namespaces (Joxification)
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+Its much more common in Joxa to use the `-` in names as opposed to the
+`_` as is common in Erlang. To make thing more comfortable for the
+namespace definer Joxa offers the `joxify` element for require
+clauses. the `joxify` element basically aliases defined names from a
+name containing `_` to a name containing `-`. It also does this for
+all the functions in the module.
+
+Lets use our `erl_prim_loader` example again.
+
+.. code-block:: clojure
+
+     (ns my-example
+        (require (erl_prim_loader :joxify)))
+
+     (defn name-example ()
+        (erl_prim_loader/get_path))
+
+     (defn alias-example ()
+        (erl-prim-loader/get-path))
+
+Again both of these are functionally Equivalent.
+
+Attribute Clauses
+^^^^^^^^^^^^^^^^^
+
+Attribute clauses are the simplest of the three clauses There are
+simply a three element list where the first element is the identifier
+'attr', the second element is a Joxa term that provides the key value
+and the third is a Joxa term that provides the value.
+
+Attributes follow the form:
+
+.. code-block:: clojure
+
+     (attr <key> <value>)
+
+These allow you to define attributes on the namespace. Some of which
+are consumable by the compiler, others just informational, all though
+are consumable via the module_info. You should note that both the key
+and the value must be literal values, no evaluation occurs there.
+
+Using Namespaces
+^^^^^^^^^^^^^^^^
+
+The use clause is a way of importing functions into the namespace so
+that you can use them without prepending the namespace. Use clauses
+are, by far, the most complex of the namespace clauses as they both
+manipulate and subset the functions being imported while at the same
+time aliasing the function if desired. As you can see below each
+clause may consist of a namespace name, or a list that contains a few
+subclauses.  The sub-clause is always headed by a namespace name,
+followed by an action, followed by the subject of that action. The
+action/subject may be repeated to further refine and modify the
+imported values. The sub-clause action/subject may occure in any
+order. Even though some do not make sense when used together. So, for
+example you could have the following
+
+.. code-block:: clojure
+
+     (use string)
+
+     (use (string :only (tokens/2)))
+
+     (use (string :exclude (substr/3
+                            join/2
+                            join/3)))
+
+     (use (string :rename ((substr/3 str-substring)
+                           (join/2 str-join))))
+
+     (use (string :as str
+                  :only (join/2
+                         substr/3)))
+
+     (use (string :as str
+                  :only (tokens/2)))
+
+     (use (string :as str
+                  :exclude (substr/3
+                            join/2
+                            join/3)))
+
+     (use (string :as str
+                  :joxify
+                  :rename ((substr/3 str-substring)
+                           (join/2 str-join))))
+
+You should think about use clauses as a series of actions that occur
+from left to right. Lets take an example and work through it. The
+following is a fairly complex example that highlights some things that
+we might want to do.
+
+.. code-block:: clojure
+
+     (use (string :exclude (substr/4 join/2)
+                  :joxify
+                  :rename ((sub_word/3 str-subword) (join/2 str-join)
+                  :as str)))
+
+Lets break this down into actions.
+
+1) The namespace declaration. In this case `string`, this goes to the
+   namespace and gets a list of all the functions that that namespace
+   exports. That list of functions is then passed to the next 'operation'.
+2) Exclude, this excludes the specified functions from the function
+   list that was imported. Every action/sub-clause pair after this
+   exclude will only operate on the functions that have not been
+   excluded. The opposite of exclude is `only`. Only subsets the list
+   of functions to just those specified in the only clause.
+3) Joxify, This does the exact same thing that joxify does in
+   require. However, it does it only on the module name and the
+   functions that we currently have in the list. After this point the
+   functions in the list can only be referred to by the joxified name.
+4) Rename. This does what you would think. It renames a function
+   giving it a different name. This does this on the list of functions
+   being passed forward. In this example we are renaming `sub-word/3`
+   to `str-subword`. However if we tried to rename `substr/4` which we
+   excluded it would have no effect since its not in the list of
+   imports being carried forward. *NOTE* note the joxification of
+   `sub-word/3` applies as an alias. So even though we specified
+   `joxify` earlier we must still refer to it as `sub_word/3` instead
+   of `subsword/3`.
+5) As. This has the exact as in `require` in that it provides an alias
+   for the namespace name specified. This allows you to refer to any
+   function in that namespace with the alias.
+
 Functions
 ---------
 
