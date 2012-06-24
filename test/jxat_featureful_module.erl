@@ -7,7 +7,7 @@ given([a,featureful,module], _State, _) ->
     Source = <<"(ns jxat-featureful
               (use string code)
                (attr sfoo 123)
-               (use (lists :only (member/2 append/2)
+               (use (lists :only (member/2 all/2)
                      :rename ((member/2 mbr))))
                (use (file :as f
                      :exclude (delete/1)
@@ -28,8 +28,8 @@ then([a,beam,binary,is,produced], Ctx, _) ->
     ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
     {ok, Ctx};
 then([the,joxa,context,for,a,featureful,module,is,correctly,formed], Ctx0, _) ->
-    validate_module(string, Ctx0),
-    validate_module(code, Ctx0),
+    validate_module(string, Ctx0, [{join,2}]),
+    validate_module(code, Ctx0, []),
     validate_lists(Ctx0),
     validate_file(Ctx0),
     validate_filename(Ctx0),
@@ -50,19 +50,22 @@ then([the,joxa,context,for,a,featureful,module,is,correctly,formed], Ctx0, _) ->
                                      'jxat-featureful':module_info(attributes))),
     {ok, Ctx0}.
 
-validate_module(Module, Ctx0) ->
+validate_module(Module, Ctx0, Exclude) ->
     %% module_info causes problems and is mostly ignored
     Exports = [El || El={Fun, _}
                          <- Module:module_info(exports),
                      Fun =/= module_info],
+    FilteredExports = [FunArity || FunArity <- Exports,
+                                   not lists:member(FunArity,
+                                                    Exclude)],
     Used = 'joxa-compiler':'get-context'(uses, Ctx0),
     lists:foreach(fun(Export={Fun, _}) ->
                           ?assertMatch({Fun, Module},
                                        ec_dictionary:get(Export, Used))
-                  end, Exports).
+                  end, FilteredExports).
 
 validate_lists(Ctx0) ->
-    Required = [{append, 2}],
+    Required = [{all, 2}],
     Exports = [El || El={Fun, _}
                          <- lists:module_info(exports),
                      Fun =/= module_info],
@@ -76,11 +79,15 @@ validate_lists(Ctx0) ->
 
     ?assertMatch({member, lists},
                  ec_dictionary:get({mbr, 2}, Used)),
-
+    RemovedConflicts = [Export || Export <- FilteredExports,
+                                  not lists:member(Export, [{flatten,1},
+                                                            {append,2}])],
     lists:foreach(fun(Export) ->
                           ?assertThrow(not_found,
                                        ec_dictionary:get(Export, Used))
-                  end, FilteredExports).
+                  end,
+                  %% Append/2 actually exists in file name and gets imported from there.
+                  RemovedConflicts).
 
 validate_file(Ctx0) ->
     DescUsed = [{{chgrp, 2}, change_group},
@@ -108,8 +115,8 @@ validate_filename(Ctx0) ->
                          <- filename:module_info(exports),
                      Fun =/= module_info],
     DescExclude = [{absname, 1},
-                   {join, 2},
                    {append, 2},
+                   {join,2},
                    {flatten, 1},
                    {absname_join, 2}],
     FilteredExports = [FunArity || FunArity <- Exports,
@@ -125,4 +132,3 @@ validate_filename(Ctx0) ->
                           ?assertThrow(not_found,
                                        ec_dictionary:get(Export, Used))
                   end, [{absname, 1}, {absname_join, 2}]).
-

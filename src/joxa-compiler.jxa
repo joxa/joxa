@@ -1936,45 +1936,64 @@
 ;;
 ;; comp compiles the provided AST into a Joxa context. Later that context
 ;; must be compiled to core erlang.
+(defn check-for-invalid-fun-arity-pairs (path ctx fun-arity-pairs imports)
+  (lists/foreach (fn (fun-arity)
+                     (case fun-arity
+                       ({fun arity}
+                        (case (lists/any (fn (import)
+                                             (case import
+                                               ({{_ arity} fun}
+                                                :true)
+                                               (_
+                                                :false))) imports)
+                          (:true :ok)
+                          (:false
+                           (add-error-ctx ctx path {:invalid-use :non-existant-fun-name {fun arity}}))))))
+                 fun-arity-pairs))
+
 (defn filter-imports-to-onlys (path ctx target-funs imports0)
   (let* (fun-arity-pairs (gather-fun-arity-pairs path ctx target-funs '()))
-    (lists/foldl (fn (el acc)
-                     (case el
-                       ({fun arity}
-                        (let* (new-el {{fun arity} fun})
-                          (case (lists/member new-el imports0)
-                            (:true
-                             (new-el . acc))
-                            (:false
-                             (add-error-ctx ctx path {:invalid-use :non-existant-fun-name {fun arity}})
-                             acc))))))
-                 [] fun-arity-pairs)))
+    ;; check for fun-arity-pairs that doent actually exist
+    (check-for-invalid-fun-arity-pairs path ctx fun-arity-pairs imports0)
+    (lists/filter (fn (import)
+                      (case import
+                        ({{fun arity} alias}
+                         (lists/any (fn (fun-arity)
+                                        (case fun-arity
+                                          ({alias arity}
+                                           :true)
+                                          (_
+                                           :false))) fun-arity-pairs)))) imports0)))
 
 (defn exclude-specific-funs (path ctx excluded-funs imports0)
   (let* (fun-arity-pairs (gather-fun-arity-pairs path ctx excluded-funs []))
-    (lists/foldl (fn (el acc)
-                     (case el
-                       ({{fun arity} _}
-                        (let* (new-el {{fun arity} fun})
-                          (case (lists/member {fun arity} fun-arity-pairs)
-                            (:true
-                             acc)
-                            (:false
-                             (new-el . acc)))))))
-                 [] imports0)))
+    (check-for-invalid-fun-arity-pairs path ctx fun-arity-pairs imports0)
+    (lists/filter (fn (import)
+                      (case import
+                        ({{fun arity} alias}
+                         (lists/all (fn (fun-arity)
+                                        (case fun-arity
+                                          ({alias arity}
+                                           :false)
+                                          (_
+                                           :true))) fun-arity-pairs)))) imports0)))
 
 (defn rename-funs (path ctx renames imports0)
   (let* (fun-alias-pairs (gather-fun-alias-pairs path ctx renames []))
-    (lists/foldl (fn (el exports1)
-                     (case el
-                       ({{fun arity} alias}
-                        (case (lists/keymember {fun arity} 1 exports1)
-                          (:true
-                           (lists/keyreplace {fun arity} 1 exports1
-                                             {{fun arity} alias}))
-                          (:false
-                           (add-error-ctx ctx path {:renamed-fun-does-not-exist {fun arity}}))))))
-                 imports0 fun-alias-pairs)))
+    (lists/map (fn (import)
+                   (case import
+                     ({{fun arity} alias}
+                      (case (ec_lists/search (fn (el)
+                                                 (case el
+                                                   ({{alias arity} new-alias}
+                                                    {:ok new-alias})
+                                                   (_
+                                                    :not_found)))
+                                             fun-alias-pairs)
+                        ({:ok new-alias _}
+                         {{fun arity} new-alias})
+                        (:not_found
+                         import))))) imports0)))
 
 (defn handle-use-clauses (path ctx forms namespace-name imports0)
   (case forms
