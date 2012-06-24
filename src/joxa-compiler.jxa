@@ -25,12 +25,13 @@
              code core_pp compile
              io io_lib gen_server
              crypto binary)
-    (use (erlang :only (+/2
+    (use (erlang :joxify
+                 :only (+/2
                         ==/2
                         and/2
                         or/2
-                        is_list/1
-                        is_binary/1))))
+                        is-list/1
+                        is-binary/1))))
 
 ;; defspecs
 ;; --------
@@ -512,7 +513,7 @@
     ([]
      {:ok (internal-new-context '())})
     ([args1]
-     (when (erlang/is_list args1))
+     (when (is-list args1))
      {:ok (internal-new-context args1)})
     ([args1]
      (when (erlang/and (erlang/is_tuple args1)
@@ -568,7 +569,7 @@
                                  (:incr
                                   (incr-path path1))))
                            path1     (case actions
-                                       (a1 (when (erlang/is_list a1))
+                                       (a1 (when (is-list a1))
                                            (lists/foldl do-action/2 path0 actions))
                                        (a2 (when (erlang/is_atom a2))
                                            (do-action actions path0))))
@@ -1007,8 +1008,8 @@
     ({ln col}
      (case matched-input
        (mi
-        (when (or (is_list mi)
-                  (is_binary mi)))
+        (when (or (is-list mi)
+                  (is-binary mi)))
         (lists/foldl p-advance-index/2 index
                      (unicode/characters_to_list mi)))
        (\\n
@@ -1018,10 +1019,10 @@
 
 (defn+ p-charclass (class)
   (case class
-    (class (when (erlang/is_list class))
+    (class (when (is-list class))
            (p-charclass (erlang/list_to_binary class)))
     (class
-     (when (erlang/is_binary class))
+     (when (is-binary class))
      (case (re/compile class  [:unicode :dotall])
        ({:ok re}
         (fn (inp index)
@@ -1045,9 +1046,9 @@
 
 (defn+ p-string (s)
   (case s
-    (s (when (erlang/is_list s))
+    (s (when (is-list s))
        (p-string (erlang/list_to_binary s)))
-    (s (when (erlang/is_binary s))
+    (s (when (is-binary s))
        (let* (length (erlang/byte_size s))
          (fn (input index)
              (case input
@@ -1846,7 +1847,7 @@
 
 (defn+ parse (ctx input)
   (case input
-    (input (when (erlang/is_binary input))
+    (input (when (is-binary input))
            (do-parse ctx
                      (new-path)
                      input
@@ -2012,17 +2013,17 @@
      (handle-use-clauses path ctx rest namespace-name imports0))
     (('(quote only) . (target-funs . rest))
      (when (and (erlang/is_atom namespace-name)
-                (erlang/is_list target-funs)))
+                (is-list target-funs)))
      (let* (imports1 (filter-imports-to-onlys path ctx target-funs imports0))
        (handle-use-clauses path ctx rest namespace-name imports1)))
     (('(quote exclude) . (target-funs . rest))
      (when (and (erlang/is_atom namespace-name)
-                (erlang/is_list target-funs)))
+                (is-list target-funs)))
      (let* (imports1 (exclude-specific-funs path ctx target-funs imports0))
        (handle-use-clauses path ctx rest namespace-name imports1)))
     (('(quote rename) . (target-funs . rest))
      (when (and (erlang/is_atom namespace-name)
-                (erlang/is_list target-funs)))
+                (is-list target-funs)))
      (let* (imports1 (rename-funs path ctx target-funs imports0))
        (handle-use-clauses path ctx rest namespace-name imports1)))
     (probably-more-uses
@@ -2497,7 +2498,7 @@
                  (add-error-r-nil-ctx ctx path0 error))
                 (:not-a-reference
                  (when (erlang/and (erlang/== :false macro-only?)
-                                   (erlang/is_list val)))
+                                   (is-list val)))
                  (let* (cerl-val (make-expr (traverse-path path0) ctx val))
                    (make-rest-apply-var ctx annots (add-to-annots cerl-val annots) arg-list)))
                 (:not-a-reference
@@ -3032,7 +3033,7 @@
 (defn make-pattern-element (path0 ctx guards0 arg0)
   (let* (annots (annots-from-context [] path0 ctx))
     (case arg0
-      (arg0 (when (erlang/is_binary arg0))
+      (arg0 (when (is-binary arg0))
             {guards0 (cerl/ann_make_data annots {:atomic arg0} [])})
       (:_
        (let* (gensym (erlang/list_to_atom (lists/append "_"
@@ -3243,7 +3244,7 @@
   (let* (annots  (annots-from-context [] path0 ctx))
     (case arg0
       (arg1
-       (when (erlang/is_binary arg1))
+       (when (is-binary arg1))
        (cerl/ann_make_data annots {:atomic arg1} []))
       (arg1
        (when (erlang/is_atom arg1))
@@ -3260,7 +3261,7 @@
       ([:unquote arg1]
        (make-expr (traverse-incr-path path0) ctx arg1))
       (arg1
-       (when (erlang/is_list arg1))
+       (when (is-list arg1))
        (make-quasi (traverse-path path0) ctx arg1)))))
 
 (defn make-quasi (path0 ctx arg0)
@@ -3287,7 +3288,7 @@
 (defn make-expr (path0 ctx form)
   (let* (annots (annots-from-context [] path0 ctx))
     (case form
-      (arg (when (erlang/is_binary arg))
+      (arg (when (is-binary arg))
            (cerl/ann_make_data annots {:atomic arg} []))
       (arg (when (erlang/is_integer arg))
            (cerl/ann_c_int annots arg))
@@ -3471,7 +3472,7 @@
       ([args]
        {:list line1 (make-spec-literal (traverse-path path0) ctx args)})
       (arg1
-       (when (erlang/is_list arg1))
+       (when (is-list arg1))
        (let* (specs (lists/foldl (fn (el acc0)
                                     (case acc0
                                       ({path1 acc1}
@@ -3592,13 +3593,13 @@
   (case form
     ([:deftype+ name args expression]
      (when (erlang/and (erlang/is_atom name)
-                       (erlang/is_list args)))
+                       (is-list args)))
      (let* (arity (erlang/length args))
        (add-type-export-ctx ctx name arity)
        (def-top-level-function-spec (incr-path path0) ctx name args expression)))
     ([:deftype name args expression]
      (when (erlang/and (erlang/is_atom name)
-                       (erlang/is_list args)))
+                       (is-list args)))
      (make-implicit-spec (incr-path path0) ctx name args expression))
     ([:defspec name args expression]
      (make-implicit-spec (incr-path path0) ctx name args expression))
@@ -3615,7 +3616,7 @@
 (defn make-function (path0 ctx form)
   (case form
     ((name . (args . expressions))
-     (when (and (erlang/is_list args)
+     (when (and (is-list args)
                 (erlang/is_atom name)))
      (make-function1 path0 ctx name args expressions))
     (_
@@ -3711,7 +3712,7 @@
   (let* (annots  (annots-from-context [] path0 ctx))
     (case arg0
       (arg1
-       (when (erlang/is_binary arg1))
+       (when (is-binary arg1))
        (cerl/ann_make_data annots {:atomic arg1} []))
       (arg1
        (when (erlang/is_atom arg1))
@@ -3728,7 +3729,7 @@
       ([:string str1]
        (make-literal-string (traverse-incr-path path0) annots ctx str1))
       (arg1
-       (when (erlang/is_list arg1))
+       (when (is-list arg1))
        (make-literal-list path0 annots ctx arg1)))))
 
 (defn+ make-forms (path0 ctx form0)
@@ -4453,13 +4454,13 @@
 
 (defn+ info (input options)
   (case input
-    (_ (when (erlang/is_binary input))
+    (_ (when (is-binary input))
        (case (start-context)
          ({:ok ctx}
           (let* (result (info ctx input options))
             (stop-context ctx)
             result))))
-    (_ (when (erlang/is_list input))
+    (_ (when (is-list input))
      (case (file/read_file input)
        ({:ok binary}
         (info binary options))
