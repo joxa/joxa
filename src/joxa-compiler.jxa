@@ -3277,7 +3277,7 @@
        (when (erlang/is_float arg1))
         (cerl/ann_c_float annots arg1))
       ([:unquote arg1]
-       (make-expr (traverse-incr-path path0) ctx arg1))
+       (make-expr (incr-path (traverse-path path0)) ctx arg1))
       (arg1
        (when (is-list arg1))
        (make-quasi (traverse-path path0) ctx arg1)))))
@@ -3288,15 +3288,15 @@
       ([]
        (cerl/ann_c_nil annots))
       (([:unquote-splicing arg1] . t)
-       (let* (cerl-h (make-expr (traverse-incr-path (traverse-path path0)) ctx arg1)
-             cerl-t (make-quasi (incr-path path0) ctx t))
+       (let* (cerl-h (make-expr (incr-path (traverse-path path0))  ctx arg1)
+              cerl-t (make-quasi (incr-path path0) ctx t))
          (cerl/ann_c_call annots
                           (cerl/ann_c_atom annots :lists)
                           (cerl/ann_c_atom annots :append)
                           [cerl-h cerl-t])))
       ((h . t)
-       (let* (cerl-h (make-quasi-element (traverse-path path0) ctx h)
-             cerl-t (make-quasi (incr-path path0) ctx t))
+       (let* (cerl-h (make-quasi-element path0 ctx h)
+              cerl-t (make-quasi (incr-path path0) ctx t))
          (cerl/ann_c_cons annots
                           cerl-h
                           cerl-t)))
