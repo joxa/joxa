@@ -2490,58 +2490,58 @@ errors in a generated function will always be the line number of the macro."
                      (runtime-args-to-arity args 1 arity [])
                      (fn (expr)
                          (make-expr (suspend path0) ctx expr))))
-           (ref
-            (let* (arg-list (eval-args (incr-path path0) ctx args))
-              (case ref
+        (ref
+         (let* (arg-list (eval-args (incr-path path0) ctx args))
+           (case ref
+             ({:reference {var _}}
+              (when (erlang/== :false macro-only?))
+              (make-rest-apply-var ctx annots (add-to-annots var annots) arg-list))
+             ({:apply :not-rest _ {name arity}}
+              (when (erlang/== :false macro-only?))
+              (add-fun-dep-ctx ctx name arity)
+              (cerl/ann_c_apply annots
+                                (cerl/ann_c_fname call-annots
+                                                  name
+                                                  arity)
+                                arg-list))
+             ({:apply :rest _ {name arity}}
+              (when (erlang/== :false macro-only?))
+              (add-fun-dep-ctx ctx name arity)
+              (cerl/ann_c_apply annots
+                                (cerl/ann_c_fname call-annots
+                                                  name
+                                                  arity)
+                                (args-to-arity arg-list 1 arity [])))
+             ({:remote :not-rest _ {namespace function possible-arity}}
+              (when (erlang/== :false macro-only?))
+              (cerl/ann_c_call annots
+                               (cerl/ann_c_atom call-annots
+                                                namespace)
+                               (cerl/ann_c_atom call-annots
+                                                function)
+                               arg-list))
+             ({:remote :rest _ {namespace function arity}}
+              (when (erlang/== :false macro-only?))
+              (cerl/ann_c_call annots
+                               (cerl/ann_c_atom call-annots
+                                                namespace)
+                               (cerl/ann_c_atom call-annots
+                                                function)
+                               (args-to-arity arg-list 1 arity [])))
+             ({:error error}
+              (add-error-r-nil-ctx ctx path0 error))
+             (:not-a-reference
+              (when (erlang/and (erlang/== :false macro-only?)
+                                (is-list val)))
+              (let* (cerl-val (make-expr (traverse-path path0) ctx val))
+                (make-rest-apply-var ctx annots (add-to-annots cerl-val annots) arg-list)))
+             (:not-a-reference
+              (when (erlang/== :false macro-only?))
+              (case (resolve-reference-ctx path0 ctx val -1)
                 ({:reference {var _}}
-                 (when (erlang/== :false macro-only?))
                  (make-rest-apply-var ctx annots (add-to-annots var annots) arg-list))
-                ({:apply :not-rest _ {name arity}}
-                 (when (erlang/== :false macro-only?))
-                 (add-fun-dep-ctx ctx name arity)
-                 (cerl/ann_c_apply annots
-                                   (cerl/ann_c_fname call-annots
-                                                     name
-                                                     arity)
-                                   arg-list))
-                ({:apply :rest _ {name arity}}
-                 (when (erlang/== :false macro-only?))
-                 (add-fun-dep-ctx ctx name arity)
-                 (cerl/ann_c_apply annots
-                                   (cerl/ann_c_fname call-annots
-                                                     name
-                                                     arity)
-                                   (args-to-arity arg-list 1 arity [])))
-                ({:remote :not-rest _ {namespace function possible-arity}}
-                 (when (erlang/== :false macro-only?))
-                 (cerl/ann_c_call annots
-                                   (cerl/ann_c_atom call-annots
-                                                    namespace)
-                                   (cerl/ann_c_atom call-annots
-                                                    function)
-                                   arg-list))
-                ({:remote :rest _ {namespace function arity}}
-                 (when (erlang/== :false macro-only?))
-                 (cerl/ann_c_call annots
-                                  (cerl/ann_c_atom call-annots
-                                                   namespace)
-                                  (cerl/ann_c_atom call-annots
-                                                   function)
-                                  (args-to-arity arg-list 1 arity [])))
-                ({:error error}
-                 (add-error-r-nil-ctx ctx path0 error))
-                (:not-a-reference
-                 (when (erlang/and (erlang/== :false macro-only?)
-                                   (is-list val)))
-                 (let* (cerl-val (make-expr (traverse-path path0) ctx val))
-                   (make-rest-apply-var ctx annots (add-to-annots cerl-val annots) arg-list)))
-                (:not-a-reference
-                 (when (erlang/== :false macro-only?))
-                 (case (resolve-reference-ctx path0 ctx val -1)
-                   ({:reference {var _}}
-                    (make-rest-apply-var ctx annots (add-to-annots var annots) arg-list))
-                    (_
-                     (add-error-r-nil-ctx ctx path0 {:invalid-reference {val possible-arity}})))))))))))
+                (_
+                 (add-error-r-nil-ctx ctx path0 {:invalid-reference {val possible-arity}})))))))))))
 
 (defn make-macroexpand-1 (path0 ctx val args)
   (let* (annots (annots-from-context [] path0 ctx)
