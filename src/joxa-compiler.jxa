@@ -2234,7 +2234,13 @@ errors in a generated function will always be the line number of the macro."
 (defn args-to-arity (args0 count arity acc)
   (case args0
     ([]
-     (lists/reverse acc))
+     (case acc
+       ([]
+        ;; This is a special case to handle issues when a rest arg of
+        ;; 1 is called.
+        [(cerl/ann_c_nil [:compiler_generated])])
+       (_
+        (lists/reverse acc))))
     ((arg . rest)
      (case (erlang/< count arity)
        (:true
@@ -2245,13 +2251,19 @@ errors in a generated function will always be the line number of the macro."
 (defn runtime-args-to-arity (args0 count arity acc)
   (case args0
     ([]
-     (lists/reverse acc))
+     (case acc
+       ([]
+        ;; This is a special case to handle issues when a rest arg of
+        ;; 1 is called.
+        [[]])
+       (_
+        (lists/reverse acc))))
     ((arg . rest)
      (case (erlang/< count arity)
        (:true
-         (runtime-args-to-arity rest (erlang/+ count 1) arity (arg . acc)))
+        (runtime-args-to-arity rest (erlang/+ count 1) arity (arg . acc)))
         (:false
-        (lists/reverse (args0 . acc)))))))
+         (runtime-args-to-arity [] count arity (args0 . acc)))))))
 
 (defn eval-args (path0 ctx args0)
   (case (lists/foldl (fn (arg acc0)
