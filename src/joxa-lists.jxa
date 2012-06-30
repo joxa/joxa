@@ -3,10 +3,12 @@
 ;;
 (ns joxa-lists
     (require lists
+             io
              joxa-core
              erlang)
     (use (joxa-core :only (if/3
-                           !=/2))))
+                           !=/2
+                           let/2))))
 
 (defn needs-catchall? (clause)
   (case clause
@@ -111,13 +113,16 @@
                         {`(case ~arg
                             ~@(if (needs-catchall? val)
                                   [`(~val
-                                     ((do ~@body) . ~acc-sym))  `(_ ~acc-sym)]
+                                     ((do ~@body) . ~acc-sym))
+                                   `(_ ~acc-sym)]
                                 [`(~val
                                    ((do ~@body) . ~acc-sym))])) items})
                        ([val guard items]
                         {`(case ~arg
-                            (~val ~guard
-                                  ((do ~@body) . ~acc-sym))
+                            (~val
+                             (case ~guard
+                               (:true ((do ~@body) . ~acc-sym))
+                               (:false ~acc-sym)))
                             (_ ~acc-sym)) items})
                        (invalid
                         (erlang/error {:invalid-binding invalid })))))
@@ -127,3 +132,16 @@
          (lists/foldl
           (fn (~arg ~acc-sym)
               ~fun-body) [] ~items))))))
+
+(defmacro+ # (binding &rest filter)
+  (let (arg (joxa-core/gensym "filter")
+        [pattern thing-to-filter] binding)
+    `(lists/filter (fn (~arg)
+                       (case ~arg
+                         ~@(if (needs-catchall? pattern)
+                               [`(~pattern
+                                  ~@filter)
+                                `(_ :true)]
+                                [`(~pattern
+                                   ~@filter)])))
+                   ~thing-to-filter)))
