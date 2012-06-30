@@ -9,7 +9,7 @@ given([a,featureful,module], _State, _) ->
                (attr sfoo 123)
                (use (lists :only (member/2 all/2)
                      :rename ((member/2 mbr))))
-               (use (file :as f
+               (use (file
                      :exclude (delete/1)
                      :rename ((change_group/2 chgrp)
                                 (change_mode/2 chmod))))
@@ -40,7 +40,6 @@ then([the,joxa,context,for,a,featureful,module,is,correctly,formed], Ctx0, _) ->
     ?assertMatch(true, ec_dictionary:has_key({erlang, integer_to_list, 2}, Required)),
     ?assertMatch(true, ec_dictionary:has_key({code, which, 1}, Required)),
     ?assertMatch(proplists, ec_dictionary:get(props, Alias)),
-    ?assertMatch(file, ec_dictionary:get(f, Alias)),
     ?assertMatch("Hello World",
                  proplists:get_value(super_duper,
                                      'jxat-featureful':module_info(attributes))),

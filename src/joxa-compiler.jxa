@@ -2008,9 +2008,6 @@
                                           ({{fun arity} alias}
                                            {{fun arity} (joxify-name alias)})))
                                     imports0)))
-    (('(quote as) . (alias-name . rest))
-     (add-alias-ctx ctx alias-name namespace-name)
-     (handle-use-clauses path ctx rest namespace-name imports0))
     (('(quote only) . (target-funs . rest))
      (when (and (erlang/is_atom namespace-name)
                 (is-list target-funs)))
@@ -2026,8 +2023,8 @@
                 (is-list target-funs)))
      (let* (imports1 (rename-funs path ctx target-funs imports0))
        (handle-use-clauses path ctx rest namespace-name imports1)))
-    (probably-more-uses
-     (make-use path ctx probably-more-uses namespace-name imports0))))
+    (_
+     (add-error-ctx ctx path {:invalid-use-clause {:bad-use-part forms}}))))
 
 (defn namespace-exists? (mod-name)
   (case (code/ensure_loaded mod-name)
@@ -4241,6 +4238,8 @@
      "invalid namespace declaration")
     (:invalid-sequence
      "invalid sequence")
+    ({:invalid-use-clause {:bad-use-part forms}}
+     (io_lib/format "invalid use clause ~p" [forms]))
     ({:invalid-reference {f -1}}
      (io_lib/format "invalid reference ~s" [(format-fun-ref f) ]))
     ({:invalid-reference {f a}}

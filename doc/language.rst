@@ -335,8 +335,7 @@ we might want to do.
 
      (use (string :exclude (substr/4 join/2)
                   :joxify
-                  :rename ((sub-word/3 str-subword) (join/2 str-join)
-                  :as str)))
+                  :rename ((sub-word/3 str-subword) (join/2 str-join))))
 
 Lets break this down into actions.
 
@@ -360,9 +359,6 @@ Lets break this down into actions.
    imports being carried forward. *NOTE* note the joxification of
    `sub-word/3`. Since we specified `joxify` earlier we must must
    refer to it as `sub-word/3` instead of `sub_word/3`.
-5) As. This has the exact as in `require` in that it provides an alias
-   for the namespace name specified. This allows you to refer to any
-   function in that namespace with the alias.
 
 Functions
 ---------

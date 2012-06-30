@@ -14,16 +14,25 @@
              lists
              ec_dictionary
              joxa-compiler)
-    (use (erlang :only (atom_to_list/1 list_to_binary/1 apply/3))
-         (joxa-core :as core)))
+    (use (erlang :joxify
+                 :only (==/2
+                        or/2
+                        get-stacktrace/0
+                        atom-to-list/1
+                        list-to-binary/1
+                        make-fun/3
+                        is-list/1
+                        apply/3))
+         (joxa-core :only (if/3
+                           try/1))))
 
 (defn prompt (ctx)
-  (lists/concat [(atom_to_list (joxa-compiler/namespace-name-ctx ctx))
+  (lists/concat [(atom-to-list (joxa-compiler/namespace-name-ctx ctx))
                  "> "]))
 (defn read (ctx)
   (case (io/get_line (prompt ctx))
-    (r (when (erlang/is_list r))
-     (erlang/list_to_binary r))
+    (r (when (is-list r))
+     (list-to-binary r))
     (else
      else)))
 
@@ -31,12 +40,12 @@
   (let* (result (joxa-compiler/comp-interactive ctx :--joxa-shell parse [])
         comp-res
         (if (joxa-compiler/compilable? ctx)
-            (if (erlang/== result :expr)
-                (let* (call-fun (erlang/make_fun (joxa-compiler/namespace-name-ctx ctx) :--joxa-shell 0))
+            (if (== result :expr)
+                (let* (call-fun (make-fun (joxa-compiler/namespace-name-ctx ctx) :--joxa-shell 0))
                   (call-fun))
               :ok)
-          (if (erlang/or  (erlang/== result :expr)
-                          (erlang/== result :defn))
+          (if (or  (== result :expr)
+                   (== result :defn))
               :error
             result)))
     (joxa-compiler/clear-errors ctx)
@@ -63,7 +72,7 @@
    (catch
        (e
         (io/format "error: ~p : " [e])
-        (io/format "~p~n" [(erlang/get_stacktrace)])
+        (io/format "~p~n" [(get-stacktrace)])
         (loop ctx <<>>)))))
 
 (defn+ start ()
