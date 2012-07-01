@@ -133,15 +133,24 @@
           (fn (~arg ~acc-sym)
               ~fun-body) [] ~items))))))
 
-(defmacro+ # (binding &rest filter)
-  (let (arg (joxa-core/gensym "filter")
-        [pattern thing-to-filter] binding)
-    `(lists/filter (fn (~arg)
-                       (case ~arg
-                         ~@(if (needs-catchall? pattern)
-                               [`(~pattern
-                                  ~@filter)
-                                `(_ :true)]
-                                [`(~pattern
-                                   ~@filter)])))
-                   ~thing-to-filter)))
+(defmacro+ lists-binding (fun-call binding &rest body)
+  (let (arg (joxa-core/gensym "lists-binding")
+        [pattern thing-to-do] binding)
+    `(~fun-call (fn (~arg)
+                    (case ~arg
+                      ~@(if (needs-catchall? pattern)
+                            [`(~pattern
+                               ~@body)
+                             `(_ :true)]
+                          [`(~pattern
+                             ~@body)])))
+                ~thing-to-do)))
+
+(defmacro+ # (binding &rest body)
+  `(joxa-lists/lists-binding lists/filter ~binding ~@body))
+
+(defmacro+ all (binding &rest body)
+  `(joxa-lists/lists-binding lists/all ~binding ~@body))
+
+(defmacro+ any (binding &rest body)
+  `(joxa-lists/lists-binding lists/any ~binding ~@body))
