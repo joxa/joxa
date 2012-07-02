@@ -589,6 +589,27 @@ Lets break this down into actions.
    `sub-word/3`. Since we specified `joxify` earlier we must must
    refer to it as `sub-word/3` instead of `sub_word/3`.
 
+
+Author's Note
+^^^^^^^^^^^^^
+
+When you use `require` vs `use` is entirely up to you. Joxa is a young
+language and there has not yet been time to hash out what is the best
+practice here. I have had the good fortune to code in may languages
+and several of those languages have supported 'import' clause's like
+use. In the best of those languages the general practice is to use the
+`use` clause only when you are importing *operators* the require
+clause for everthing else. In the case of Joxa I will define operators
+as anything thats used in a conditional statement, including
+guards. The mainthing you want to remember is that `use` impares
+locality of code just a bit (that is knowing where the code that is
+being executed is coming from). There are times (like conditionals)
+when the clarity of the code is improved enough to make that locality
+hit worth while, but in general thats not true. In the end, just
+remember that the more transparent code is the easier it is to
+maintain and exend and choose `use` and `require` with an eye towards
+transparancy.
+
 Functions
 ---------
 
