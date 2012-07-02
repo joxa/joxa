@@ -2047,15 +2047,18 @@ errors in a generated function will always be the line number of the macro."
     (_
      (add-error-ctx ctx path {:invalid-use-clause {:bad-use-part forms}}))))
 
-(defn namespace-exists? (mod-name)
-  (case (code/ensure_loaded mod-name)
-    ({:module _}
-     :true)
-    ({:error :embedded}
-     :true)
-    ({:error :native_code}
-     :true)
-    (_
+(defn namespace-exists? (ctx mod-name)
+  (try*
+   (case (code/ensure_loaded mod-name)
+     ({:module _}
+      :true)
+     ({:error :embedded}
+      :true)
+     ({:error :native_code}
+      :true)
+     (_
+      :false))
+   (catch (_type _body)
      :false)))
 
 ;; Use Parsing and Compilation
@@ -2065,7 +2068,7 @@ errors in a generated function will always be the line number of the macro."
      (populate-use-into-context ctx namespace-name imports))
     (((use-namespace-name . clause-body) . rest)
      (when (erlang/is_atom use-namespace-name))
-     (case (namespace-exists? use-namespace-name)
+     (case (namespace-exists? ctx use-namespace-name)
        (:true
         (let* (imports (get-exports use-namespace-name))
           (add-require-ctx ctx use-namespace-name)
@@ -2101,7 +2104,7 @@ errors in a generated function will always be the line number of the macro."
     (new-namespace-name
      (when (erlang/and (erlang/is_atom new-namespace-name)
                        (erlang/== namespace-name :undefined)))
-     (case (namespace-exists? new-namespace-name)
+     (case (namespace-exists? ctx new-namespace-name)
        (:true
         (add-require-ctx ctx new-namespace-name)
         ctx)
@@ -2113,7 +2116,7 @@ errors in a generated function will always be the line number of the macro."
     ((new-namespace-name . rest)
      (when (erlang/and (erlang/is_atom namespace-name)
                        (erlang/== namespace-name :undefined)))
-     (case (namespace-exists? new-namespace-name)
+     (case (namespace-exists? ctx new-namespace-name)
        (:true
         (add-require-ctx ctx new-namespace-name)
         (handle-require-clause (incr-path path0) ctx new-namespace-name rest))
@@ -2683,7 +2686,7 @@ errors in a generated function will always be the line number of the macro."
      (convert-bitstring ctx path rest (set-bitstring :size value bitstring)))
     (([:quote :unit] . (value . rest))
      (convert-bitstring ctx path rest (set-bitstring :unit value bitstring)))
-    (([:qute :little] . rest)
+    (([:quote :little] . rest)
      (convert-bitstring ctx path rest (set-bitstring :endianness :little bitstring)))
     (([:quote :big] . rest)
      (convert-bitstring ctx path rest (set-bitstring :endianness :big bitstring)))
@@ -4268,12 +4271,12 @@ errors in a generated function will always be the line number of the macro."
      (io-lib/format "invalid use declaration: function does not exist ~s/~p"
                     [fun arity]))
     ({:invalid-use-clause {:bad-namespace use-namespace-name}}
-     (io-lib/format "invalid use declaration: bad namespace name ~s"
+     (io-lib/format "invalid use declaration: bad namespace name ~p"
                     [use-namespace-name]))
     (:invalid-attr-clause
      "invalid attribute clause")
     ({:invalid-require-clause {:bad-namespace namespace-name}}
-     (io-lib/format "invalid require declaration: bad namespace name ~s"
+     (io-lib/format "invalid require declaration: bad namespace name ~p"
                     [namespace-name]))
     ({:invalid-require-clause _}
       "invalid require declaration")
