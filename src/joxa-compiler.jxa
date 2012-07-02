@@ -2234,7 +2234,7 @@ errors in a generated function will always be the line number of the macro."
                       arg
                       (args-to-list rest)))))
 
-(defn args-to-arity (args0 count arity acc)
+(defn called->rest (args0 count arity acc)
   (case args0
     ([]
      (case acc
@@ -2247,11 +2247,11 @@ errors in a generated function will always be the line number of the macro."
     ((arg . rest)
      (case (erlang/< count arity)
        (:true
-         (args-to-arity rest (erlang/+ count 1) arity (arg . acc)))
+         (called->rest rest (erlang/+ count 1) arity (arg . acc)))
         (:false
-         (args-to-arity [] 0 arity ((args-to-list args0) . acc)))))))
+         (called->rest [] 0 arity ((args-to-list args0) . acc)))))))
 
-(defn runtime-args-to-arity (args0 count arity acc)
+(defn runtime-called->rest (args0 count arity acc)
   (case args0
     ([]
      (case acc
@@ -2264,9 +2264,9 @@ errors in a generated function will always be the line number of the macro."
     ((arg . rest)
      (case (erlang/< count arity)
        (:true
-        (runtime-args-to-arity rest (erlang/+ count 1) arity (arg . acc)))
+        (runtime-called->rest rest (erlang/+ count 1) arity (arg . acc)))
         (:false
-         (runtime-args-to-arity [] count arity (args0 . acc)))))))
+         (runtime-called->rest [] count arity (args0 . acc)))))))
 
 (defn eval-args (path0 ctx args0)
   (case (lists/foldl (fn (arg acc0)
@@ -2322,7 +2322,7 @@ errors in a generated function will always be the line number of the macro."
     ({:rest arity}
      (cerl/ann_c_apply annots
                        cerl-var
-                       (args-to-arity arg-list 1 arity [])))
+                       (called->rest arg-list 1 arity [])))
     (_
      (cerl/ann_c_apply annots
                              cerl-var
@@ -2343,7 +2343,7 @@ errors in a generated function will always be the line number of the macro."
             (cerl/ann_c_call annots
                              (cerl/ann_c_atom annots namespace)
                              (cerl/ann_c_atom annots function)
-                             (args-to-arity arg-list 1 arity [])))
+                             (called->rest arg-list 1 arity [])))
            ({:apply :not-rest _ {function arity}}
             (add-fun-dep-ctx ctx function arity)
             (cerl/ann_c_apply annots
@@ -2353,7 +2353,7 @@ errors in a generated function will always be the line number of the macro."
             (add-fun-dep-ctx ctx function arity)
             (cerl/ann_c_apply annots
                               (cerl/ann_c_fname annots function arity)
-                              (args-to-arity arg-list 1 arity [])))
+                              (called->rest arg-list 1 arity [])))
            ({:reference {val _}}
             (make-rest-apply-var ctx annots val arg-list))
            (:not-a-reference
@@ -2373,7 +2373,7 @@ errors in a generated function will always be the line number of the macro."
     (cerl/ann_c_fun annots arg-list
                      (cerl/ann_c_apply annots
                                      f-var
-                                     (args-to-arity arg-list 1 rest-arity [])))))
+                                     (called->rest arg-list 1 rest-arity [])))))
 
 (defn make-remote-rest-fun (ctx namespace function arity rest-arity)
   (let* (arg-list (lists/map (fn (_)
@@ -2386,7 +2386,7 @@ errors in a generated function will always be the line number of the macro."
                     (cerl/ann_c_call annots
                                      (cerl/ann_c_atom annots namespace)
                                      (cerl/ann_c_atom annots function)
-                                     (args-to-arity arg-list 1 rest-arity [])))))
+                                     (called->rest arg-list 1 rest-arity [])))))
 
 
 (defn make-fun (path0 ctx form)
@@ -2479,7 +2479,7 @@ errors in a generated function will always be the line number of the macro."
                          (make-expr (suspend path0) ctx expr))))
         ({:apply :rest :macro {function arity}}
          (call-macro path0 ctx (namespace-name-ctx ctx) function
-                     (runtime-args-to-arity args 1 arity [])
+                     (runtime-called->rest args 1 arity [])
                      (fn (expr)
                          (make-expr (suspend path0) ctx expr))))
         ({:remote :not-rest :macro {namespace function arity}}
@@ -2490,7 +2490,7 @@ errors in a generated function will always be the line number of the macro."
         ({:remote :rest :macro {namespace function arity}}
          (auto-require ctx namespace)
          (call-macro path0 ctx namespace function
-                     (runtime-args-to-arity args 1 arity [])
+                     (runtime-called->rest args 1 arity [])
                      (fn (expr)
                          (make-expr (suspend path0) ctx expr))))
         (ref
@@ -2514,7 +2514,7 @@ errors in a generated function will always be the line number of the macro."
                                 (cerl/ann_c_fname call-annots
                                                   name
                                                   arity)
-                                (args-to-arity arg-list 1 arity [])))
+                                (called->rest arg-list 1 arity [])))
              ({:remote :not-rest _ {namespace function possible-arity}}
               (when (erlang/== :false macro-only?))
               (cerl/ann_c_call annots
@@ -2530,7 +2530,7 @@ errors in a generated function will always be the line number of the macro."
                                                 namespace)
                                (cerl/ann_c_atom call-annots
                                                 function)
-                               (args-to-arity arg-list 1 arity [])))
+                               (called->rest arg-list 1 arity [])))
              ({:error error}
               (add-error-r-nil-ctx ctx path0 error))
              (:not-a-reference
@@ -2569,7 +2569,7 @@ errors in a generated function will always be the line number of the macro."
                                            function
                                            arity)
                          (process-args
-                          (runtime-args-to-arity args 1 arity []))))
+                          (runtime-called->rest args 1 arity []))))
       ({:remote :not-rest :macro {namespace function arity}}
        (cerl/ann_c_call annots
                         (cerl/ann_c_atom call-annots
@@ -2584,7 +2584,7 @@ errors in a generated function will always be the line number of the macro."
                         (cerl/ann_c_atom call-annots
                                          function)
 
-                        (process-args (runtime-args-to-arity args 1 arity []))))
+                        (process-args (runtime-called->rest args 1 arity []))))
       (_
        (add-error-r-nil-ctx ctx path1 {:not-a-macro
                                        {val possible-arity}})))))
@@ -3142,7 +3142,7 @@ errors in a generated function will always be the line number of the macro."
                           (make-pattern-element (suspend path0) ctx guards0 pat))))
          ({:apply :rest :macro {function arity}}
           (call-macro path0 ctx (namespace-name-ctx ctx) function
-                      (runtime-args-to-arity args 1 arity [])
+                      (runtime-called->rest args 1 arity [])
                       (fn (pat)
                           (make-pattern-element (suspend path0) ctx guards0 pat))))
          ({:remote :not-rest :macro {namespace function arity}}
@@ -3154,7 +3154,7 @@ errors in a generated function will always be the line number of the macro."
          ({:remote :rest :macro {namespace function arity}}
           (auto-require ctx namespace)
           (call-macro path0 ctx namespace function
-                      (runtime-args-to-arity args 1 arity [])
+                      (runtime-called->rest args 1 arity [])
                       (fn (pat)
                           (make-pattern-element (suspend path0) ctx guards0 pat))))
          (_
@@ -3721,7 +3721,7 @@ errors in a generated function will always be the line number of the macro."
                           (make-forms (suspend path0) ctx form))))
          ({:apply :rest :macro {function arity}}
           (call-macro path0 ctx (namespace-name-ctx ctx) function
-                      (runtime-args-to-arity args 1 arity [])
+                      (runtime-called->rest args 1 arity [])
                       (fn (form)
                           (make-forms (suspend path0) ctx form))))
          ({:remote :not-rest :macro {namespace function arity}}
@@ -3733,7 +3733,7 @@ errors in a generated function will always be the line number of the macro."
          ({:remote :rest :macro {namespace function arity}}
           (auto-require ctx namespace)
           (call-macro path0 ctx namespace function
-                      (runtime-args-to-arity args 1 arity [])
+                      (runtime-called->rest args 1 arity [])
                       (fn (form)
                           (make-forms (suspend path0) ctx form))))
          (_
