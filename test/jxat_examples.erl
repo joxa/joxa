@@ -18,7 +18,7 @@ prop_seive() ->
     Source = <<"
 (ns jxat-sieve-of-eratosthenes
         (require lists io)
-        (use (joxa-core :as core :only (!=/2))
+        (use (joxa-core :only (!=/2))
              (erlang :only (rem/2 +/2))))
 
 (defn sieve (v primes)

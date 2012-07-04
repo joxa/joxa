@@ -1,0 +1,65 @@
+;;; Utility Support for GenServers
+;;; ==============================
+;;; * author: Eric Merritt
+;;; * copyright: Erlware, LLC 2012
+;;;
+(ns joxa-otp-gen-server
+    (require (erlang :joxify)
+             (lists :joxify)
+             joxa-core
+             (gen_server :joxify))
+    (use (joxa-core :only (if/3
+                           when/2))
+         (joxa-lists :only (map/2))
+         (erlang :only (and/2
+                        not/1))))
+
+(defmacro+ worker-start-link (&rest args)
+  "Create the start link for a un-named worker gen-server "
+  `(do (defn+ start-link ~args
+         (gen-server/start-link ($namespace) [~@args] []))
+       (defn+ start_link ~args
+         (start-link ~@args))))
+
+(defmacro+ local-server-start-link (&rest args)
+  "Create the start link for a named local server gen-server "
+  `(do (defn+ start-link ~args
+         (gen-server/start-link {:local ($namespace)} ($namespace) [~@args] []))
+       (defn+ start_link ~args
+         (start-link ~@args))))
+
+(defn generate-call-to-alternate (main-name alternate-name arity)
+  "Given an alternate name that exists in the module generate the
+main-name as a pass through call to alternate. We expect the compiler
+inliner to take care of the inefficiencies"
+  (let* (args (map (_ (lists/seq 1 arity))
+                   (joxa-core/gensym (erlang/atom-to-list ($namespace)))))
+    `(defn+ ~main-name ~args
+       (~alternate-name ~@args))))
+
+(defn generate-error-call (main-name arity)
+  "For a call that is truly implemented on the client side generate an
+implementation that throws an error when the function is called."
+  (let* (args (map (_ (lists/seq 1 arity))
+                   (joxa-core/gensym (erlang/atom-to-list ($namespace)))))
+    `(defn+ ~main-name ~args
+       (erlang/error {:not-implemented (quote ~main-name) ~args}))))
+
+(defn generate-if-missing (main-name alternate-name arity exports)
+  (if (and (lists/member {alternate-name arity} exports)
+           (not (lists/member {main-name arity} exports)))
+      (generate-call-to-alternate main-name alternate-name arity)
+    (if (and (not (lists/member {main-name arity} exports))
+             (not (lists/member {alternate-name arity} exports)))
+        (generate-error-call main-name arity)
+      '())))
+
+(defmacro+ implement-missing (namespace)
+  (let* (exports ((erlang/make-fun namespace :module_info 1) :exports))
+    `(do  ~@(map ({main alternate arity} '({init init 1}
+                                           {handle_call handle-call 3}
+                                             {handle_cast handle-cast 2}
+                                             {handle_info handle-info 2}
+                                             {terminate terminate 2}
+                                             {code_change code-change 3}))
+                   (generate-if-missing main alternate arity exports)))))
