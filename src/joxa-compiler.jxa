@@ -20,17 +20,23 @@
     (require init getopt file
              lists unicode sets
              re ets proplists
-             filename ec_dictionary ec_lists
+             filename
              filelib file cerl
-             code core_pp compile
-             io io_lib gen_server
-             crypto binary)
-    (use (erlang :only (+/2
+             code compile
+             io crypto binary
+             (erlang :joxify)
+             (ec_dictionary :joxify)
+             (ec_lists :joxify)
+             (core_pp :joxify)
+             (gen_server :joxify)
+             (io_lib :joxify))
+    (use (erlang :joxify
+                 :only (+/2
                         ==/2
                         and/2
                         or/2
-                        is_list/1
-                        is_binary/1))))
+                        is-list/1
+                        is-binary/1))))
 
 ;; defspecs
 ;; --------
@@ -199,17 +205,17 @@
                       (set-context field value raw-ctx))))
                {:context
                 :undefined ; namespace-name
-                (ec_dictionary/new :ec_dict) ; annots
+                (ec-dictionary/new :ec_dict) ; annots
                 []  ; attrs
                 (sets/new) ; exports
                 (sets/new) ; type-exports
                 [] ; scopes
                 [] ; type-scopes
                 [] ; definitions
-                (ec_dictionary/new :ec_dict) ; types
-                (ec_dictionary/new :ec_dict) ; alias
-                (ec_dictionary/new :ec_dict) ; require
-                (ec_dictionary/new :ec_dict) ; use
+                (ec-dictionary/new :ec_dict) ; types
+                (ec-dictionary/new :ec_dict) ; alias
+                (ec-dictionary/new :ec_dict) ; require
+                (ec-dictionary/new :ec_dict) ; use
                 [] ; options
                 :undefined ; line
                 [] ; rest functions
@@ -306,7 +312,7 @@
 (defn internal-add-alias (aliased-name namespace raw-ctx)
   (let* (aliases (get-context :aliases raw-ctx))
     (set-context :aliases
-                 (ec_dictionary/add aliased-name namespace aliases)
+                 (ec-dictionary/add aliased-name namespace aliases)
                  raw-ctx)))
 
 (defn propogate-require-info (namespace function possible-arity joxify dict)
@@ -320,10 +326,10 @@
     (case detail
       ({(= key {namespace function arity})
         function-detail}
-       (let* (new-dict (ec_dictionary/add key function-detail dict))
+       (let* (new-dict (ec-dictionary/add key function-detail dict))
          (case joxify
            (:true
-            (ec_dictionary/add {namespace (joxify-name function) arity}
+            (ec-dictionary/add {namespace (joxify-name function) arity}
                                function-detail new-dict))
            (:false
             new-dict)))))))
@@ -352,11 +358,11 @@
 (defn internal-remote-function? (namespace function possible-arity raw-ctx aliased)
   (try*
    (let* (requires (get-context :requires raw-ctx))
-     (case (ec_dictionary/has_key {namespace function :rest} requires)
+     (case (ec-dictionary/has_key {namespace function :rest} requires)
        (:true
-        (ec_dictionary/get {namespace function :rest} requires))
+        (ec-dictionary/get {namespace function :rest} requires))
        (:false
-        (ec_dictionary/get {namespace function possible-arity} requires))))
+        (ec-dictionary/get {namespace function possible-arity} requires))))
    (catch (_type body)
      (case body
        (:not_found
@@ -372,7 +378,7 @@
 (defn internal-alias? (namespace function possible-arity raw-ctx)
   (try*
    (let* (aliases (get-context :aliases raw-ctx)
-         aliased-namespace  (ec_dictionary/get namespace aliases))
+         aliased-namespace  (ec-dictionary/get namespace aliases))
      (internal-remote-function?
       aliased-namespace function possible-arity raw-ctx :true))
    (catch (type body)
@@ -395,7 +401,7 @@
 
 (defn internal-is-speced? (name possible-arity raw-ctx)
   (let* (types (get-context :types raw-ctx))
-    (case (ec_dictionary/get {name possible-arity} :undefined types)
+    (case (ec-dictionary/get {name possible-arity} :undefined types)
       (:undefined
        :not-a-reference)
       (_
@@ -415,13 +421,13 @@
                         (_
                          :not-a-reference)))
                      (_
-                      acc))) :not-a-reference (ec_dictionary/to_list  uses)))
+                      acc))) :not-a-reference (ec-dictionary/to-list  uses)))
 
 (defn internal-used-function? (name possible-arity raw-ctx)
   (let* (uses (get-context :uses raw-ctx))
     (case (internal-rest-used-function? name uses)
       (:not-a-reference
-       (case (ec_dictionary/get {name possible-arity} :undefined uses)
+       (case (ec-dictionary/get {name possible-arity} :undefined uses)
          ({fun-name namespace-name}
           {:remote :not-rest {namespace-name fun-name possible-arity}})
          (:undefined
@@ -477,9 +483,9 @@
     (name
      (when (erlang/is_atom name))
      (let* (scopes (get-context :scopes raw-ctx))
-       (case (ec_lists/search (fn (scope)
+       (case (ec-lists/search (fn (scope)
                                   (try*
-                                   {:ok (ec_dictionary/get name scope)}
+                                   {:ok (ec-dictionary/get name scope)}
                                    (catch (_type body)
                                      (case body
                                        (:not_found
@@ -501,10 +507,10 @@
      :not-macro)))
 
 (defn+ start-context ()
-  (gen_server/start_link :joxa-compiler [] []))
+  (gen-server/start-link :joxa-compiler [] []))
 
 (defn+ start-context (initial-values)
-  (gen_server/start_link :joxa-compiler [initial-values] []))
+  (gen-server/start-link :joxa-compiler [initial-values] []))
 
 ;; ### gen_server callbacks
 (defn+ init (args0)
@@ -512,7 +518,7 @@
     ([]
      {:ok (internal-new-context '())})
     ([args1]
-     (when (erlang/is_list args1))
+     (when (is-list args1))
      {:ok (internal-new-context args1)})
     ([args1]
      (when (erlang/and (erlang/is_tuple args1)
@@ -568,7 +574,7 @@
                                  (:incr
                                   (incr-path path1))))
                            path1     (case actions
-                                       (a1 (when (erlang/is_list a1))
+                                       (a1 (when (is-list a1))
                                            (lists/foldl do-action/2 path0 actions))
                                        (a2 (when (erlang/is_atom a2))
                                            (do-action actions path0))))
@@ -595,7 +601,7 @@
                      (:true
                       :true)
                      (:false
-                      (case (ec_dictionary/get {name arity} :undefined types)
+                      (case (ec-dictionary/get {name arity} :undefined types)
                         (:undefined
                          :false)
                         (_
@@ -667,16 +673,16 @@
      (let* (requires (get-context :requires raw-ctx)
            new-requires
            (case is-rest
-             (:false (ec_dictionary/add {namespace function arity}
+             (:false (ec-dictionary/add {namespace function arity}
                                         {:remote :not-rest {namespace function arity}}
                                         requires))
-             (:true (ec_dictionary/add {namespace function :rest}
+             (:true (ec-dictionary/add {namespace function :rest}
                                        {:remote :rest {namespace function arity}}
                                        requires))))
        {:noreply (set-context :requires new-requires raw-ctx)}))
     ({:add-use alias arity target namespace}
      (let* (use (get-context :uses raw-ctx))
-        {:noreply (set-context :uses (ec_dictionary/add {alias arity}
+        {:noreply (set-context :uses (ec-dictionary/add {alias arity}
                                                         {target namespace} use)
                                raw-ctx)}))
      ({:add-def path annots name vars body replace}
@@ -686,7 +692,7 @@
         {:noreply (set-context :fun-deps (sets/add_element {name arity} fun-deps) raw-ctx)}))
      (:push-scope
       (let* (scopes (get-context :scopes raw-ctx))
-        {:noreply (set-context :scopes ((ec_dictionary/new :ec_dict) . scopes) raw-ctx)}))
+        {:noreply (set-context :scopes ((ec-dictionary/new :ec_dict) . scopes) raw-ctx)}))
      (:pop-scope
       (case (get-context :scopes raw-ctx)
         ((_ . scopes)
@@ -697,10 +703,10 @@
       (let* (scopes (get-context :scopes raw-ctx))
         (case scopes
           ((current . rest)
-           (case (ec_dictionary/get name :not-in-scope current)
+           (case (ec-dictionary/get name :not-in-scope current)
              (:not-in-scope
               {:noreply (set-context :scopes
-                                     ((ec_dictionary/add name {cerl-var arity} current) . rest) raw-ctx)})
+                                     ((ec-dictionary/add name {cerl-var arity} current) . rest) raw-ctx)})
              (_
               {:noreply (internal-add-error {{:variable-redefinition name}
                                              (internal-erri-from-context path raw-ctx)} raw-ctx)})))
@@ -723,7 +729,7 @@
         {:noreply (set-context :type-exports (sets/add_element {name arity} type-exports) raw-ctx)}))
      ({:add-type type-name arity body}
       (let* (types (get-context :types raw-ctx))
-        {:noreply (set-context :types  (ec_dictionary/add {type-name arity}  body types) raw-ctx)}))
+        {:noreply (set-context :types  (ec-dictionary/add {type-name arity}  body types) raw-ctx)}))
      ({:set-context-all args}
       {:noreply (lists/foldl (fn (set-val raw-ctx1)
                                  (case set-val
@@ -754,157 +760,157 @@
                    (:namespace-name . namespace-name)])))
 
 (defn+ get-raw-context (ctx)
-  (gen_server/call ctx :get-raw-context))
+  (gen-server/call ctx :get-raw-context))
 
 (defn set-context-all-ctx (ctx args)
-  (gen_server/cast ctx {:set-context-all args}))
+  (gen-server/cast ctx {:set-context-all args}))
 
 (defn add-warning-ctx (ctx path warning)
-  (gen_server/cast ctx {:add-warning path warning}))
+  (gen-server/cast ctx {:add-warning path warning}))
 
 (defn add-error-ctx (ctx path error)
-  (gen_server/cast ctx {:add-error path error}))
+  (gen-server/cast ctx {:add-error path error}))
 
 (defn+ namespace-name-ctx (ctx)
-  (gen_server/call ctx :namespace-name))
+  (gen-server/call ctx :namespace-name))
 
 (defn+ namespace-name-ctx (ctx namespace-name)
-  (gen_server/cast ctx {:namespace-name namespace-name}))
+  (gen-server/cast ctx {:namespace-name namespace-name}))
 
 (defn anon-fun-index-ctx (ctx)
-  (gen_server/call ctx :anon-fun-index))
+  (gen-server/call ctx :anon-fun-index))
 
 (defn options-ctx (ctx)
-  (gen_server/call ctx :options))
+  (gen-server/call ctx :options))
 
 (defn options-ctx (ctx options)
-  (gen_server/cast ctx {:options options}))
+  (gen-server/cast ctx {:options options}))
 
 (defn exports-ctx (ctx)
-  (gen_server/call ctx :exports))
+  (gen-server/call ctx :exports))
 
 (defn exports-ctx (ctx exports)
-  (gen_server/cast ctx {:exports exports}))
+  (gen-server/cast ctx {:exports exports}))
 
 (defn definitions-ctx (ctx)
-  (gen_server/call ctx :definitions))
+  (gen-server/call ctx :definitions))
 
 (defn rests-ctx (ctx)
-  (gen_server/call ctx :rests))
+  (gen-server/call ctx :rests))
 
 (defn macros-ctx (ctx)
-  (gen_server/call ctx :macros))
+  (gen-server/call ctx :macros))
 
 (defn types-ctx (ctx)
-  (gen_server/call ctx :types))
+  (gen-server/call ctx :types))
 
 (defn type-exports-ctx (ctx)
-  (gen_server/call ctx :type-exports))
+  (gen-server/call ctx :type-exports))
 
 (defn unexported-macros-ctx (ctx)
-  (gen_server/call ctx :unexported-macros))
+  (gen-server/call ctx :unexported-macros))
 
 (defn warnings-ctx (ctx)
-  (gen_server/call ctx :warnings))
+  (gen-server/call ctx :warnings))
 
 (defn warnings-ctx (ctx warnings)
-  (gen_server/cast ctx {:warnings warnings}))
+  (gen-server/cast ctx {:warnings warnings}))
 
 (defn errors-ctx (ctx)
-  (gen_server/call ctx :errors))
+  (gen-server/call ctx :errors))
 
 (defn errors-ctx (ctx errors)
-  (gen_server/cast ctx {:errors errors}))
+  (gen-server/cast ctx {:errors errors}))
 
 (defn line-ctx (ctx)
-  (gen_server/call ctx :line))
+  (gen-server/call ctx :line))
 
 (defn line-ctx (ctx line-annots)
-  (gen_server/cast ctx {:line line-annots}))
+  (gen-server/cast ctx {:line line-annots}))
 
 (defn attrs-ctx (ctx)
-  (gen_server/call ctx :attrs))
+  (gen-server/call ctx :attrs))
 
 (defn error-count-ctx (ctx)
-  (gen_server/call ctx :error-count))
+  (gen-server/call ctx :error-count))
 
 (defn+ annots-ctx (ctx)
-  (gen_server/call ctx :annots))
+  (gen-server/call ctx :annots))
 
 (defn+ annots-ctx (ctx annots)
-  (gen_server/cast ctx {:annots annots}))
+  (gen-server/cast ctx {:annots annots}))
 
 (defn result-ctx (ctx)
-  (gen_server/call ctx :result))
+  (gen-server/call ctx :result))
 
 (defn result-ctx (ctx result)
-  (gen_server/cast ctx {:result result}))
+  (gen-server/cast ctx {:result result}))
 
 (defn function-name-ctx (ctx)
-  (gen_server/call ctx :function-name))
+  (gen-server/call ctx :function-name))
 
 (defn function-name-ctx (ctx name)
-  (gen_server/cast ctx {:function-name name}))
+  (gen-server/cast ctx {:function-name name}))
 
 (defn filename-ctx (ctx)
-  (gen_server/call ctx :filename))
+  (gen-server/call ctx :filename))
 
 (defn filename-ctx (ctx filename)
-  (gen_server/cast ctx {:filename filename}))
+  (gen-server/cast ctx {:filename filename}))
 
 (defn namespace-transition-ctx (ctx)
-  (gen_server/call ctx :namespace-transition))
+  (gen-server/call ctx :namespace-transition))
 
 (defn namespace-transition-ctx (ctx namespace-transition)
-  (gen_server/cast ctx {:namespace-transition namespace-transition}))
+  (gen-server/cast ctx {:namespace-transition namespace-transition}))
 
 (defn cleanup-after-transition-ctx (ctx)
-  (gen_server/cast ctx :cleanup-after-transition))
+  (gen-server/cast ctx :cleanup-after-transition))
 
 (defn warning-count-ctx (ctx)
-  (gen_server/call ctx :warning-count))
+  (gen-server/call ctx :warning-count))
 
 (defn incr-fun-index-ctx (ctx)
-  (gen_server/cast ctx :incr-fun-index))
+  (gen-server/cast ctx :incr-fun-index))
 
 (defn+ add-export-ctx (ctx annots fun-name arity)
-  (gen_server/cast ctx {:add-export fun-name arity annots}))
+  (gen-server/cast ctx {:add-export fun-name arity annots}))
 
 (defn add-rest-ctx (path ctx name arity)
-  (gen_server/cast ctx {:add-rest name arity path}))
+  (gen-server/cast ctx {:add-rest name arity path}))
 
 (defn add-macro-ctx (ctx name arity path)
-  (gen_server/cast ctx {:add-macro name arity path}))
+  (gen-server/cast ctx {:add-macro name arity path}))
 
 (defn add-unexported-macro-ctx (path ctx name arity)
-  (gen_server/cast ctx {:add-unexported-macro name arity path}))
+  (gen-server/cast ctx {:add-unexported-macro name arity path}))
 
 (defn+ add-attr-ctx (ctx key value)
-  (gen_server/cast ctx {:add-attr key value}))
+  (gen-server/cast ctx {:add-attr key value}))
 
 (defn+ add-alias-ctx (ctx aliased-name namespace)
-  (gen_server/cast ctx {:add-alias aliased-name namespace}))
+  (gen-server/cast ctx {:add-alias aliased-name namespace}))
 
 (defn+ add-require-ctx (ctx namespace joxify)
-  (gen_server/cast ctx {:add-require namespace joxify}))
+  (gen-server/cast ctx {:add-require namespace joxify}))
 
 (defn+ add-require-ctx (ctx namespace)
   (add-require-ctx ctx namespace :false))
 
 (defn+ add-pre-require-ctx (ctx namespace function arity is-rest)
-  (gen_server/cast ctx {:add-require namespace function arity is-rest}))
+  (gen-server/cast ctx {:add-require namespace function arity is-rest}))
 
 (defn+ requires-ctx (ctx)
-  (gen_server/call ctx :requires))
+  (gen-server/call ctx :requires))
 
 (defn+ add-use-ctx (ctx alias arity target namespace)
-  (gen_server/cast ctx {:add-use alias arity target namespace}))
+  (gen-server/cast ctx {:add-use alias arity target namespace}))
 
 (defn+ uses-ctx (ctx)
-  (gen_server/call ctx :uses))
+  (gen-server/call ctx :uses))
 
 (defn+ add-def-ctx (path ctx annots name vars body replace)
-  (gen_server/cast ctx {:add-def path annots name vars body replace}))
+  (gen-server/cast ctx {:add-def path annots name vars body replace}))
 
 (defn+ add-def-ctx (path ctx annots name vars body)
   (add-def-ctx path ctx annots name vars body :no-replace))
@@ -918,43 +924,43 @@
   (add-exported-def-ctx path ctx annots name vars body :no-replace))
 
 (defn add-fun-dep-ctx (ctx name arity)
-  (gen_server/cast ctx {:add-fun-dep name arity}))
+  (gen-server/cast ctx {:add-fun-dep name arity}))
 
 (defn+ push-scope-ctx (ctx)
-  (gen_server/cast ctx :push-scope))
+  (gen-server/cast ctx :push-scope))
 
 (defn+ pop-scope-ctx (ctx)
-  (gen_server/cast ctx :pop-scope))
+  (gen-server/cast ctx :pop-scope))
 
 (defn+ add-reference-to-scope-ctx (path ctx name arity cerl-var)
-  (gen_server/cast ctx {:add-reference path name arity cerl-var}))
+  (gen-server/cast ctx {:add-reference path name arity cerl-var}))
 
 (defn+ resolve-reference-ctx (path ctx ref possible-arity)
-  (gen_server/call ctx {:resolve-reference path ref possible-arity}))
+  (gen-server/call ctx {:resolve-reference path ref possible-arity}))
 
 (defn push-type-scope-ctx (ctx)
-  (gen_server/cast ctx :push-type-scope))
+  (gen-server/cast ctx :push-type-scope))
 
 (defn pop-type-scope-ctx (ctx)
-  (gen_server/cast ctx :pop-type-scope))
+  (gen-server/cast ctx :pop-type-scope))
 
 (defn add-type-reference-to-scope-ctx (ctx name arity)
-  (gen_server/cast ctx {:add-type-reference name arity}))
+  (gen-server/cast ctx {:add-type-reference name arity}))
 
 (defn resolve-type-reference-ctx (ctx name arity)
-  (gen_server/call ctx {:resolve-type-reference name arity}))
+  (gen-server/call ctx {:resolve-type-reference name arity}))
 
 (defn add-type-export-ctx (ctx type-name arity)
-  (gen_server/cast ctx {:add-type-export type-name arity}))
+  (gen-server/cast ctx {:add-type-export type-name arity}))
 
 (defn add-type-ctx (ctx type-name arity body)
-  (gen_server/cast ctx {:add-type type-name arity body}))
+  (gen-server/cast ctx {:add-type type-name arity body}))
 
 (defn+ stop-context (ctx)
-  (gen_server/cast ctx :stop-context))
+  (gen-server/cast ctx :stop-context))
 
 (defn add-error-r-nil-ctx (ctx path error)
-  (gen_server/cast ctx {:add-error path error})
+  (gen-server/cast ctx {:add-error path error})
   (cerl/c_nil))
 
 ;; The Compiler
@@ -969,14 +975,14 @@
 ;; These mostly exist to reduce the visual cost of function calls to
 ;; get values from the annotations.
 (defn idx-from-context (actions path0 ctx)
-  (gen_server/call ctx {:thing-from-context actions path0 get-idx-annots/2}))
+  (gen-server/call ctx {:thing-from-context actions path0 get-idx-annots/2}))
 
 (defn annots-from-context (actions path0 ctx)
-  (gen_server/call ctx {:thing-from-context actions path0 get-line-annots/2}))
+  (gen-server/call ctx {:thing-from-context actions path0 get-line-annots/2}))
 
 (defn erri-from-context (actions path0 ctx)
    (let* (idx (idx-from-context actions path0 ctx)
-         filename (ec_dictionary/get :annots (annots-ctx ctx)))
+         filename (ec-dictionary/get :annots (annots-ctx ctx)))
        {filename idx}))
 
 ;; The Lexer and Parser
@@ -1007,8 +1013,8 @@
     ({ln col}
      (case matched-input
        (mi
-        (when (or (is_list mi)
-                  (is_binary mi)))
+        (when (or (is-list mi)
+                  (is-binary mi)))
         (lists/foldl p-advance-index/2 index
                      (unicode/characters_to_list mi)))
        (\\n
@@ -1018,10 +1024,10 @@
 
 (defn+ p-charclass (class)
   (case class
-    (class (when (erlang/is_list class))
+    (class (when (is-list class))
            (p-charclass (erlang/list_to_binary class)))
     (class
-     (when (erlang/is_binary class))
+     (when (is-binary class))
      (case (re/compile class  [:unicode :dotall])
        ({:ok re}
         (fn (inp index)
@@ -1045,9 +1051,9 @@
 
 (defn+ p-string (s)
   (case s
-    (s (when (erlang/is_list s))
+    (s (when (is-list s))
        (p-string (erlang/list_to_binary s)))
-    (s (when (erlang/is_binary s))
+    (s (when (is-binary s))
        (let* (length (erlang/byte_size s))
          (fn (input index)
              (case input
@@ -1600,6 +1606,8 @@
 
 (defn+ incr-path (pos path)
   (case path
+    ({:suspended _}
+     path)
     ({oldpos oldpath}
      {(+ pos oldpos) oldpath})))
 
@@ -1608,11 +1616,14 @@
 
 (defn+ traverse-path (path)
   (case path
+    ({:suspended _}
+     path)
     ({old-position old-path}
      {1, (old-position . old-path)})))
 
 (defn+ path? (path)
   (case path
+    ({:suspended {_ old-path}} old-path)
     ({_ old-path}
      old-path)))
 
@@ -1625,6 +1636,17 @@
 (defn+ traverse-incr-path (amount path)
   (traverse-path (incr-path amount path)))
 
+(defn suspend (path)
+  "Suspends all pathing additions. This is mostly useful for
+macros. After a macro call is made paths no longer sensical. This
+suspends all pathing at a specific point so all later path
+manipulation calls have no effect. This means that the line number of
+errors in a generated function will always be the line number of the macro."
+  (case path
+    ({:suspended _}
+     path)
+    (_
+       {:suspended path})))
 
 ;; ### Annotation storage and retrieval
 ;;
@@ -1633,12 +1655,12 @@
 ;; storage forms. As long as we give it a good path we want to get
 ;; back what we ask for.
 (defn+ new-annots ()
-  (ec_dictionary/new :ec_dict))
+  (ec-dictionary/new :ec_dict))
 
 (defn+ make-annots (path filename type idx annotations)
   (case idx
     ({line _}
-     (ec_dictionary/add path {type idx [line {:file filename}]}
+     (ec-dictionary/add path {type idx [line {:file filename}]}
                         annotations))))
 
 ;; sometimes an invalid path is passed in. This is unfortunate but
@@ -1652,7 +1674,7 @@
      :not-found)
     ((_ . rest)
      (try*
-      (ec_dictionary/get path annotations)
+      (ec-dictionary/get path annotations)
       (catch (type body)
         (case {type body}
           ({:throw :not_found}
@@ -1846,7 +1868,7 @@
 
 (defn+ parse (ctx input)
   (case input
-    (input (when (erlang/is_binary input))
+    (input (when (is-binary input))
            (do-parse ctx
                      (new-path)
                      input
@@ -1936,45 +1958,64 @@
 ;;
 ;; comp compiles the provided AST into a Joxa context. Later that context
 ;; must be compiled to core erlang.
+(defn check-for-invalid-fun-arity-pairs (path ctx fun-arity-pairs imports)
+  (lists/foreach (fn (fun-arity)
+                     (case fun-arity
+                       ({fun arity}
+                        (case (lists/any (fn (import)
+                                             (case import
+                                               ({{_ arity} fun}
+                                                :true)
+                                               (_
+                                                :false))) imports)
+                          (:true :ok)
+                          (:false
+                           (add-error-ctx ctx path {:invalid-use :non-existant-fun-name {fun arity}}))))))
+                 fun-arity-pairs))
+
 (defn filter-imports-to-onlys (path ctx target-funs imports0)
   (let* (fun-arity-pairs (gather-fun-arity-pairs path ctx target-funs '()))
-    (lists/foldl (fn (el acc)
-                     (case el
-                       ({fun arity}
-                        (let* (new-el {{fun arity} fun})
-                          (case (lists/member new-el imports0)
-                            (:true
-                             (new-el . acc))
-                            (:false
-                             (add-error-ctx ctx path {:invalid-use :non-existant-fun-name {fun arity}})
-                             acc))))))
-                 [] fun-arity-pairs)))
+    ;; check for fun-arity-pairs that doent actually exist
+    (check-for-invalid-fun-arity-pairs path ctx fun-arity-pairs imports0)
+    (lists/filter (fn (import)
+                      (case import
+                        ({{fun arity} alias}
+                         (lists/any (fn (fun-arity)
+                                        (case fun-arity
+                                          ({alias arity}
+                                           :true)
+                                          (_
+                                           :false))) fun-arity-pairs)))) imports0)))
 
 (defn exclude-specific-funs (path ctx excluded-funs imports0)
   (let* (fun-arity-pairs (gather-fun-arity-pairs path ctx excluded-funs []))
-    (lists/foldl (fn (el acc)
-                     (case el
-                       ({{fun arity} _}
-                        (let* (new-el {{fun arity} fun})
-                          (case (lists/member {fun arity} fun-arity-pairs)
-                            (:true
-                             acc)
-                            (:false
-                             (new-el . acc)))))))
-                 [] imports0)))
+    (check-for-invalid-fun-arity-pairs path ctx fun-arity-pairs imports0)
+    (lists/filter (fn (import)
+                      (case import
+                        ({{fun arity} alias}
+                         (lists/all (fn (fun-arity)
+                                        (case fun-arity
+                                          ({alias arity}
+                                           :false)
+                                          (_
+                                           :true))) fun-arity-pairs)))) imports0)))
 
 (defn rename-funs (path ctx renames imports0)
   (let* (fun-alias-pairs (gather-fun-alias-pairs path ctx renames []))
-    (lists/foldl (fn (el exports1)
-                     (case el
-                       ({{fun arity} alias}
-                        (case (lists/keymember {fun arity} 1 exports1)
-                          (:true
-                           (lists/keyreplace {fun arity} 1 exports1
-                                             {{fun arity} alias}))
-                          (:false
-                           (add-error-ctx ctx path {:renamed-fun-does-not-exist {fun arity}}))))))
-                 imports0 fun-alias-pairs)))
+    (lists/map (fn (import)
+                   (case import
+                     ({{fun arity} alias}
+                      (case (ec-lists/search (fn (el)
+                                                 (case el
+                                                   ({{alias arity} new-alias}
+                                                    {:ok new-alias})
+                                                   (_
+                                                    :not_found)))
+                                             fun-alias-pairs)
+                        ({:ok new-alias _}
+                         {{fun arity} new-alias})
+                        (:not_found
+                         import))))) imports0)))
 
 (defn handle-use-clauses (path ctx forms namespace-name imports0)
   (case forms
@@ -1988,36 +2029,36 @@
                                           ({{fun arity} alias}
                                            {{fun arity} (joxify-name alias)})))
                                     imports0)))
-    (('(quote as) . (alias-name . rest))
-     (add-alias-ctx ctx alias-name namespace-name)
-     (handle-use-clauses path ctx rest namespace-name imports0))
     (('(quote only) . (target-funs . rest))
      (when (and (erlang/is_atom namespace-name)
-                (erlang/is_list target-funs)))
+                (is-list target-funs)))
      (let* (imports1 (filter-imports-to-onlys path ctx target-funs imports0))
        (handle-use-clauses path ctx rest namespace-name imports1)))
     (('(quote exclude) . (target-funs . rest))
      (when (and (erlang/is_atom namespace-name)
-                (erlang/is_list target-funs)))
+                (is-list target-funs)))
      (let* (imports1 (exclude-specific-funs path ctx target-funs imports0))
        (handle-use-clauses path ctx rest namespace-name imports1)))
     (('(quote rename) . (target-funs . rest))
      (when (and (erlang/is_atom namespace-name)
-                (erlang/is_list target-funs)))
+                (is-list target-funs)))
      (let* (imports1 (rename-funs path ctx target-funs imports0))
        (handle-use-clauses path ctx rest namespace-name imports1)))
-    (probably-more-uses
-     (make-use path ctx probably-more-uses namespace-name imports0))))
-
-(defn namespace-exists? (mod-name)
-  (case (code/ensure_loaded mod-name)
-    ({:module _}
-     :true)
-    ({:error :embedded}
-     :true)
-    ({:error :native_code}
-     :true)
     (_
+     (add-error-ctx ctx path {:invalid-use-clause {:bad-use-part forms}}))))
+
+(defn namespace-exists? (ctx mod-name)
+  (try*
+   (case (code/ensure_loaded mod-name)
+     ({:module _}
+      :true)
+     ({:error :embedded}
+      :true)
+     ({:error :native_code}
+      :true)
+     (_
+      :false))
+   (catch (_type _body)
      :false)))
 
 ;; Use Parsing and Compilation
@@ -2027,7 +2068,7 @@
      (populate-use-into-context ctx namespace-name imports))
     (((use-namespace-name . clause-body) . rest)
      (when (erlang/is_atom use-namespace-name))
-     (case (namespace-exists? use-namespace-name)
+     (case (namespace-exists? ctx use-namespace-name)
        (:true
         (let* (imports (get-exports use-namespace-name))
           (add-require-ctx ctx use-namespace-name)
@@ -2063,7 +2104,7 @@
     (new-namespace-name
      (when (erlang/and (erlang/is_atom new-namespace-name)
                        (erlang/== namespace-name :undefined)))
-     (case (namespace-exists? new-namespace-name)
+     (case (namespace-exists? ctx new-namespace-name)
        (:true
         (add-require-ctx ctx new-namespace-name)
         ctx)
@@ -2075,7 +2116,7 @@
     ((new-namespace-name . rest)
      (when (erlang/and (erlang/is_atom namespace-name)
                        (erlang/== namespace-name :undefined)))
-     (case (namespace-exists? new-namespace-name)
+     (case (namespace-exists? ctx new-namespace-name)
        (:true
         (add-require-ctx ctx new-namespace-name)
         (handle-require-clause (incr-path path0) ctx new-namespace-name rest))
@@ -2193,27 +2234,39 @@
                       arg
                       (args-to-list rest)))))
 
-(defn args-to-arity (args0 count arity acc)
+(defn called->rest (args0 count arity acc)
   (case args0
     ([]
-     (lists/reverse acc))
+     (case acc
+       ([]
+        ;; This is a special case to handle issues when a rest arg of
+        ;; 1 is called.
+        [(cerl/ann_c_nil [:compiler_generated])])
+       (_
+        (lists/reverse acc))))
     ((arg . rest)
      (case (erlang/< count arity)
        (:true
-         (args-to-arity rest (erlang/+ count 1) arity (arg . acc)))
+         (called->rest rest (erlang/+ count 1) arity (arg . acc)))
         (:false
-         (args-to-arity [] 0 arity ((args-to-list args0) . acc)))))))
+         (called->rest [] 0 arity ((args-to-list args0) . acc)))))))
 
-(defn runtime-args-to-arity (args0 count arity acc)
+(defn runtime-called->rest (args0 count arity acc)
   (case args0
     ([]
-     (lists/reverse acc))
+     (case acc
+       ([]
+        ;; This is a special case to handle issues when a rest arg of
+        ;; 1 is called.
+        [[]])
+       (_
+        (lists/reverse acc))))
     ((arg . rest)
      (case (erlang/< count arity)
        (:true
-         (runtime-args-to-arity rest (erlang/+ count 1) arity (arg . acc)))
+        (runtime-called->rest rest (erlang/+ count 1) arity (arg . acc)))
         (:false
-        (lists/reverse (args0 . acc)))))))
+         (runtime-called->rest [] count arity (args0 . acc)))))))
 
 (defn eval-args (path0 ctx args0)
   (case (lists/foldl (fn (arg acc0)
@@ -2240,17 +2293,17 @@
 (defn gensym-body ()
   (let* (x (erlang/phash2 {(erlang/node) (erlang/now) (crypto/rand_bytes 16)}))
     (lists/map (fn (el)
-                   (io_lib/format "~.16B" [el]))
+                   (io-lib/format "~.16B" [el]))
                (erlang/binary_to_list
                 (binary/encode_unsigned x)))))
 
 (defn+ gensym ()
     (erlang/list_to_atom
-     (lists/flatten (io_lib/format "#:G~s" [(gensym-body)]))))
+     (lists/flatten (io-lib/format "#:G~s" [(gensym-body)]))))
 
 (defn+ gensym (prefix)
     (erlang/list_to_atom
-     (lists/flatten (io_lib/format "#:|~s~s|" [prefix (gensym-body)]))))
+     (lists/flatten (io-lib/format "#:|~s~s|" [prefix (gensym-body)]))))
 
 (defn is-rest-var? (var)
   (let* (annots (cerl/get_ann var))
@@ -2269,7 +2322,7 @@
     ({:rest arity}
      (cerl/ann_c_apply annots
                        cerl-var
-                       (args-to-arity arg-list 1 arity [])))
+                       (called->rest arg-list 1 arity [])))
     (_
      (cerl/ann_c_apply annots
                              cerl-var
@@ -2290,7 +2343,7 @@
             (cerl/ann_c_call annots
                              (cerl/ann_c_atom annots namespace)
                              (cerl/ann_c_atom annots function)
-                             (args-to-arity arg-list 1 arity [])))
+                             (called->rest arg-list 1 arity [])))
            ({:apply :not-rest _ {function arity}}
             (add-fun-dep-ctx ctx function arity)
             (cerl/ann_c_apply annots
@@ -2300,7 +2353,7 @@
             (add-fun-dep-ctx ctx function arity)
             (cerl/ann_c_apply annots
                               (cerl/ann_c_fname annots function arity)
-                              (args-to-arity arg-list 1 arity [])))
+                              (called->rest arg-list 1 arity [])))
            ({:reference {val _}}
             (make-rest-apply-var ctx annots val arg-list))
            (:not-a-reference
@@ -2320,7 +2373,7 @@
     (cerl/ann_c_fun annots arg-list
                      (cerl/ann_c_apply annots
                                      f-var
-                                     (args-to-arity arg-list 1 rest-arity [])))))
+                                     (called->rest arg-list 1 rest-arity [])))))
 
 (defn make-remote-rest-fun (ctx namespace function arity rest-arity)
   (let* (arg-list (lists/map (fn (_)
@@ -2333,7 +2386,7 @@
                     (cerl/ann_c_call annots
                                      (cerl/ann_c_atom annots namespace)
                                      (cerl/ann_c_atom annots function)
-                                     (args-to-arity arg-list 1 rest-arity [])))))
+                                     (called->rest arg-list 1 rest-arity [])))))
 
 
 (defn make-fun (path0 ctx form)
@@ -2393,13 +2446,14 @@
              cerl-t (make-list (incr-path path0)  ctx t))
          (cerl/ann_c_cons annots cerl-h cerl-t))))))
 
-(defn call-macro (path ctx namespace function args)
+(defn call-macro (path ctx namespace function args continuation)
   (try*
-   (erlang/apply namespace function args)
+   (continuation (erlang/apply namespace function args))
    (catch (type body)
-     (add-error-r-nil-ctx ctx path {:macro-failure {namespace function
-                                                              (erlang/length args)}
-                                                   {type body}}))))
+     (add-error-r-nil-ctx ctx path
+                          {:macro-failure {namespace function
+                                                     (erlang/length args)}
+                                          {type body (erlang/get-stacktrace)}}))))
 
 ;; We auto require anything required by the namespace exporting the
 ;; macro. The reduces by quite a bit the confusion involved in using
@@ -2420,74 +2474,77 @@
           call-annots (annots-from-context [] path1 ctx))
       (case (resolve-reference-ctx path0 ctx val possible-arity)
         ({:apply :not-rest :macro {function arity}}
-            (make-expr path0 ctx
-                       (call-macro path0 ctx (namespace-name-ctx ctx) function args)))
-           ({:apply :rest :macro {function arity}}
-            (make-expr path0 ctx
-                       (call-macro path0 ctx (namespace-name-ctx ctx) function
-                                   (runtime-args-to-arity args 1 arity []))))
-           ({:remote :not-rest :macro {namespace function arity}}
-            (auto-require ctx namespace)
-            (make-expr path0 ctx
-                       (call-macro path0 ctx namespace function
-                                              args)))
-           ({:remote :rest :macro {namespace function arity}}
-            (auto-require ctx namespace)
-            (make-expr path0 ctx
-                       (call-macro path0 ctx namespace function
-                                   (runtime-args-to-arity args 1 arity []))))
-           (ref
-            (let* (arg-list (eval-args (incr-path path0) ctx args))
-              (case ref
+         (call-macro path0 ctx (namespace-name-ctx ctx) function args
+                     (fn (expr)
+                         (make-expr (suspend path0) ctx expr))))
+        ({:apply :rest :macro {function arity}}
+         (call-macro path0 ctx (namespace-name-ctx ctx) function
+                     (runtime-called->rest args 1 arity [])
+                     (fn (expr)
+                         (make-expr (suspend path0) ctx expr))))
+        ({:remote :not-rest :macro {namespace function arity}}
+         (auto-require ctx namespace)
+         (call-macro path0 ctx namespace function args
+                     (fn (expr)
+                         (make-expr (suspend path0) ctx expr))))
+        ({:remote :rest :macro {namespace function arity}}
+         (auto-require ctx namespace)
+         (call-macro path0 ctx namespace function
+                     (runtime-called->rest args 1 arity [])
+                     (fn (expr)
+                         (make-expr (suspend path0) ctx expr))))
+        (ref
+         (let* (arg-list (eval-args (incr-path path0) ctx args))
+           (case ref
+             ({:reference {var _}}
+              (when (erlang/== :false macro-only?))
+              (make-rest-apply-var ctx annots (add-to-annots var annots) arg-list))
+             ({:apply :not-rest _ {name arity}}
+              (when (erlang/== :false macro-only?))
+              (add-fun-dep-ctx ctx name arity)
+              (cerl/ann_c_apply annots
+                                (cerl/ann_c_fname call-annots
+                                                  name
+                                                  arity)
+                                arg-list))
+             ({:apply :rest _ {name arity}}
+              (when (erlang/== :false macro-only?))
+              (add-fun-dep-ctx ctx name arity)
+              (cerl/ann_c_apply annots
+                                (cerl/ann_c_fname call-annots
+                                                  name
+                                                  arity)
+                                (called->rest arg-list 1 arity [])))
+             ({:remote :not-rest _ {namespace function possible-arity}}
+              (when (erlang/== :false macro-only?))
+              (cerl/ann_c_call annots
+                               (cerl/ann_c_atom call-annots
+                                                namespace)
+                               (cerl/ann_c_atom call-annots
+                                                function)
+                               arg-list))
+             ({:remote :rest _ {namespace function arity}}
+              (when (erlang/== :false macro-only?))
+              (cerl/ann_c_call annots
+                               (cerl/ann_c_atom call-annots
+                                                namespace)
+                               (cerl/ann_c_atom call-annots
+                                                function)
+                               (called->rest arg-list 1 arity [])))
+             ({:error error}
+              (add-error-r-nil-ctx ctx path0 error))
+             (:not-a-reference
+              (when (erlang/and (erlang/== :false macro-only?)
+                                (is-list val)))
+              (let* (cerl-val (make-expr (traverse-path path0) ctx val))
+                (make-rest-apply-var ctx annots (add-to-annots cerl-val annots) arg-list)))
+             (:not-a-reference
+              (when (erlang/== :false macro-only?))
+              (case (resolve-reference-ctx path0 ctx val -1)
                 ({:reference {var _}}
-                 (when (erlang/== :false macro-only?))
                  (make-rest-apply-var ctx annots (add-to-annots var annots) arg-list))
-                ({:apply :not-rest _ {name arity}}
-                 (when (erlang/== :false macro-only?))
-                 (add-fun-dep-ctx ctx name arity)
-                 (cerl/ann_c_apply annots
-                                   (cerl/ann_c_fname call-annots
-                                                     name
-                                                     arity)
-                                   arg-list))
-                ({:apply :rest _ {name arity}}
-                 (when (erlang/== :false macro-only?))
-                 (add-fun-dep-ctx ctx name arity)
-                 (cerl/ann_c_apply annots
-                                   (cerl/ann_c_fname call-annots
-                                                     name
-                                                     arity)
-                                   (args-to-arity arg-list 1 arity [])))
-                ({:remote :not-rest _ {namespace function possible-arity}}
-                 (when (erlang/== :false macro-only?))
-                 (cerl/ann_c_call annots
-                                   (cerl/ann_c_atom call-annots
-                                                    namespace)
-                                   (cerl/ann_c_atom call-annots
-                                                    function)
-                                   arg-list))
-                ({:remote :rest _ {namespace function arity}}
-                 (when (erlang/== :false macro-only?))
-                 (cerl/ann_c_call annots
-                                  (cerl/ann_c_atom call-annots
-                                                   namespace)
-                                  (cerl/ann_c_atom call-annots
-                                                   function)
-                                  (args-to-arity arg-list 1 arity [])))
-                ({:error error}
-                 (add-error-r-nil-ctx ctx path0 error))
-                (:not-a-reference
-                 (when (erlang/and (erlang/== :false macro-only?)
-                                   (erlang/is_list val)))
-                 (let* (cerl-val (make-expr (traverse-path path0) ctx val))
-                   (make-rest-apply-var ctx annots (add-to-annots cerl-val annots) arg-list)))
-                (:not-a-reference
-                 (when (erlang/== :false macro-only?))
-                 (case (resolve-reference-ctx path0 ctx val -1)
-                   ({:reference {var _}}
-                    (make-rest-apply-var ctx annots (add-to-annots var annots) arg-list))
-                    (_
-                     (add-error-r-nil-ctx ctx path0 {:invalid-reference {val possible-arity}})))))))))))
+                (_
+                 (add-error-r-nil-ctx ctx path0 {:invalid-reference {val possible-arity}})))))))))))
 
 (defn make-macroexpand-1 (path0 ctx val args)
   (let* (annots (annots-from-context [] path0 ctx)
@@ -2512,7 +2569,7 @@
                                            function
                                            arity)
                          (process-args
-                          (runtime-args-to-arity args 1 arity []))))
+                          (runtime-called->rest args 1 arity []))))
       ({:remote :not-rest :macro {namespace function arity}}
        (cerl/ann_c_call annots
                         (cerl/ann_c_atom call-annots
@@ -2527,7 +2584,7 @@
                         (cerl/ann_c_atom call-annots
                                          function)
 
-                        (process-args (runtime-args-to-arity args 1 arity []))))
+                        (process-args (runtime-called->rest args 1 arity []))))
       (_
        (add-error-r-nil-ctx ctx path1 {:not-a-macro
                                        {val possible-arity}})))))
@@ -2629,7 +2686,7 @@
      (convert-bitstring ctx path rest (set-bitstring :size value bitstring)))
     (([:quote :unit] . (value . rest))
      (convert-bitstring ctx path rest (set-bitstring :unit value bitstring)))
-    (([:qute :little] . rest)
+    (([:quote :little] . rest)
      (convert-bitstring ctx path rest (set-bitstring :endianness :little bitstring)))
     (([:quote :big] . rest)
      (convert-bitstring ctx path rest (set-bitstring :endianness :big bitstring)))
@@ -3013,7 +3070,7 @@
 (defn make-pattern-element (path0 ctx guards0 arg0)
   (let* (annots (annots-from-context [] path0 ctx))
     (case arg0
-      (arg0 (when (erlang/is_binary arg0))
+      (arg0 (when (is-binary arg0))
             {guards0 (cerl/ann_make_data annots {:atomic arg0} [])})
       (:_
        (let* (gensym (erlang/list_to_atom (lists/append "_"
@@ -3078,24 +3135,28 @@
       ((var . args)
        (case (resolve-reference-ctx path0 ctx var (erlang/length args))
          ({:apply :not-rest :macro {function arity}}
-          (make-pattern-element path0 ctx guards0
-                                (call-macro path0 ctx (namespace-name-ctx ctx)
-                                            function
-                                            args)))
+          (call-macro path0 ctx (namespace-name-ctx ctx)
+                      function
+                      args
+                      (fn (pat)
+                          (make-pattern-element (suspend path0) ctx guards0 pat))))
          ({:apply :rest :macro {function arity}}
-          (make-pattern-element path0 ctx guards0
-                                (call-macro path0 ctx (namespace-name-ctx ctx) function
-                                            (runtime-args-to-arity args 1 arity []))))
+          (call-macro path0 ctx (namespace-name-ctx ctx) function
+                      (runtime-called->rest args 1 arity [])
+                      (fn (pat)
+                          (make-pattern-element (suspend path0) ctx guards0 pat))))
          ({:remote :not-rest :macro {namespace function arity}}
           (auto-require ctx namespace)
-          (make-pattern-element path0 ctx guards0
-                                (call-macro path0 ctx namespace function
-                                            args)))
+           (call-macro path0 ctx namespace function
+                       args
+                       (fn (pat)
+                           (make-pattern-element (suspend path0) ctx guards0 pat))))
          ({:remote :rest :macro {namespace function arity}}
           (auto-require ctx namespace)
-          (make-pattern-element path0 ctx guards0
-                                (call-macro path0 ctx namespace function
-                                            (runtime-args-to-arity args 1 arity []))))
+          (call-macro path0 ctx namespace function
+                      (runtime-called->rest args 1 arity [])
+                      (fn (pat)
+                          (make-pattern-element (suspend path0) ctx guards0 pat))))
          (_
           (add-error-r-nil-ctx ctx path0 :invalid-definition))))
       (_
@@ -3177,35 +3238,43 @@
        (add-error-r-nil-ctx ctx path0 :invalid-arg-list)
        {(lists/reverse acc) :false}))))
 
-(defn do-function-body (path0 ctx is-anon name args0 expressions)
+(defn do-function-body (path0 ctx is-anon name args0 expressions0)
   (push-scope-ctx ctx)
   ;; Add all of the args to the current scope
-  (lists/foreach (fn (arg)
-                     (case arg
-                       (_ (when (erlang/is_atom arg))
-                          (add-reference-to-scope-ctx path0 ctx arg -1 (cerl/c_var arg)))
-                       (else
-                        (add-error-ctx ctx path0 {:arg-is-not-proper-name else}))))
-                 args0)
-  (let* (arg-detail (gen-args (traverse-path path0) ctx args0 []))
-    ;; Correctly setup forward declarations
-    (case {is-anon arg-detail}
-      ({:true {arg-list :true}}
-       (let* (index (anon-fun-index-ctx ctx))
-         (add-rest-ctx path0 ctx {:anon index} (erlang/length arg-list))))
-      ({:false {arg-list :true}}
-       (add-rest-ctx path0 ctx name (erlang/length arg-list)))
-      ({:true {arg-list :false}}
-       (incr-fun-index-ctx ctx))
-      ({:false {arg-list :false}}
-       ;; predefine the function so it can be used recursively
-       (add-def-ctx path0 ctx [] name arg-list :undefined :ephemeral)))
-    ;; go ahead and compile the body
-    (case arg-detail
-      ({arg-list _}
-       (let* (result (make-seq (incr-path path0) ctx expressions))
-         (pop-scope-ctx ctx)
-         {arg-list result})))))
+    (lists/foreach (fn (arg)
+                       (case arg
+                         (_ (when (erlang/is_atom arg))
+                            (add-reference-to-scope-ctx path0 ctx arg -1 (cerl/c_var arg)))
+                         (else
+                          (add-error-ctx ctx path0 {:arg-is-not-proper-name else}))))
+                   args0)
+    (let* (arg-detail (gen-args (traverse-path path0) ctx args0 []))
+      ;; Correctly setup forward declarations
+      (case {is-anon arg-detail}
+        ({:true {arg-list :true}}
+         (let* (index (anon-fun-index-ctx ctx))
+           (add-rest-ctx path0 ctx {:anon index} (erlang/length arg-list))))
+        ({:false {arg-list :true}}
+         (add-rest-ctx path0 ctx name (erlang/length arg-list)))
+        ({:true {arg-list :false}}
+         (incr-fun-index-ctx ctx))
+        ({:false {arg-list :false}}
+         ;; predefine the function so it can be used recursively
+         (add-def-ctx path0 ctx [] name arg-list :undefined :ephemeral)))
+      (case arg-detail
+        ({arg-list _}
+         ;; Here we do something a bit different if there is a
+         ;; docstring verses no docstring.
+         (case expressions0
+           (([:string docstring] . expressions1)
+            (when (erlang/is_list docstring))
+            (let* (result (make-seq (incr-path 2 path0) ctx expressions1))
+              (pop-scope-ctx ctx)
+              {arg-list result}))
+           (_
+            (let* (result (make-seq (incr-path path0) ctx expressions0))
+              (pop-scope-ctx ctx)
+              {arg-list result})))))))
 
 (defn make-quasi-tuple (path0 ctx arg0)
   (let* (annots  (annots-from-context [] path0 ctx)
@@ -3224,7 +3293,7 @@
   (let* (annots  (annots-from-context [] path0 ctx))
     (case arg0
       (arg1
-       (when (erlang/is_binary arg1))
+       (when (is-binary arg1))
        (cerl/ann_make_data annots {:atomic arg1} []))
       (arg1
        (when (erlang/is_atom arg1))
@@ -3239,9 +3308,9 @@
        (when (erlang/is_float arg1))
         (cerl/ann_c_float annots arg1))
       ([:unquote arg1]
-       (make-expr (traverse-incr-path path0) ctx arg1))
+       (make-expr (incr-path (traverse-path path0)) ctx arg1))
       (arg1
-       (when (erlang/is_list arg1))
+       (when (is-list arg1))
        (make-quasi (traverse-path path0) ctx arg1)))))
 
 (defn make-quasi (path0 ctx arg0)
@@ -3250,15 +3319,15 @@
       ([]
        (cerl/ann_c_nil annots))
       (([:unquote-splicing arg1] . t)
-       (let* (cerl-h (make-expr (traverse-incr-path (traverse-path path0)) ctx arg1)
-             cerl-t (make-quasi (incr-path path0) ctx t))
+       (let* (cerl-h (make-expr (incr-path (traverse-path path0))  ctx arg1)
+              cerl-t (make-quasi (incr-path path0) ctx t))
          (cerl/ann_c_call annots
                           (cerl/ann_c_atom annots :lists)
                           (cerl/ann_c_atom annots :append)
                           [cerl-h cerl-t])))
       ((h . t)
-       (let* (cerl-h (make-quasi-element (traverse-path path0) ctx h)
-             cerl-t (make-quasi (incr-path path0) ctx t))
+       (let* (cerl-h (make-quasi-element path0 ctx h)
+              cerl-t (make-quasi (incr-path path0) ctx t))
          (cerl/ann_c_cons annots
                           cerl-h
                           cerl-t)))
@@ -3268,7 +3337,7 @@
 (defn make-expr (path0 ctx form)
   (let* (annots (annots-from-context [] path0 ctx))
     (case form
-      (arg (when (erlang/is_binary arg))
+      (arg (when (is-binary arg))
            (cerl/ann_make_data annots {:atomic arg} []))
       (arg (when (erlang/is_integer arg))
            (cerl/ann_c_int annots arg))
@@ -3452,7 +3521,7 @@
       ([args]
        {:list line1 (make-spec-literal (traverse-path path0) ctx args)})
       (arg1
-       (when (erlang/is_list arg1))
+       (when (is-list arg1))
        (let* (specs (lists/foldl (fn (el acc0)
                                     (case acc0
                                       ({path1 acc1}
@@ -3573,13 +3642,13 @@
   (case form
     ([:deftype+ name args expression]
      (when (erlang/and (erlang/is_atom name)
-                       (erlang/is_list args)))
+                       (is-list args)))
      (let* (arity (erlang/length args))
        (add-type-export-ctx ctx name arity)
        (def-top-level-function-spec (incr-path path0) ctx name args expression)))
     ([:deftype name args expression]
      (when (erlang/and (erlang/is_atom name)
-                       (erlang/is_list args)))
+                       (is-list args)))
      (make-implicit-spec (incr-path path0) ctx name args expression))
     ([:defspec name args expression]
      (make-implicit-spec (incr-path path0) ctx name args expression))
@@ -3596,7 +3665,7 @@
 (defn make-function (path0 ctx form)
   (case form
     ((name . (args . expressions))
-     (when (and (erlang/is_list args)
+     (when (and (is-list args)
                 (erlang/is_atom name)))
      (make-function1 path0 ctx name args expressions))
     (_
@@ -3647,24 +3716,28 @@
       ((var . args)
        (case (resolve-reference-ctx path0 ctx var (erlang/length args))
          ({:apply :not-rest :macro {function arity}}
-          (make-forms path0 ctx
-                     (call-macro path0 ctx (namespace-name-ctx ctx) function args)))
+          (call-macro path0 ctx (namespace-name-ctx ctx) function args
+                      (fn (form)
+                          (make-forms (suspend path0) ctx form))))
          ({:apply :rest :macro {function arity}}
-          (make-forms path0 ctx
-                     (call-macro path0 ctx (namespace-name-ctx ctx) function
-                                 (runtime-args-to-arity args 1 arity []))))
+          (call-macro path0 ctx (namespace-name-ctx ctx) function
+                      (runtime-called->rest args 1 arity [])
+                      (fn (form)
+                          (make-forms (suspend path0) ctx form))))
          ({:remote :not-rest :macro {namespace function arity}}
           (auto-require ctx namespace)
-          (make-forms path0 ctx
-                     (call-macro path0 ctx namespace function
-                                  args)))
+          (call-macro path0 ctx namespace function
+                      args
+                      (fn (form)
+                          (make-forms (suspend path0) ctx form))))
          ({:remote :rest :macro {namespace function arity}}
           (auto-require ctx namespace)
-          (make-forms path0 ctx
-                     (call-macro path0 ctx namespace function
-                                 (runtime-args-to-arity args 1 arity []))))
+          (call-macro path0 ctx namespace function
+                      (runtime-called->rest args 1 arity [])
+                      (fn (form)
+                          (make-forms (suspend path0) ctx form))))
          (_
-          (add-error-ctx ctx path0 {:invalid-definition-or-macro var}))))
+          (add-error-ctx ctx path0 {:invalid-definition-or-macro form}))))
       (_
        (add-error-ctx ctx path0 :invalid-definition)))))
 
@@ -3692,7 +3765,7 @@
   (let* (annots  (annots-from-context [] path0 ctx))
     (case arg0
       (arg1
-       (when (erlang/is_binary arg1))
+       (when (is-binary arg1))
        (cerl/ann_make_data annots {:atomic arg1} []))
       (arg1
        (when (erlang/is_atom arg1))
@@ -3709,7 +3782,7 @@
       ([:string str1]
        (make-literal-string (traverse-incr-path path0) annots ctx str1))
       (arg1
-       (when (erlang/is_list arg1))
+       (when (is-list arg1))
        (make-literal-list path0 annots ctx arg1)))))
 
 (defn+ make-forms (path0 ctx form0)
@@ -3797,11 +3870,11 @@
     (:final
      (case (lists/member :to_core (options-ctx ctx))
        (:true
-        [(core_pp/format cerl-ast) \\n])
+        [(core-pp/format cerl-ast) \\n])
        (:false
         (case (lists/member :to_ast (options-ctx ctx))
           (:true
-           (io_lib/format "~p" [cerl-ast]))
+           (io-lib/format "~p" [cerl-ast]))
           (_
            (case (compile/forms cerl-ast
                                 (compile-options ctx type))
@@ -3890,7 +3963,7 @@
                                     (case req-info
                                       ({{mod _ _} _}
                                        (mod . acc))))
-                                [] (ec_dictionary/to_list (requires-ctx ctx))))))
+                                [] (ec-dictionary/to-list (requires-ctx ctx))))))
     (cerl/ann_c_clause [:compiler_generated]
                        [(cerl/ann_c_atom annots :requires)]
                        (cerl/ann_c_atom annots :true)
@@ -3899,7 +3972,7 @@
 
 (defn make-joxa-info-use-1 (ctx)
   (let* (annots [:compiler_generated]
-        uses (ec_dictionary/to_list (uses-ctx ctx)))
+        uses (ec-dictionary/to-list (uses-ctx ctx)))
     (cerl/ann_c_clause [:compiler_generated]
                        [(cerl/ann_c_atom annots :uses)]
                        (cerl/ann_c_atom annots :true)
@@ -4049,7 +4122,7 @@
 
 (defn compile-types (ctx)
   (let* (exported-types (sets/to_list (type-exports-ctx ctx))
-        all-types (ec_dictionary/to_list (types-ctx ctx)))
+        all-types (ec-dictionary/to-list (types-ctx ctx)))
     ({(cerl/c_atom :export_type) (cerl/make_data {:atomic exported-types} [])} .
      (lists/map (fn (el)
                     (case el
@@ -4173,37 +4246,37 @@
 (defn format-fun-ref (ref)
   (case ref
     ({:--fun name function}
-     (io_lib/format "~s/~s" [name function]))
+     (io-lib/format "~s/~s" [name function]))
     ({:--fun namespace function arity}
-     (io_lib/format "~s/~s/~p" [namespace function arity]))
+     (io-lib/format "~s/~s/~p" [namespace function arity]))
     ({:reference {var -1}}
-     (io_lib/format "~s" [var]))
+     (io-lib/format "~s" [var]))
     ({:reference {var arity}}
-     (io_lib/format "~s/~p" [var arity]))
+     (io-lib/format "~s/~p" [var arity]))
     (_
-     (io_lib/format "~p" [ref]))))
+     (io-lib/format "~p" [ref]))))
 
 (defn format-detail (message)
   (case message
     ({:invalid-reference :not-a-reference ref}
-     (io_lib/format "reference does not exist: ~s" [ref]))
+     (io-lib/format "reference does not exist: ~s" [ref]))
     ({:invalid-reference ref arity}
-     (io_lib/format "invalid reference ~s/~p" [(format-fun-ref ref) arity]))
+     (io-lib/format "invalid reference ~s/~p" [(format-fun-ref ref) arity]))
     ({:invalid-use :invalid-fun-spec inv-f}
-     (io_lib/format "invalid use declaration: invalid function reference (~p)"
+     (io-lib/format "invalid use declaration: invalid function reference (~p)"
                     [inv-f]))
     ({:invalid-use :invalid-fun-spec}
      "invalid use declaration: invalid function reference")
     ({:invalid-use :non-existant-fun-name {fun arity}}
-     (io_lib/format "invalid use declaration: function does not exist ~s/~p"
+     (io-lib/format "invalid use declaration: function does not exist ~s/~p"
                     [fun arity]))
     ({:invalid-use-clause {:bad-namespace use-namespace-name}}
-     (io_lib/format "invalid use declaration: bad namespace name ~s"
+     (io-lib/format "invalid use declaration: bad namespace name ~p"
                     [use-namespace-name]))
     (:invalid-attr-clause
      "invalid attribute clause")
     ({:invalid-require-clause {:bad-namespace namespace-name}}
-     (io_lib/format "invalid require declaration: bad namespace name ~s"
+     (io-lib/format "invalid require declaration: bad namespace name ~p"
                     [namespace-name]))
     ({:invalid-require-clause _}
       "invalid require declaration")
@@ -4213,20 +4286,22 @@
      "invalid namespace declaration")
     (:invalid-sequence
      "invalid sequence")
+    ({:invalid-use-clause {:bad-use-part forms}}
+     (io-lib/format "invalid use clause ~p" [forms]))
     ({:invalid-reference {f -1}}
-     (io_lib/format "invalid reference ~s" [(format-fun-ref f) ]))
+     (io-lib/format "invalid reference ~s" [(format-fun-ref f) ]))
     ({:invalid-reference {f a}}
-     (io_lib/format "invalid reference ~s/~p" [(format-fun-ref f) a]))
+     (io-lib/format "invalid reference ~s/~p" [(format-fun-ref f) a]))
     ({:undefined-reference ref}
-     (io_lib/format "invalid reference ~s" [(format-fun-ref ref)]))
+     (io-lib/format "invalid reference ~s" [(format-fun-ref ref)]))
     ({:invalid-reference form}
-     (io_lib/format "invalid reference (~p)" [form]))
+     (io-lib/format "invalid reference (~p)" [form]))
     ({:arg-is-not-proper-name form}
-     (io_lib/format "argument is not a proper reference name (~p)" [form]))
+     (io-lib/format "argument is not a proper reference name (~p)" [form]))
     ({:function-exists fun-name arity}
-     (io_lib/format "~p/~p already exists" [fun-name arity]))
+     (io-lib/format "~p/~p already exists" [fun-name arity]))
     ({:not-a-macro {ref arity}}
-     (io_lib/format "not a macro ~s called with ~p args" [(format-fun-ref ref) arity]))
+     (io-lib/format "not a macro ~s called with ~p args" [(format-fun-ref ref) arity]))
     (:invalid-receive
      "invalid receive clause")
     ({:invalid-try-expression}
@@ -4242,20 +4317,20 @@
     (:invalid-guard
      "invalid guard expression")
     ({:reference-already-defined ref}
-     (io_lib/format "reference already defined ~s" [(format-fun-ref ref)]))
+     (io-lib/format "reference already defined ~s" [(format-fun-ref ref)]))
     ({:invalid-definition-or-macro name}
-     (io_lib/format "invalid definition or macro (~s)" [(format-fun-ref name)]))
+     (io-lib/format "invalid definition or macro (~s)" [(format-fun-ref name)]))
     ({:renamed-fun-does-not-exist {fun arity}}
-     (io_lib/format "function ~p/~p defined in rename does not exist" [fun arity]))
+     (io-lib/format "function ~p/~p defined in rename does not exist" [fun arity]))
     ({:macro-failure {namespace function arity} error-info}
-     (io_lib/format "error during evaluation of macro ~p/~p/~p: (~p)" [namespace function arity
+     (io-lib/format "error during evaluation of macro ~p/~p/~p: (~p)" [namespace function arity
                                                                                  error-info]))
     (:invalid-definition
      "invalid definition")
     (:invalid-pattern
      "invalid guard pattern")
     (_
-     (io_lib/format "~p" [message]))))
+     (io-lib/format "~p" [message]))))
 
 (defn print-erl-errors-or-warnings (errs)
   (lists/foreach (fn (err)
@@ -4434,13 +4509,13 @@
 
 (defn+ info (input options)
   (case input
-    (_ (when (erlang/is_binary input))
+    (_ (when (is-binary input))
        (case (start-context)
          ({:ok ctx}
           (let* (result (info ctx input options))
             (stop-context ctx)
             result))))
-    (_ (when (erlang/is_list input))
+    (_ (when (is-list input))
      (case (file/read_file input)
        ({:ok binary}
         (info binary options))

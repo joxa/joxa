@@ -66,9 +66,15 @@ then([an,error,is,produced], Ctx, _) ->
     {ok, Ctx};
 then([that,error,is,in,the,error,list], Ctx, _) ->
     ErrorList = 'joxa-compiler':'get-context'(errors, Ctx),
-    ?assert(lists:keymember({'macro-failure',{'jxat-error-macro-test',test1,2},
-                             {error,'this-is-an-error'}}, 1,
-                            ErrorList)),
+    ?assert(lists:any(fun(Err) ->
+                              case Err of
+                                  {{'macro-failure',{'jxat-error-macro-test',test1,2},
+                                   {error,'this-is-an-error', _}}, _} ->
+                                      true;
+                                  _ ->
+                                      false
+                              end
+                      end, ErrorList)),
     {ok, Ctx};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch([{'--joxa-info',1},

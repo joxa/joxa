@@ -26,9 +26,13 @@ SRCBEAMS=$(BEAMDIR)/joxa-compiler.beam \
 	$(BEAMDIR)/joxa-assert.beam \
 	$(BEAMDIR)/joxa-eunit.beam \
 	$(BEAMDIR)/joxa-lists.beam \
+	$(BEAMDIR)/joxa-otp.beam \
+	$(BEAMDIR)/joxa-otp-gen-server.beam \
+	$(BEAMDIR)/joxa-sort-topo.beam \
+	$(BEAMDIR)/joxa-concurrent-compiler.beam \
+	$(BEAMDIR)/joxa-cc-wkr.beam \
 	$(BEAMDIR)/joxa.beam \
 	$(BEAMDIR)/joxa-build-support.beam \
-	$(BEAMDIR)/joxa-otp.beam \
 	$(BEAMDIR)/joxa-otp-application.beam \
 	$(BEAMDIR)/joxa-otp-supervisor.beam
 
