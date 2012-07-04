@@ -1,0 +1,96 @@
+;;; -*- mode: Joxa; fill-column: 80; comment-column: 75; -*-
+;;;  author Joe Armstrong
+;;;  author Eric Merritt
+;;;  This is a pretty simple topological sort for erlang. It
+;;;  was originally written for ermake by Joe Armstrong back in '98.
+;;;
+;;;  -type([{X, X}]) -&gt; {ok, [{X,Y}]} | {cycle, [{X,Y}]}
+;;;  topological_sort:pairs(L)
+;;;
+;;;  A partial order on the set S is a set of pairs {Xi,Xj} such that
+;;;  some relation between Xi and Xj is obeyed.
+;;;
+;;;  A topological sort of a partial order is a sequence of elements
+;;;  [X1, X2, X3 ...] such that if whenever {Xi, Xj} is in the partial
+;;;  order i &lt; j
+(ns joxa-sort-topo
+    (require joxa-eunit
+             joxa-assert
+             joxa-lists
+             lists)
+    (use (joxa-lists :only (map/2))
+         (joxa-core :only (if/3 let/2))
+         (erlang :only (not/1))))
+
+(defn lhs (l)
+  (map ({x _} l)
+       x))
+
+(defn rhs (l)
+  (map ({_ y} l)
+       y))
+
+(defn all (l)
+  (lists/append (lhs l) (rhs l)))
+
+(defn subtract (l1 l2)
+  "all the elements in L1 which are not in L2"
+  (lists/filter (fn (x)
+                    (not (lists/member x l2))) l1))
+
+(defn remove-duplicates (pairs)
+  "remove dups from the list."
+  (case pairs
+    ([] [])
+    ((h . t)
+     (if (lists/member h t)
+       (remove-duplicates t)
+       (h . (remove-duplicates t))))))
+
+(defn remove-pairs (l1 l2)
+  "removes all pairs from L2 where the first element
+   of each pair is a member of L1
+
+   L2' L1 = [X] L2 = [{X,Y}]."
+  (lists/filter (fn (val)
+                    (let ({x, _y} val)
+                      (not (lists/member x l1)))) l2))
+
+(defn iterate (pairs l all)
+  (case pairs
+    ([]
+     {:ok (remove-duplicates (lists/append l (subtract all l)))})
+    (_
+     (case (subtract (lhs pairs) (rhs pairs))
+       ([]
+        {:cycle pairs})
+       (lhs
+        (iterate (remove-pairs lhs pairs) (lists/append l lhs) all))))))
+
+(defn+ sort (pairs)
+  "Do a topological sort on the list of pairs."
+  (iterate pairs [] (all pairs)))
+
+;;
+;; Tests
+;; -----
+(defn+ topo-1_test ()
+  (let (pairs [{1 2} {2 4} {4 6} {2 10} {4 8} {6 3} {1 3}
+               {3 5} {5 8} {7 5} {7 9} {9 4} {9 10}])
+    (joxa-assert/assert-match {:ok  [1 7 2 9 4 6 3 5 8 10]}
+                      (sort pairs))))
+
+(defn+ topo-2_test ()
+  (let (pairs [{:app2 :app1} {:zapp1  :app1} {:stdlib  :app1}
+               {:app3 :app2} {:kernel  :app1} {:kernel  :app3}
+               {:app2 :zapp1} {:app3 :zapp1} {:zapp2  :zapp1}])
+    (joxa-assert/assert-match {:ok  [:stdlib :kernel :zapp2
+                                      :app3 :app2 :zapp1 :app1]}
+                       (sort pairs))))
+
+(defn+ topo-3_test ()
+  (let (pairs [{:app2  :app1}  {:app1  :app2}  {:stdlib  :app1}])
+    (joxa-assert/assert-match {:cycle  [{:app2  :app1}  {:app1  :app2}]}
+                 (sort pairs))))
+
+(joxa-eunit/testable)

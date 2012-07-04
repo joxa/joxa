@@ -4,9 +4,9 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,has,a,function,that,contains,'\'try\''], _State, _) ->
-     Source = <<"(module jxat-try-test
+     Source = <<"(ns jxat-try-test
                     (require erlang io
-                             (joxa.core :as core)))
+                             (joxa-core :as core)))
 
 
                 (defn+ try-test1()
@@ -38,16 +38,15 @@ given([a,module,that,has,a,function,that,contains,'\'try\''], _State, _) ->
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = joxa.compiler:forms(Source, []),
+    Result = 'joxa-compiler':forms(Source, []),
     {ok, Result}.
 
 then([a,beam,binary,is,produced], Ctx, _) ->
-    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx))),
-    ?assertMatch(false, joxa.compiler:'has-errors?'(Ctx)),
+    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(false, 'joxa-compiler':'has-errors?'(Ctx)),
     {ok, Ctx};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch('got-it', 'jxat-try-test':'try-test1'()),
     ?assertMatch('got-it', 'jxat-try-test':'try-test2'()),
     ?assertMatch(ok3, 'jxat-try-test':'try-test3'()),
     {ok, State}.
-

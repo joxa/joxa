@@ -2,16 +2,18 @@
 ;;; =============================
 ;;; * author: Eric Merritt
 ;;; * copyright: Erlware, LLC 2012
-(module joxa.otp.application
-        (require erlang joxa.otp)
-        (use (joxa.core :only (try/1 unless/2))))
+(ns joxa-otp-application
+    (require erlang
+             joxa-otp)
+    (use (joxa-core :only (try/1
+                           unless/2))))
 
 (defn+ gen-sup-call (sup-name)
   ;; Start a simple top level supervisor with the usual
   ;; defaults. *NOTE* that this function either returns a pid or
   ;; *throws* an exception with the error returned by start sup. You
   ;; should take this into account when calling this function.
-  (let (start-sup (erlang/make_fun sup-name :start_link 0))
+  (let* (start-sup (erlang/make_fun sup-name :start_link 0))
     (case (start-sup)
       ({:ok pid}
        pid)
@@ -22,18 +24,18 @@
   ;; This macro defines a start function that creates the common
   ;; 'start top level supervisor' call that exists in most
   ;; applications.
-  (let (start-type (joxa.core/gensym "application")
-        start-args (joxa.core/gensym "application"))
+  (let* (start-type (joxa-core/gensym "application")
+        start-args (joxa-core/gensym "application"))
     `(defn+ start (~start-type ~start-args)
        (try
-        {:ok (joxa.otp.application ~sup-name)}
+        {:ok (joxa-otp-application ~sup-name)}
         (catch
             ({:throw error}
              error))))))
 
 (defmacro+ gen-stop ()
   ;; Generate a default stop function for an application
-  (let (state (joxa.core/gensym "application"))
+  (let* (state (joxa-core/gensym "application"))
     `(defn+ stop (~state)
        :ok)))
 
@@ -47,6 +49,6 @@
 (defmacro+ application (module-name)
   ;; Ensure that the `module-name` implements the `application`
   ;; behaviour
-  (unless (joxa.otp/implements-behaviour? module-name :application)
+  (unless (joxa-otp/implements-behaviour? module-name :application)
     (erlang/throw {:does-not-implement-application module-name}))
   [])

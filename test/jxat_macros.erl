@@ -4,7 +4,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,contains,macros], _State, _) ->
-    Source = <<"(module jxat-macro-test
+    Source = <<"(ns jxat-macro-test
                     (require erlang))
 
                 (defmacro+ test1 (foo a)
@@ -42,14 +42,39 @@ given([a,module,that,contains,macros], _State, _) ->
                        (_
                           :other)))
 ">>,
+    {ok, Source};
+given([a,module,that,contains,a,macro,that,errors], _State, _) ->
+    Source = <<"(ns jxat-error-macro-test
+                    (require erlang))
+
+                (defmacro+ test1 (foo a)
+                     (erlang/error :this-is-an-error))
+
+                 (defn+ test2 (a)
+                    (test1 1 a))
+">>,
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = joxa.compiler:forms(Source, []),
+    Result = 'joxa-compiler':forms(Source, []),
     {ok, Result}.
-
 then([a,beam,binary,is,produced], Ctx, _) ->
-    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx))),
+    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    {ok, Ctx};
+then([an,error,is,produced], Ctx, _) ->
+    ?assertMatch(true, 'joxa-compiler':'has-errors?'(Ctx)),
+    {ok, Ctx};
+then([that,error,is,in,the,error,list], Ctx, _) ->
+    ErrorList = 'joxa-compiler':'get-context'(errors, Ctx),
+    ?assert(lists:any(fun(Err) ->
+                              case Err of
+                                  {{'macro-failure',{'jxat-error-macro-test',test1,2},
+                                   {error,'this-is-an-error', _}}, _} ->
+                                      true;
+                                  _ ->
+                                      false
+                              end
+                      end, ErrorList)),
     {ok, Ctx};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch([{'--joxa-info',1},
@@ -90,4 +115,3 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch(foo, 'jxat-macro-test':'test4'(foo)),
     ?assertMatch(other, 'jxat-macro-test':'test4'(bar)),
     {ok, State}.
-

@@ -1,7 +1,14 @@
+.*
+*.beam
+ebin/joxa.app
+joxa
 deps
 _build
 erl_crash.dump
-*.pyc
 doc/_site
-debian/patches
-.pc
+doc/html
+doc/latex
+doc/man
+doc/texinfo
+doc/text
+doc/doctrees

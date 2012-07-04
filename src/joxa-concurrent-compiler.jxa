@@ -1,0 +1,247 @@
+;; -*- indent-tabs-mode: nil; fill-column: 72 -*-
+;; ex: ts=4 sw=4 et
+;;;;
+;;; Coordinator state
+;;;;
+(ns joxa-cc-state
+    (require joxa-sort-topo
+             (ec_dictionary :joxify))
+    (use (joxa-records :only (defrecord+/2))))
+
+(defrecord+ ($namespace)
+  {dep-graph []} ; topo sorted dep graph for cycle detection
+  {all-pids []}
+  {starting []}
+  {dep-info []})
+
+;;;;
+;;; Concurrent Compiler Coordinator implementation
+;;;;
+(ns joxa-concurrent-compiler
+    (require joxa-otp
+             joxa-otp-gen-server
+             joxa-sort-topo
+             io
+             (joxa-cc-state :as state)
+             (lists :joxify)
+             (gen_server :joxify)
+             (ec_dictionary :joxify)
+             (erlang :joxify))
+    (use (joxa-core :only (!=/2
+                           let/2
+                           when/2
+                           if/3))
+         (erlang :only (==/2
+                        =:=/2
+                        not/1
+                        length/1))
+         (joxa-lists :only (dolist/2
+                            map/2
+                            #/2))))
+
+(defn+ build-skip (file)
+  "When a worker skips building a file because the file has already been
+  build"
+  (gen-server/cast ($namespace) {:skip file}))
+
+(defn+ build-success (file)
+  "When a worker successfully completes a build this function is called
+to notify the coordinator"
+  (gen-server/cast ($namespace) {:success file}))
+
+(defn+ build-failure (file)
+  "When a worker fails to complete a build this function is called to
+notify the coordinator."
+  (gen-server/cast ($namespace) {:failure file}))
+
+(defn+ register-namespaces (file namespace deps)
+  "Register the namespaces and the deps that those namespaces have."
+  (gen-server/cast ($namespace) {:register file namespace deps}))
+
+(defspec joxa-cc-wkr/start-link ((string) (list))  (pid))
+(defspec joxa-cc-wkr/force-build (pid) :ok)
+(defspec joxa-cc-wkr/build (pid) :ok)
+
+(defn check-cycles! (state namespace deps)
+  "Make sure that there are no cycles in the dependency graph. If there
+are exit the build."
+  (let* (dep-sub-graph
+         (map (dep deps)
+              {namespace deps}))
+    (case (joxa-sort-topo/sort (lists/append
+                                (state/dep-graph state)))
+      ({:ok new-dep-graph}
+       (state/dep-graph! state new-dep-graph))
+      ({:cycle cycle}
+       (io/format "Dependency cycle detected ~p~n" [cycle])
+       (erlang/exit {:cycle-detected cycle})))))
+
+(defn check-existance! (state file namespace)
+"Make sure that the same namespace is not being defined in multiple
+files."
+  (when (lists/keymember namespace 1 (state/dep-info state))
+    (io/format "Namespace ~p redefined in ~n" [namespace file])
+    (erlang/exit {:redefined-namespace namespace})))
+
+(defn how-should-it-be-built? (file deps build-status)
+  "Check if and how the file specified should be built. If it has a
+dependency that was built then it must be built for macroish reasons."
+  (case build-status
+    (:unbuilt
+     (case (joxa-lists/foldl (dep deps) (acc :init)
+                          (case dep
+                            ;; If dependency had to be built then we must
+                            ;; be built as well.
+                            ({dep-atom :built}
+                             :force)
+                            (dep-atom (when (erlang/is-atom dep-atom))
+                                      :no-build)
+                            (_
+                             acc)))
+       (:init
+        :build)
+       (val
+        val)))
+    (_
+     :no-build)))
+
+(defn done-building (state0 file build-type)
+  "When a file is done building this cleans up the dependencies and
+frees for building anything that is currently able to be built."
+  (let* (all-pids (# ({pid-file _} (state/all-pids state0))
+                     (not (=:= pid-file file)))
+         dep-info0 (state/dep-info state0)
+         namespaces (map ({file namespace _ _} dep-info0)
+                         namespace)
+         dep-info1 (map ({f namespace deps build-status} dep-info0)
+                        (case f
+                          (file
+                           {f namespace
+                              (map (dep deps)
+                                   (if (lists/member dep namespaces)
+                                       {dep build-type}
+                                     dep))
+                              build-type})
+                          (_
+                           {f namespace
+                              (map (dep deps)
+                                   (if (lists/member dep namespaces)
+                                       {dep build-type}
+                                     dep))
+                              build-status}))))
+    ;; when the deps are empty tell the worker to build itself
+    (dolist ({f _ deps build-status} dep-info1)
+      (case (how-should-it-be-built? f deps build-status)
+        (:force
+         (let ({value {f pid}} (lists/keysearch f 1 (state/all-pids state0)))
+          (joxa-cc-wkr/force-build pid)))
+        (:build
+         (let ({value {f pid}} (lists/keysearch f 1 (state/all-pids state0)))
+           (joxa-cc-wkr/build pid)))
+        (_
+         :ok)))
+    (case all-pids
+      ([]
+       (erlang/exit :normal))
+      (_
+       (state/all-pids! (state/dep-info! state0 dep-info1)
+                        all-pids)))))
+
+(defn start-building (state0)
+  "Start the build process by kicking of those modules that dont have dependencies."
+  (let* (dep-info0 (state/dep-info state0)
+         namespaces (map ({_ namespace _ _} dep-info0)
+                         namespace)
+         dep-info1 (map ({file namespace deps build-status} dep-info0)
+                        ;; We are filtering deps to only those deps that are in the list
+                        ;; of build-able things to be built. The other deps are considered
+                        ;; to exist
+                        {file namespace
+                              (# (dep deps)
+                                 (lists/member dep namespaces))
+                              build-status}))
+    ;; when the deps are empty tell the worker to build itself
+    (dolist ({file _ deps build-status} dep-info1)
+      (case (how-should-it-be-built? file deps build-status)
+        (:force
+         (let ({value {file pid}} (lists/keysearch file 1 (state/all-pids state0)))
+          (joxa-cc-wkr/force-build pid)))
+        (:build
+         (let ({value {file pid}} (lists/keysearch file 1 (state/all-pids state0)))
+           (joxa-cc-wkr/build pid)))
+        (_
+         :ok)))
+    (state/dep-info! state0 dep-info1)))
+
+(defn register (state0 file namespace deps)
+  "When a worker gets done gathering information about the
+file/namespace it registers that information with the concurrent
+compiler. This does the register and when all files are registered it
+starts building."
+  (check-existance! state0 file namespace)
+  (let* (state1 (check-cycles! state0 namespace deps)
+         state2 (state/dep-info! state1 ({file namespace deps :unbuilt} .
+                                         (state/dep-info state1)))
+         new-starting (lists/delete file (state/starting state1)))
+
+    (case new-starting
+      ([]
+       (start-building (state/starting! state2 new-starting)))
+      (_
+       (state/starting! state2 new-starting)))))
+
+;;; gen-server callbacks
+(defn+ handle-cast (request state)
+  (case request
+    ({:register file namespace deps}
+     {:noreply (register state file namespace deps)})
+    ({:success file}
+     {:noreply (done-building state file :built)})
+    ({:skip file}
+     {:noreply (done-building state file :skip)})
+    ({:failure _}
+     (erlang/exit :build-failed))))
+
+(defn+ handle-info (request state)
+  (case request
+    ({:EXIT _from :normal}
+     {:noreply state})
+    ({:EXIT _from error}
+     (erlang/exit error))))
+
+(defn+ init (args)
+  (erlang/process-flag :trap_exit :true)
+  (let ([filelist opts] args
+        pids (joxa-lists/map (file filelist)
+                             (let ({:ok pid} (joxa-cc-wkr/start-link file opts))
+                               {file pid})))
+    (case pids
+      ([]
+       (io/format "Nothing found to build~n")
+       {:stop :nothing-to-build})
+      (_
+       {:ok (state/make-fields [{:starting filelist}
+                                {:all-pids pids}])}))))
+
+(defn+ terminate (reason state)
+  :ok)
+
+(defn+ code-change (old-vsn state extra)
+  {:ok state})
+
+(joxa-otp-gen-server/local-server-start-link filelist opts)
+(joxa-otp-gen-server/implement-missing joxa-concurrent-compiler)
+
+(defn+ do-compile (filelist opts)
+  "Starts the compilation process with the list of files to be built and
+the build options"
+  (erlang/process-flag :trap_exit :true)
+  (case (start-link filelist opts)
+    ((= error {:error _})
+     error)
+    ({:ok pid}
+     (receive
+      ({:EXIT pid :normal}
+       :ok)
+      ({:EXIT pid error}
+       {:error error})))))

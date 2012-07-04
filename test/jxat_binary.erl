@@ -4,14 +4,14 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,has,a,binary,representatino], _State, _) ->
-      Source = <<"(module jxat-binary-test
+      Source = <<"(ns jxat-binary-test
                     (use (erlang :only (==/2 and/2))))
 
                 (defn internal-test ()
                     <<\\a \\b \\c>>)
 
                 (defn internal-test2 ()
-                       (let (a 1
+                       (let* (a 1
                              b 17
                              c 42)
                             <<a b (c :size 16)>>))
@@ -34,11 +34,11 @@ given([a,module,that,has,a,binary,representatino], _State, _) ->
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = joxa.compiler:forms(Source, []),
+    Result = 'joxa-compiler':forms(Source, []),
     {ok, Result}.
 
 then([a,beam,binary,is,produced], Ctx, _) ->
-    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx))),
+    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
     {ok, Ctx};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch([{'--joxa-info',1},
@@ -56,5 +56,3 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch(<<"This is a test">>, 'jxat-binary-test':'do-test4'()),
 
     {ok, State}.
-
-

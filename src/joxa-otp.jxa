@@ -1,0 +1,35 @@
+;;; OTP Utility Functions
+;;; ======================
+;;; * author: Eric Merritt
+;;; * copyright: Erlware, LLC 2012
+;;;
+;;; This namespace provides utility functions for otp applications. It
+;;; also serves as the base for the otp decendent namespaces.
+(ns joxa-otp
+    (require erlang
+             lists)
+    (use (joxa-core :only (if/3))))
+
+;; Check that a namespace implements the behaviour callbacks that are expected.
+(defn+ implements-behaviour? (namespace-name behaviour-name)
+  (let* (behave-info ((erlang/make_fun behaviour-name :behaviour_info 1) :callbacks)
+        exports ((erlang/make_fun namespace-name :module_info 1) :exports))
+    (lists/all (fn (callback)
+                   (lists/member callback exports))
+               behave-info)))
+
+(defmacro+ behaviour! (namespace-name behaviour-name)
+  (let* (behave-info ((erlang/make_fun behaviour-name
+                                      :behaviour_info 1)
+                     :callbacks)
+        exports ((erlang/make_fun namespace-name :module_info 1) :exports))
+    (lists/foreach (fn (callback)
+                       (case  (lists/member callback exports)
+                         (:true :ok)
+                         (:false
+                          (erlang/error
+                           {:unimplemented-behaviour
+                            behaviour-name
+                            {:missing callback exports}}))))
+               behave-info))
+  (do '()))

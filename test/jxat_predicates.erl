@@ -4,8 +4,8 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,has,a,predicates], _State, _) ->
-      Source = <<"(module jxat-predicate-test
-                    (use (joxa.core :only (if/3 unless/2 when/2))))
+      Source = <<"(ns jxat-predicate-test
+                    (use (joxa-core :only (if/3 unless/2 when/2))))
 
                 (defn+ do-if-test (val)
                   (if val
@@ -23,11 +23,11 @@ given([a,module,that,has,a,predicates], _State, _) ->
     {ok, Source}.
 
 'when'([joxa,is,called,on,this,module], Source, _) ->
-    Result = joxa.compiler:forms(Source, []),
+    Result = 'joxa-compiler':forms(Source, []),
     {ok, Result}.
 
 then([a,beam,binary,is,produced], Ctx, _) ->
-    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx))),
+    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
     {ok, Ctx};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch([{'--joxa-info',1},

@@ -9,9 +9,11 @@
 ;;;
 ;;;
 ;;; This module provides a core set of functions to joxa users.
-
-(module joxa.core
-        (require erlang lists joxa.compiler io))
+(ns joxa-core
+    (require erlang
+             lists
+             joxa-compiler
+             io))
 
 (defmacro+ != (a1 a2)
   `(erlang/:'=/=' ~a1 ~a2))
@@ -27,7 +29,7 @@
      ([x y]
       `(erlang/and ~x ~y))
      ((a . b)
-      `(erlang/and ~a (joxa.core/and ~@b)))
+      `(erlang/and ~a (joxa-core/and ~@b)))
     (arg
      arg)))
 
@@ -36,11 +38,11 @@
      ([x y]
       `(erlang/or ~x ~y))
      ((a . b)
-      `(erlang/or ~a (joxa.core/and ~@b)))
+      `(erlang/or ~a (joxa-core/and ~@b)))
     (arg
      arg)))
 
-(defn+ +(&rest args)
+(defn+ + (&rest args)
   (case args
     ([x y]
      (erlang/+ x y))
@@ -49,19 +51,19 @@
     (arg
      arg)))
 
-(defn - (num-list acc)
+(defn internal-sub (num-list acc)
   (case num-list
     ([]
      acc)
     ((a . rest)
-     (- rest  (erlang/- acc a)))))
+     (internal-sub rest  (erlang/- acc a)))))
 
-(defn+ -(&rest args)
+(defn+ - (&rest args)
   (case args
     ([a]
      (erlang/- 0 a))
     ((a . rest)
-     (- rest a))))
+     (internal-sub rest a))))
 
 (defn+ incr (val)
   (erlang/+ val 1))
@@ -91,12 +93,12 @@
       ~@false-body)))
 
 ;; This is really just a convienience so users don't have to require
-;; both joxa.compiler and core.
+;; both joxa-compiler and core.
 (defn+ gensym ()
-  (joxa.compiler/gensym))
+  (joxa-compiler/gensym))
 
 (defn+ gensym (prefix)
-  (joxa.compiler/gensym prefix))
+  (joxa-compiler/gensym prefix))
 
 ;; Try Support
 ;; -----------
@@ -111,7 +113,7 @@
 ;;
 ;; This try takes following expression and converts it to the primitive try.
 ;;
-;;     (joxa.core/try <expressions>++ (catch <catch-clauses>+))
+;;     (joxa-core/try <expressions>++ (catch <catch-clauses>+))
 ;;       <catch-clauses> :: (<pattern> <expressons>)
 
 
@@ -154,11 +156,11 @@
              clauses))
 
 (defmacro+ try (&rest body)
-  (let (type (gensym)
+  (let* (type (gensym)
         err (gensym))
     (case (split-try-body body [] [])
       ({exprs clauses}
-       `(__try
+       `(try*
          (do
              ~@exprs)
          (catch (~type ~err)
@@ -169,8 +171,8 @@
                                     (erlang/raise ~type ~err (erlang/get_stacktrace)))])
                  clauses))))))))
 
-(defmacro+ let-match (args &rest body)
-  (let (process-arg-body
+(defmacro+ let (args &rest body)
+  (let* (process-arg-body
         (fn (arg)
             (case arg
               ([r e]
@@ -179,7 +181,7 @@
               ((r . (e . rest))
                `(case ~e
                   (~r ~(process-arg-body rest))))
-              (detail (erlang/error {:malformed-let-match-expression detail})))))
+              (detail (erlang/error {:malformed-let-expression detail})))))
     (process-arg-body args)))
 
 (defmacro+ define (name value)

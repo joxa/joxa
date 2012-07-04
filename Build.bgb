@@ -1,0 +1,3 @@
+(bg-build
+ :name  "Joxa"
+ :shell "nice -n5 make test")

@@ -4,7 +4,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 given([a,module,that,has,rest,arguments], _State, _) ->
-     Source1 = <<"(module jxat-rest-test1
+     Source1 = <<"(ns jxat-rest-test1
                     (require erlang io))
 
                   (defn+ do-test0 (one &rest two)
@@ -23,7 +23,7 @@ given([a,module,that,has,rest,arguments], _State, _) ->
                   (do-t do-test0/3))
                  ">>,
 
-     Source2 = <<"(module jxat-rest-test2
+     Source2 = <<"(ns jxat-rest-test2
                     (require erlang io jxat-rest-test1)
                     (use (jxat-rest-test1 :only (do-test0/2) :rename ((do-test0/2 rest-test)))))
 
@@ -67,13 +67,13 @@ given([a,module,that,has,rest,arguments], _State, _) ->
     {ok, {Source1, Source2}}.
 
 'when'([joxa,is,called,on,this,module], {Source1, Source2}, _) ->
-    Result1 = joxa.compiler:forms(Source1, []),
-    Result2 = joxa.compiler:forms(Source2, []),
+    Result1 = 'joxa-compiler':forms(Source1, []),
+    Result2 = 'joxa-compiler':forms(Source2, []),
    {ok, {Result1, Result2}}.
 
 then([a,beam,binary,is,produced], {Ctx1, Ctx2}, _) ->
-    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx1))),
-    ?assertMatch(true, is_binary(joxa.compiler:'get-context'(result, Ctx2))),
+    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx1))),
+    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx2))),
     {ok, {Ctx1, Ctx2}};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch(2, 'jxat-rest-test1':'--joxa-info'(rest, 'do-test0')),

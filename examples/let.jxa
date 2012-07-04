@@ -1,6 +1,6 @@
-(module example.let
-        (require erlang)
-        (use (io :only (format/2) :rename ((format/2 print)))))
+(ns example.let
+    (require erlang)
+    (use (io :only (format/2) :rename ((format/2 print)))))
 
 (defn internal-test ()
   [1 2 3 4 5 6 7 8])

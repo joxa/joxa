@@ -1,5 +1,5 @@
-(module server
-        (require gen_server))
+(ns server
+    (require gen_server))
 
 
 (defn+ start_link ()
