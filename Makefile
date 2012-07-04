@@ -1,4 +1,4 @@
-VSN=0.0.8a
+VSN=0.1.0
 ERL=$(shell which erl)
 ERLC=$(shell which erlc)
 REBAR=$(shell which rebar)
