@@ -42,11 +42,240 @@ do
 
 .. code-block:: clojure
 
-   (do expr ...)
+    (do expr ...)
 
 
 binary
 ^^^^^^
+
+Segment
+"""""""
+
+Each segment has the following general syntax:
+
+.. code-block:: clojure
+
+    << value (:size size) <type specifier list> >>
+    (binary value (:size size) <type specifier list>)
+
+Any part of the binary except the `value` may be left out and recieve
+sane defaults.
+
+Default values will be used for missing specifications. The default
+values are described in Defaults.
+
+Used in binary construction, the `value` part is any expression. Used
+in binary matching, the `value` part must be a literal or
+variable. You can read more about the `value` part in the section
+about constructing binaries and matching binaries.
+
+The `size` part of the segment multiplied by the unit in the type
+specifier list (described below) gives the number of bits for the
+segment. In construction, `size` is any expression that evaluates to
+an integer. In matching, `size` must be a constant expression or a
+variable.
+
+The type specifier list is a list of type specifiers separated by
+hyphens.
+
+Type
+: The type can be `:integer`, `:float`, `:binary` or `:bitstring`.
+
+Signedness
+: The signedness specification can be either `:signed` or
+`:unsigned`. Note that signedness only matters for matching.
+
+Endianness
+: The endianness specification can be either `:big`, `:little`, or
+`:native`. Native-endian means that the endian will be resolved at load
+time to be either big-endian or little-endian, depending on what is
+"native" for the CPU that the Erlang machine is run on.
+
+Unit
+: The unit size is given as unit:IntegerLiteral. The allowed
+range is 1-256. It will be multiplied by the Size specifier to give
+the effective size of the segment. In R12B, the unit size specifies
+the alignment for binary segments without size (examples will follow).
+
+Example
+"""""""
+
+.. code-block:: clojure
+
+    (binary X (:size 4) :little :signed :integer (:unit 8))
+    <<X (:size 4) :little :signed :integer (:unit 8)>>
+
+This element has a total size of 4*8 = 32 bits, and it contains a
+signed integer in little-endian order.
+
+Defaults
+""""""""
+
+The default type for a segment is integer. The default type does not
+depend on the value, even if the value is a literal. For instance, the
+default type in <<3.14>> is `:integer` not `:float`.
+
+The default `size` depends on the type. For `:integer` it is 8. For
+`:float` it is 64. For binary it is all of the `:binary`. In matching,
+this default value is only valid for the very last element. All other
+binary elements in matching must have a size specification.
+
+The default `:unit` depends on the the type. For `:integer`, `:float`,
+and `:bitstring` it is 1. For `:binary` it is 8.
+
+The default signedness is `:unsigned`.
+
+The default endianness is `:big`.
+
+Constructing Binaries and Bitstrings
+""""""""""""""""""""""""""""""""""""
+
+This section describes the rules for constructing binaries using the
+bit syntax. Unlike when constructing lists or tuples, the construction
+of a binary can fail with a badarg exception.
+
+There can be zero or more segments in a binary to be constructed. The
+expression `<<>>` constructs a zero length binary.
+
+Each segment in a binary can consist of zero or more bits. There are
+no alignment rules for individual segments of type `:integer` and
+`:float`. For `:binary` and `:bitstring` types without size, the unit
+specifies the alignment. Since the default alignment for the `:binary`
+type is 8, the size of a binary segment must be a multiple of 8 bits
+(i.e. only whole bytes).
+
+.. code-block:: clojure
+
+   <<(bin :binary) (bitstring :bitstring)>>
+   (binary (bin :binary) (bitstring :bitstring))
+
+The variable `bin` in must contain a whole number of bytes, because
+the binary type defaults to (:unit 8). A `badarg` exception will be
+generated if bin would consist of (for instance) 17 bits.
+
+On the other hand, the variable `bitstring` may consist of any number of
+bits, for instance 0, 1, 8, 11, 17, 42, and so on, because the default
+unit for bitstrings is 1.
+
+*Warning*
+
+For clarity, it is recommended not to change the unit size for
+binaries, but to use `:binary` when you need byte alignment, and
+`:bitstring` when you need bit alignment.
+
+The following example
+
+.. code-block:: clojure
+
+    <<(x (:size 1)) (y (:size 6))>>
+    (binary (x (:size 1)) (y (:size 6)))
+
+will successfully construct a `:bitstring` of 7 bits. (Provided that
+all of `x` and `y` are integers.)
+
+When constructing binaries, `value` and `size` can be any
+expression.
+
+Including Literal Strings
+"""""""""""""""""""""""""
+
+As syntactic sugar, an literal string may be written instead of a element.
+
+.. code-block:: clojure
+
+    <<"hello">>
+
+which is syntactic sugar for
+
+.. code-block:: clojure
+    <<\h \e \l \l \o>>
+
+Matching Binaries
+"""""""""""""""""
+
+This section describes the rules for matching binaries using the bit
+syntax.
+
+There can be zero or more segments in a binary pattern. A binary
+pattern can occur in every place patterns are allowed, also inside
+other patterns. Binary patterns cannot be nested.
+
+The pattern `<<>>` matches a zero length binary.
+
+Each segment in a binary can consist of zero or more bits.
+
+A segment of type binary must have a size evenly divisible by 8 (or
+divisible by the unit size, if the unit size has been changed).
+
+A segment of type bitstring has no restrictions on the size.
+
+When matching value `value` must be either a variable or an integer or
+floating point literal. Expressions are not allowed.
+
+`:size` must be an integer literal, or a previously bound
+variable.
+
+Getting the Rest of the Binary or Bitstring
+"""""""""""""""""""""""""""""""""""""""""""
+
+To match out the rest of a binary, specify a binary field without
+size:
+
+.. code-block:: clojure
+
+    (case foo
+      (<<(a (:size 8)) (rest :binary)>>
+         rest))
+
+The size of the tail must be evenly divisible by 8.
+
+To match out the rest of a bitstring, specify a field without size:
+
+.. code-block:: clojure
+
+    (case foo
+       (<<(a (:size 8)) (rest :bitstring)>>
+        rest))
+
+There is no restriction on the number of bits in the tail.
+
+Examples
+""""""""
+
+.. code-block:: clojure
+
+    <<\a \b \c>>
+    <<a b (c :size 16)>>
+
+    (case <<1 2 3>>
+      (<<a b c>>
+         {a b c})))
+
+    (case <<1 2 3>>
+      (<<a b (c :size 16)>>
+         {a b c})))
+
+    (case <<(1 :size 16) 2 (3 :binary)>>
+      (<<(d :size 16) e (f :binary)>>
+         {d e f})))
+
+     <<"This is a test">>
+    (binary "This is a test")
+
+    (binary \a \b \c)
+    (binary a b (c :size 16))
+
+    (case (binary 1 2 3)
+      ((binary a b c)
+         {a b c})))
+
+    (case (binary 1 2 3)
+      ((binary a b (c :size 16))
+         {a b c})))
+
+    (case (binary (1 :size 16) 2 (3 :binary))
+      ((binary (d :size 16) e (f :binary))
+         {d e f})))
 
 $filename
 ^^^^^^^^^
