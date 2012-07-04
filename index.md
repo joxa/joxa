@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Joxa
-version: 0.0.8a
+version: 0.1.0
 ---
 
 __Joxa is a small semantically clean, functional lisp__. It is a
@@ -438,4 +438,3 @@ provides a much more user friendly format then the primitive try.
 
     (do
       <expression>+)
-
