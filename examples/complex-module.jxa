@@ -1,4 +1,4 @@
-(ns example.complex-module
+(ns complex-module
     (use string code)
     (attr sfoo 123)
     (use (lists :only (member/2 append/2)

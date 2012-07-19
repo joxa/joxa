@@ -1,6 +1,5 @@
-(ns example.helloworld
+(ns helloworld
     (use (io :only (format/2) :rename ((format/2 print)))))
 
 (defn+ hello-world (arg)
   (print "~p" [arg]))
-
