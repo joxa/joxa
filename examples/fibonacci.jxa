@@ -1,4 +1,4 @@
-(ns jxat-fibonacci
+(ns fibonacci
     (use (erlang :only (>/2 -/2 +/2))))
 
 (defn+ fibo (n)

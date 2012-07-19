@@ -1,6 +1,6 @@
 (ns sieve-of-eratosthenes
     (require lists io)
-    (use (joxa.core :only (!=/2))
+    (use (joxa-core :only (!=/2))
          (erlang :only (rem/2 +/2))))
 
 (defn sieve (v primes)
