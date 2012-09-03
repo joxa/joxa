@@ -8,19 +8,22 @@ languages through the use of macros and libraries.
 Though it is based on the Erlang VM it is not, and has no intention of
 being, Erlang.
 
-### What is the difference between Joxa and LFE (both Lisps for the Erlang VM)
+What is the difference between Joxa and LFE (both Lisps for the Erlang VM)
+--------------------------------------------------------------------------
 
 This is best explained in the following post:
 http://ericbmerritt.posterous.com/differences-between-joxa-and-lfe
 
 
-### How Do You Create Mutually Recursive Functions
+How Do You Create Mutually Recursive Functions
+----------------------------------------------
 
 All functions in Joxa have to be declared before they can be used. For
 recursive functions this works fine, however, for two functions that
 recurse on each other there doesn't seem to be much you can do.
 
-#### Type Specs are your answer
+Type Specs are your answer
+--------------------------
 
 Do a `defspec` of the function before using it. Specs, aside from
 providing type information to the compiler, also serve as a
@@ -63,7 +66,8 @@ This obviously wont work because `odd?` will not be declared when
 With this it works because you have declared your intent to implement
 `odd?` on which `even?` depends.
 
-### Will compiler.jxa ever be able to use macros?
+Will compiler.jxa ever be able to use macros?
+---------------------------------------------
 
 Probably not, its a problem in the erts code loading scheme. Macros
 take iterative compilation that is, each form needs to be available at
