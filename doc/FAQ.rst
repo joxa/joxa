@@ -29,6 +29,7 @@ Do a `defspec` of the function before using it. Specs, aside from
 providing type information to the compiler, also serve as a
 pre-declaration. For example, lets say you had this function:
 
+.. code-block:: clojure
 
     (defn even? (number)
       (case number
@@ -46,6 +47,8 @@ pre-declaration. For example, lets say you had this function:
 
 This obviously wont work because `odd?` will not be declared when
 `even?` is defined. You can get around this problem by declaring a `defspec` for `odd?`.
+
+.. code-block:: clojure
 
     (defspec odd? ((erlang/integer)) (erlang/boolean))
 

@@ -5,12 +5,12 @@ Copyright (C) 2012 Eric B. Merritt
 
 CC BY-NC-SA 3.0
 
-This work is licensed under a Creative Commons
-[Attribution-NonCommercial-ShareAlike 3.0 Unported License](http://creativecommons.org/licenses/by-nc-sa/3.0/).
+This work is licensed under a `Creative Commons
+Attribution-NonCommercial-ShareAlike 3.0 Unported License
+<http://creativecommons.org/licenses/by-nc-sa/3.0/>`_.
 
-This work is derived from
-[Riastradh's Lisp Style Rules](http://mumble.net/~campbell/scheme/style.txt)
-by Talor R. Cambell
+This work is derived from `Riastradh's Lisp Style Rules
+<http://mumble.net/~campbell/scheme/style.txt>`_ by Talor R. Cambell
 
 This is document describes a recommended style for Joxa. Its an
 distilled from the best practices of the existing Lisp world and the
@@ -765,5 +765,4 @@ Riastradh's Lisp Style Rules by Taylor R. Campbell
 licensed under:
 
 This work is licensed under a
-[Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License]
-(http://creativecommons.org/licenses/by-nc-sa/3.0/)
+`Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License <http://creativecommons.org/licenses/by-nc-sa/3.0/>`_
