@@ -76,7 +76,7 @@ individually.  When you load the compiler, it overrides the
 joxa.compiler module currently loaded and since the new thing is
 incomplete it breaks.
 
-I think there might be some possiblitiy using of the new/old positions
+I think there might be some possibility using of the new/old positions
 in the code loader but that is a long shot. So for the compiler, and
 the compiler only, macros are not usable.  Thats why the bootstrap
 flag is there it aborts iterative compilation and just does it all in
