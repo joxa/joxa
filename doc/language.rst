@@ -79,23 +79,23 @@ The type specifier list is a list of type specifiers separated by
 hyphens.
 
 Type
-: The type can be `:integer`, `:float`, `:binary` or `:bitstring`.
+    The type can be `:integer`, `:float`, `:binary` or `:bitstring`.
 
 Signedness
-: The signedness specification can be either `:signed` or
-`:unsigned`. Note that signedness only matters for matching.
+    The signedness specification can be either `:signed` or `:unsigned`. Note
+    that signedness only matters for matching.
 
 Endianness
-: The endianness specification can be either `:big`, `:little`, or
-`:native`. Native-endian means that the endian will be resolved at load
-time to be either big-endian or little-endian, depending on what is
-"native" for the CPU that the Erlang machine is run on.
+    The endianness specification can be either `:big`, `:little`, or `:native`.
+    Native-endian means that the endian will be resolved at load time to be
+    either big-endian or little-endian, depending on what is "native" for the
+    CPU that the Erlang machine is run on.
 
 Unit
-: The unit size is given as unit:IntegerLiteral. The allowed
-range is 1-256. It will be multiplied by the Size specifier to give
-the effective size of the segment. In R12B, the unit size specifies
-the alignment for binary segments without size (examples will follow).
+    The unit size is given as unit:IntegerLiteral. The allowed
+    range is 1-256. It will be multiplied by the Size specifier to give
+    the effective size of the segment. In R12B, the unit size specifies
+    the alignment for binary segments without size (examples will follow).
 
 Example
 """""""
@@ -157,11 +157,10 @@ On the other hand, the variable `bitstring` may consist of any number of
 bits, for instance 0, 1, 8, 11, 17, 42, and so on, because the default
 unit for bitstrings is 1.
 
-*Warning*
-
-For clarity, it is recommended not to change the unit size for
-binaries, but to use `:binary` when you need byte alignment, and
-`:bitstring` when you need bit alignment.
+.. warning:
+    For clarity, it is recommended not to change the unit size for binaries,
+    but to use `:binary` when you need byte alignment, and `:bitstring` when
+    you need bit alignment.
 
 The following example
 
@@ -188,6 +187,7 @@ As syntactic sugar, a literal string may be written instead of an element.
 which is syntactic sugar for
 
 .. code-block:: clojure
+
     <<\h \e \l \l \o>>
 
 Matching Binaries
@@ -393,7 +393,7 @@ before the functions using that namespace. You may also have as many
 namespaces as you would like per file, though that is not encouraged.
 
 Namespace Body
-""""""""""""""
+^^^^^^^^^^^^^^
 
 The namespace body may consist of any number of `require`, `use` and
 clauses in any order and in any conversation.

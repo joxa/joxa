@@ -330,6 +330,8 @@ for this call to gensym only.
 Examples
 ^^^^^^^^
 
+.. code-block:: clojure
+
    joxa-is> (joxa-core/gensym)
    '#:GAEECC9'
    joxa-is> (joxa-core/gensym "T")
