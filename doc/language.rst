@@ -58,7 +58,7 @@ Each segment has the following general syntax:
     << value (:size size) <type specifier list> >>
     (binary value (:size size) <type specifier list>)
 
-Any part of the binary except the `value` may be left out and recieve
+Any part of the binary except the `value` may be left out and receive
 sane defaults.
 
 Default values will be used for missing specifications. The default
@@ -179,7 +179,7 @@ expression.
 Including Literal Strings
 """""""""""""""""""""""""
 
-As syntactic sugar, an literal string may be written instead of a element.
+As syntactic sugar, a literal string may be written instead of an element.
 
 .. code-block:: clojure
 
@@ -521,7 +521,7 @@ clause may consist of a namespace name, or a list that contains a few
 subclauses.  The sub-clause is always headed by a namespace name,
 followed by an action, followed by the subject of that action. The
 action/subject may be repeated to further refine and modify the
-imported values. The sub-clause action/subject may occure in any
+imported values. The sub-clause action/subject may occur in any
 order. Even though some do not make sense when used together. So, for
 example you could have the following
 
@@ -599,16 +599,16 @@ practice here. I have had the good fortune to code in may languages
 and several of those languages have supported 'import' clause's like
 use. In the best of those languages the general practice is to use the
 `use` clause only when you are importing *operators* the require
-clause for everthing else. In the case of Joxa I will define operators
+clause for everything else. In the case of Joxa I will define operators
 as anything thats used in a conditional statement, including
-guards. The mainthing you want to remember is that `use` impares
+guards. The main thing you want to remember is that `use` impairs
 locality of code just a bit (that is knowing where the code that is
 being executed is coming from). There are times (like conditionals)
 when the clarity of the code is improved enough to make that locality
 hit worth while, but in general thats not true. In the end, just
 remember that the more transparent code is the easier it is to
-maintain and exend and choose `use` and `require` with an eye towards
-transparancy.
+maintain and extend and choose `use` and `require` with an eye towards
+transparency.
 
 Functions
 ---------
