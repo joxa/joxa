@@ -4,8 +4,8 @@ Standard Library
 Core
 ====
 
-!=
---
+`!=`
+----
 
 
 This is a 'not equal' operator for Joxa. It is basically equivelent to
@@ -105,8 +105,8 @@ Example
 
 
 
-+
---
+`+`
+---
 
 This is the multi-argument version of `erlang/+`. It does a simple
 arithmetic addition for an unlimited number of arguments.
@@ -120,8 +120,8 @@ Example
     28
 
 
--
--
+`-`
+---
 
 This is the multi-argument version of `erlang/-`. It does a simple
 arithmetic subtraction for an unlimited number of arguments.
@@ -205,7 +205,7 @@ is then evaluated.
 Examples
 ^^^^^^^^
 
-.. code-block:: none
+.. code-block:: clojure
 
     joxa-is> (joxa-core/if :true 1 2)
     1
@@ -245,7 +245,7 @@ the forms are not evaluated, and the when form returns `:ok`.
 Examples
 ^^^^^^^^
 
-.. code-block:: none
+.. code-block:: clojure
 
     joxa-is> (joxa-core/when :true :hello)
     hello
@@ -264,6 +264,7 @@ unless
 
 Arguments and Values
 ^^^^^^^^^^^^^^^^^^^^
+
 test-form
   a form.
 
@@ -287,7 +288,7 @@ yields `:false`, the forms are not evaluated, and the unless form returns
 Examples
 ^^^^^^^^
 
-.. code-block:: none
+.. code-block:: clojure
 
     joxa-is> (joxa-core/unless :true :hello)
     ok
@@ -370,7 +371,7 @@ name and the value.
 Examples
 ^^^^^^^^
 
-.. code-block:: none
+.. code-block:: clojure
 
     joxa-is> (joxa-core/define :true :hello)
     ok
@@ -380,8 +381,6 @@ Examples
     ok
     joxa-is> (joxa-core/unless :false  (io/format "1") (io/format "2") (io/format "3"))
     123
-
-
 
 
 Lists

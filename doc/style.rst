@@ -104,16 +104,10 @@ Unacceptable
            (* x (factorial (- x 1
 
                            )
-
                 )
-
            )
-
        )
-
       )
-
-
 
 Acceptable
 """"""""""

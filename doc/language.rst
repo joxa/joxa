@@ -11,7 +11,6 @@ let*
 
   (let* (val val-expr ...) expr ...)
 
-
 try*
 ^^^^
 
@@ -19,23 +18,23 @@ try*
 
     (try* expr (catch (error-class error-type) catch-expr ...))
 
-
 case
 ^^^^
 
 .. code-block:: clojure
 
-   (case expr (pattern <optional-guard> expr ...) ...)
-
-
+    (case expr
+        (pattern <optional-guard> expr ...)
+        ...)
 
 receive
 ^^^^^^^
 
 .. code-block:: clojure
 
-    (receive <optional-after> (pattern <optional-guard> expr ...) ...)
-
+    (receive <optional-after>
+        (pattern <optional-guard> expr ...)
+        ...)
 
 do
 ^^
@@ -43,7 +42,6 @@ do
 .. code-block:: clojure
 
     (do expr ...)
-
 
 binary
 ^^^^^^
@@ -613,8 +611,8 @@ transparency.
 Functions
 ---------
 
-&rest Arguments to Functions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+`&rest` Arguments to Functions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Rest arguments in a language like Joxa, where arity is basically part
 of the namespace, take a bit of thought to get your mind
