@@ -11,7 +11,6 @@ let*
 
   (let* (val val-expr ...) expr ...)
 
-
 try*
 ^^^^
 
@@ -19,23 +18,23 @@ try*
 
     (try* expr (catch (error-class error-type) catch-expr ...))
 
-
 case
 ^^^^
 
 .. code-block:: clojure
 
-   (case expr (pattern <optional-guard> expr ...) ...)
-
-
+    (case expr
+        (pattern <optional-guard> expr ...)
+        ...)
 
 receive
 ^^^^^^^
 
 .. code-block:: clojure
 
-    (receive <optional-after> (pattern <optional-guard> expr ...) ...)
-
+    (receive <optional-after>
+        (pattern <optional-guard> expr ...)
+        ...)
 
 do
 ^^
@@ -43,7 +42,6 @@ do
 .. code-block:: clojure
 
     (do expr ...)
-
 
 binary
 ^^^^^^
@@ -58,7 +56,7 @@ Each segment has the following general syntax:
     << value (:size size) <type specifier list> >>
     (binary value (:size size) <type specifier list>)
 
-Any part of the binary except the `value` may be left out and recieve
+Any part of the binary except the `value` may be left out and receive
 sane defaults.
 
 Default values will be used for missing specifications. The default
@@ -79,23 +77,23 @@ The type specifier list is a list of type specifiers separated by
 hyphens.
 
 Type
-: The type can be `:integer`, `:float`, `:binary` or `:bitstring`.
+    The type can be `:integer`, `:float`, `:binary` or `:bitstring`.
 
 Signedness
-: The signedness specification can be either `:signed` or
-`:unsigned`. Note that signedness only matters for matching.
+    The signedness specification can be either `:signed` or `:unsigned`. Note
+    that signedness only matters for matching.
 
 Endianness
-: The endianness specification can be either `:big`, `:little`, or
-`:native`. Native-endian means that the endian will be resolved at load
-time to be either big-endian or little-endian, depending on what is
-"native" for the CPU that the Erlang machine is run on.
+    The endianness specification can be either `:big`, `:little`, or `:native`.
+    Native-endian means that the endian will be resolved at load time to be
+    either big-endian or little-endian, depending on what is "native" for the
+    CPU that the Erlang machine is run on.
 
 Unit
-: The unit size is given as unit:IntegerLiteral. The allowed
-range is 1-256. It will be multiplied by the Size specifier to give
-the effective size of the segment. In R12B, the unit size specifies
-the alignment for binary segments without size (examples will follow).
+    The unit size is given as unit:IntegerLiteral. The allowed
+    range is 1-256. It will be multiplied by the Size specifier to give
+    the effective size of the segment. In R12B, the unit size specifies
+    the alignment for binary segments without size (examples will follow).
 
 Example
 """""""
@@ -157,11 +155,10 @@ On the other hand, the variable `bitstring` may consist of any number of
 bits, for instance 0, 1, 8, 11, 17, 42, and so on, because the default
 unit for bitstrings is 1.
 
-*Warning*
-
-For clarity, it is recommended not to change the unit size for
-binaries, but to use `:binary` when you need byte alignment, and
-`:bitstring` when you need bit alignment.
+.. warning:
+    For clarity, it is recommended not to change the unit size for binaries,
+    but to use `:binary` when you need byte alignment, and `:bitstring` when
+    you need bit alignment.
 
 The following example
 
@@ -179,7 +176,7 @@ expression.
 Including Literal Strings
 """""""""""""""""""""""""
 
-As syntactic sugar, an literal string may be written instead of a element.
+As syntactic sugar, a literal string may be written instead of an element.
 
 .. code-block:: clojure
 
@@ -188,6 +185,7 @@ As syntactic sugar, an literal string may be written instead of a element.
 which is syntactic sugar for
 
 .. code-block:: clojure
+
     <<\h \e \l \l \o>>
 
 Matching Binaries
@@ -393,7 +391,7 @@ before the functions using that namespace. You may also have as many
 namespaces as you would like per file, though that is not encouraged.
 
 Namespace Body
-""""""""""""""
+^^^^^^^^^^^^^^
 
 The namespace body may consist of any number of `require`, `use` and
 clauses in any order and in any conversation.
@@ -521,7 +519,7 @@ clause may consist of a namespace name, or a list that contains a few
 subclauses.  The sub-clause is always headed by a namespace name,
 followed by an action, followed by the subject of that action. The
 action/subject may be repeated to further refine and modify the
-imported values. The sub-clause action/subject may occure in any
+imported values. The sub-clause action/subject may occur in any
 order. Even though some do not make sense when used together. So, for
 example you could have the following
 
@@ -599,22 +597,22 @@ practice here. I have had the good fortune to code in may languages
 and several of those languages have supported 'import' clause's like
 use. In the best of those languages the general practice is to use the
 `use` clause only when you are importing *operators* the require
-clause for everthing else. In the case of Joxa I will define operators
+clause for everything else. In the case of Joxa I will define operators
 as anything thats used in a conditional statement, including
-guards. The mainthing you want to remember is that `use` impares
+guards. The main thing you want to remember is that `use` impairs
 locality of code just a bit (that is knowing where the code that is
 being executed is coming from). There are times (like conditionals)
 when the clarity of the code is improved enough to make that locality
 hit worth while, but in general thats not true. In the end, just
 remember that the more transparent code is the easier it is to
-maintain and exend and choose `use` and `require` with an eye towards
-transparancy.
+maintain and extend and choose `use` and `require` with an eye towards
+transparency.
 
 Functions
 ---------
 
-&rest Arguments to Functions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+`&rest` Arguments to Functions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Rest arguments in a language like Joxa, where arity is basically part
 of the namespace, take a bit of thought to get your mind
