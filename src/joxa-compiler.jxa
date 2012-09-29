@@ -4459,8 +4459,11 @@ errors in a generated function will always be the line number of the macro."
     ((namespace-name . rest)
      (when (erlang/is_atom namespace-name))
      (get-require rest (namespace-name . acc)))
-    (([namespace-name [quote as] _]  . rest)
-     (when  (erlang/is_atom namespace-name))
+    (([namespace-name [:quote :joxify]] . rest)
+     (when (erlang/is_atom namespace-name))
+     (get-require rest (namespace-name . acc)))
+    (([namespace-name [:quote :as] _] . rest)
+     (when (erlang/is_atom namespace-name))
      (get-require rest (namespace-name . acc)))
     (_
      acc)))
