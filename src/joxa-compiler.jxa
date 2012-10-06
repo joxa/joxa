@@ -4329,6 +4329,14 @@ errors in a generated function will always be the line number of the macro."
      "invalid definition")
     (:invalid-pattern
      "invalid guard pattern")
+    ({:invalid-type-reference name}
+     (io-lib/format "invalid type refrence to ~p" [name]))
+    ({:undefined-functions Funs}
+     (io-lib/format "Specs for undefined functions exist: ~s"
+                    [(lists/map (fn (el)
+                                    (case el
+                                      ({N A} (io-lib/format "~p/~p,~n" [N A]))))
+                                Funs)]))
     (_
      (io-lib/format "~p" [message]))))
 
