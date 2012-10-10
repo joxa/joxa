@@ -12,7 +12,7 @@
 (ns joxa-core
     (require erlang
              lists
-             joxa-compiler
+             joxa-cmp-util
              io))
 
 (defmacro+ != (a1 a2)
@@ -95,10 +95,10 @@
 ;; This is really just a convienience so users don't have to require
 ;; both joxa-compiler and core.
 (defn+ gensym ()
-  (joxa-compiler/gensym))
+  (joxa-cmp-util/gensym))
 
 (defn+ gensym (prefix)
-  (joxa-compiler/gensym prefix))
+  (joxa-cmp-util/gensym prefix))
 
 ;; Try Support
 ;; -----------

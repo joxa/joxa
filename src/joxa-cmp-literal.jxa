@@ -1,0 +1,55 @@
+(ns joxa-cmp-literal
+    (require (cerl :joxify)
+             (erlang :joxify)
+             (lists :joxify)
+             joxa-cmp-path
+             joxa-cmp-ctx))
+
+(defspec make-literal ((joxa-cmp-path/path) (joxa-cmp-ctx/context) (erlang/term))  (cerl/cerl))
+
+(defn make-literal-list (path0 annots ctx list)
+  (case list
+    ([] (cerl/c_nil))
+    ((h . t)
+     (cerl/ann_c_cons annots
+                      (make-literal (joxa-cmp-path/traverse-path path0) ctx h)
+                      (make-literal-list (joxa-cmp-path/incr-path path0) annots ctx t)))))
+
+(defn make-literal-tuple (path0 annots ctx elements0)
+  (let* (result (lists/foldl (fn (element acc)
+                                (case acc
+                                  ({path1 acc0}
+                                   (let* (acc1 ((make-literal (joxa-cmp-path/traverse-path path1) ctx element) .  acc0)
+                                         path2 (joxa-cmp-path/incr-path path1))
+                                     {path2 acc1}))))
+                            {path0 []} (erlang/tuple_to_list elements0)))
+    (case result
+      ({_ elements1}
+       (cerl/ann_c_tuple annots (lists/reverse elements1))))))
+
+(defn+ make-literal-string (_path0 annots _ctx string)
+  (cerl/ann_c_string annots string))
+
+(defn+ make-literal (path0 ctx arg0)
+  (let* (annots  (joxa-cmp-ctx/annots-from-context [] path0 ctx))
+    (case arg0
+      (arg1
+       (when (erlang/is-binary arg1))
+       (cerl/ann_make_data annots {:atomic arg1} []))
+      (arg1
+       (when (erlang/is_atom arg1))
+       (cerl/ann_c_atom annots arg1))
+      (arg1
+       (when (erlang/is_tuple arg1))
+       (make-literal-tuple path0 annots ctx arg1))
+      (arg1
+       (when (erlang/is_integer arg1))
+       (cerl/ann_c_int annots arg1))
+      (arg1
+       (when (erlang/is_float arg1))
+       (cerl/ann_c_float annots arg1))
+      ([:string str1]
+       (make-literal-string (joxa-cmp-path/traverse-incr-path path0) annots ctx str1))
+      (arg1
+       (when (erlang/is-list arg1))
+       (make-literal-list path0 annots ctx arg1)))))

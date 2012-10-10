@@ -13,7 +13,8 @@
              code
              lists
              ec_dictionary
-             joxa-compiler)
+             joxa-compiler
+             joxa-cmp-ctx)
     (use (erlang :joxify
                  :only (==/2
                         or/2
@@ -27,7 +28,7 @@
                            try/1))))
 
 (defn prompt (ctx)
-  (lists/concat [(atom-to-list (joxa-compiler/namespace-name-ctx ctx))
+  (lists/concat [(atom-to-list (joxa-cmp-ctx/namespace-name-ctx ctx))
                  "> "]))
 (defn read (ctx)
   (case (io/get_line (prompt ctx))
@@ -41,7 +42,7 @@
         comp-res
         (if (joxa-compiler/compilable? ctx)
             (if (== result :expr)
-                (let* (call-fun (make-fun (joxa-compiler/namespace-name-ctx ctx) :--joxa-shell 0))
+                (let* (call-fun (make-fun (joxa-cmp-ctx/namespace-name-ctx ctx) :--joxa-shell 0))
                   (call-fun))
               :ok)
           (if (or  (== result :expr)
@@ -77,7 +78,7 @@
 
 (defn+ start ()
   (let* (ctx (joxa-compiler/start-interactive))
-    (joxa-compiler/namespace-name-ctx ctx :joxa-is)
+    (joxa-cmp-ctx/namespace-name-ctx ctx :joxa-is)
     (io/format "Joxa 0.1.0~n~n")
     (loop ctx <<>>)
     (joxa-compiler/stop-interactive ctx)))

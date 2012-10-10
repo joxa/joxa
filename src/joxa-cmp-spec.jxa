@@ -1,0 +1,238 @@
+(ns joxa-cmp-spec
+    (require (erlang :joxify)
+             (lists :joxify)
+             joxa-cmp-path
+             joxa-cmp-ctx))
+
+(defspec joxa-cmp-expr/make-expr ((path) (context) (erlang/term))
+  (erlang/term))
+
+(defspec make-spec-expr ((path) (context) (erlang/term))
+  (erlang/term))
+
+(defn default-type ()
+  [{:--fun :erlang :any}])
+
+(defn make-spec-tuple (line path0 ctx form)
+  (case (lists/foldl (fn (el acc0)
+                         (case acc0
+                           ({path1 acc1}
+                            (let* (comp-el (make-spec-expr path1 ctx el))
+                              {(joxa-cmp-path/incr-path path1) (comp-el . acc1)}))))
+                     {path0 []} (erlang/tuple_to_list form))
+    ({_ tuple-values}
+     {:tuple line (erlang/list_to_tuple (lists/reverse tuple-values))})))
+
+(defn make-spec-args (line ctx args)
+  (let* (comp-args (lists/foldl (fn (el acc)
+                                    (joxa-cmp-ctx/add-type-reference-to-scope-ctx ctx el -1)
+                                   ({:var line el} . acc))
+                               [] args))
+  (lists/reverse comp-args)))
+
+(defn def-anon-function-spec (path0 ctx args0 expr0)
+  (let* (line1 (case (joxa-cmp-ctx/idx-from-context [] path0 ctx)
+                ({line0 _}
+                 line0)))
+    (joxa-cmp-ctx/push-type-scope-ctx ctx)
+    (let* (args1 (make-spec-args path0 (joxa-cmp-ctx/push-type-scope-ctx ctx) args0)
+          expr1 (make-spec-expr (joxa-cmp-path/incr-path 2 path0) ctx expr0))
+      (joxa-cmp-ctx/pop-type-scope-ctx ctx)
+      [{:type line1 :fun
+              [{:type line1 :product (lists/reverse args1)}
+               expr1]}])))
+
+(defn make-binary-spec (line1 path0 ctx form)
+  (case form
+    ([:binary]
+     {:type line1 :binary [{:integer line1 0} {:integer line1 0}]})
+    ([:binary arg]
+     (when (erlang/is_integer arg))
+     {:type line1 :binary [{:integer line1 arg} {:integer line1 0}]})
+    ([:binary :* arg]
+     (when (erlang/is_integer arg))
+     {:type line1 :binary [{:integer line1 0} {:integer line1 arg}]})
+    ([:binary arg1 :* arg2]
+     (when (erlang/and (erlang/is_integer arg1)
+                       (erlang/is_integer arg2)))
+     {:type line1 :binary [{:integer line1 arg1} {:integer line1 arg2}]})
+    (_
+     (joxa-cmp-ctx/add-error-ctx ctx path0 :invalid-binary-type-spec)
+     {:type line1 :binary [{:integer line1 0} {:integer line1 0}]})))
+
+(defn make-function-spec (line1 path0 ctx form)
+  (case form
+    ([:fn]
+     {:type line1 :fun []})
+    ([:fn [:...] expr]
+     (let* (cerl-expr (joxa-cmp-expr/make-expr (joxa-cmp-path/traverse-incr-path 2 path0) ctx expr))
+       {:type line1 :fun [{:type line1 :any} cerl-expr]}))
+    ([:fn args expr]
+     (def-anon-function-spec (joxa-cmp-path/incr-path path0) ctx args expr))))
+
+(defn make-type-call-spec (line path0 ctx form)
+  (case form
+    ([{:--fun :erlang :range} a1 a2]
+     (when (erlang/and (erlang/is_integer a1)
+                       (erlang/is_integer a2)))
+     (let* (comp-args (make-spec-args (joxa-cmp-path/incr-path path0) ctx [a1 a2]))
+       {:type line :range
+              comp-args}))
+    (({:--fun :erlang func} . args)
+     ;; Things in erlang get treated a bit differently then things in
+     ;; other namespaces. It sucks that they have to be special
+     {:type line func (make-spec-args (joxa-cmp-path/incr-path path0) ctx args)})
+    (({:--fun namespace func} . args)
+     (when (erlang/and (erlang/is_atom namespace)
+                       (erlang/is_atom func)))
+     {:remote_type line [{:atom line namespace}
+                         {:atom line func}
+                         (make-spec-args (joxa-cmp-path/incr-path path0) ctx args)]})))
+
+(defn make-spec-literal (path0 ctx arg0)
+  (let* (line1 (case (joxa-cmp-ctx/idx-from-context [] path0 ctx)
+                ({line0 _}
+                 line0)))
+    (case arg0
+      (arg1
+       (when (erlang/is_atom arg1))
+       {:atom line1 arg1})
+      (arg1
+       (when (erlang/is_integer arg1))
+       {:integer line1 arg1})
+      ([args]
+       {:list line1 (make-spec-literal (joxa-cmp-path/traverse-path path0) ctx args)})
+      (arg1
+       (when (erlang/is-list arg1))
+       (let* (specs (lists/foldl (fn (el acc0)
+                                    (case acc0
+                                      ({path1 acc1}
+                                       {(joxa-cmp-path/incr-path path1)
+                                        ((make-spec-literal path1 ctx el) .  acc1)})))
+                                {path0 []} arg1))
+         {:list line1 (lists/reverse specs)}))
+      (arg1
+       (when (erlang/is_tuple arg1))
+       (let* (specs (lists/foldl (fn (el acc0)
+                                    (case acc0
+                                      ({path1 acc1}
+                                       {(joxa-cmp-path/incr-path path1)
+                                        ((make-spec-literal path1 ctx el) .  acc1)})))
+                                {path0 []} (erlang/tuple_to_list arg1)))
+         {:tuple line1 (lists/reverse specs)}))
+      (_
+       (joxa-cmp-ctx/add-error-ctx ctx path0 :invalid-type-literal)))))
+
+(defn make-spec-expr (path0 ctx form)
+  (let* (line1 (case (joxa-cmp-ctx/idx-from-context [] path0 ctx)
+                ({line0 _}
+                 line0)))
+    (case form
+      ([:quote value]
+       (make-spec-literal (joxa-cmp-path/traverse-incr-path path0) ctx value))
+      (arg
+       (when (erlang/is_tuple arg))
+       (make-spec-tuple line1 path0 ctx form))
+      (arg
+       (when (erlang/is_integer arg))
+       (make-spec-literal path0 ctx arg))
+      ((:binary . _)
+       (make-binary-spec line1 path0 ctx form))
+      ((:fn . _)
+       (make-function-spec line1 path0 ctx form))
+      (({:--fun _ _} . _)
+       (make-type-call-spec line1 path0 ctx form))
+      ([:list arg]
+       {:list line1
+              (make-spec-expr (joxa-cmp-path/traverse-incr-path path0) ctx arg)})
+      (name
+       (when (erlang/is_atom name))
+       (case (joxa-cmp-ctx/resolve-type-reference-ctx ctx name -1)
+         (:true
+          {:var line1 name})
+         (:false
+          (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 {:invalid-type-reference name}))))
+      ((var . args)
+       (let* (arg-count (erlang/length args))
+         (case (joxa-cmp-ctx/resolve-type-reference-ctx ctx var arg-count)
+           (:false
+            (let* (idx (joxa-cmp-ctx/idx-from-context [] path0 ctx))
+              (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0  {:invalid-type-reference var})))
+           (:true
+            {:type line1 var
+                   (make-spec-args (joxa-cmp-path/incr-path path0) ctx args)}))))
+      (_
+       (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 :invalid-type-reference)))))
+
+(defn rewrite-spec-args (args acc)
+  (case args
+    ((:&rest . arg)
+     (lists/reverse  ([arg] . acc)))
+    ([]
+     (lists/reverse acc))
+    ((arg . rest)
+     (rewrite-spec-args rest (arg . acc)))))
+
+(defn make-implicit-spec (path0 ctx name args expr)
+  (let* (annots (joxa-cmp-ctx/annots-from-context [] path0 ctx)
+        arity (erlang/length args)
+        is-rest (lists/member :&rest args)
+        new-args (case is-rest
+                   (:true
+                    (rewrite-spec-args args []))
+                   (:false
+                    args)))
+    (case name
+      ({:--fun namespace function}
+       (joxa-cmp-ctx/add-pre-require-ctx ctx namespace function arity is-rest))
+      (name (when (erlang/is_atom name))
+            (case is-rest
+              (:true
+               (joxa-cmp-ctx/add-rest-ctx path0 ctx name (erlang/length new-args)))
+              (:false ctx))
+            (let* (body (def-anon-function-spec (joxa-cmp-path/incr-path 2 path0) ctx args expr))
+              (joxa-cmp-ctx/add-type-ctx ctx name arity {{:c_literal annots :spec}
+                                            {:c_literal annots [{{name arity}
+                                                                 [body]}]}}))))))
+
+(defn def-top-level-function-spec (path0 ctx name args expression)
+  (let* (line1 (case (joxa-cmp-ctx/idx-from-context [] path0 ctx)
+                ({line0 _}
+                 line0))
+              arity (erlang/length args))
+    (joxa-cmp-ctx/push-type-scope-ctx ctx)
+    (joxa-cmp-ctx/add-type-reference-to-scope-ctx ctx name arity)
+    (lists/foreach (fn (arg0)
+                       (case arg0
+                         (arg1 (when (erlang/is_atom arg1))
+                               (joxa-cmp-ctx/add-type-reference-to-scope-ctx
+                                ctx arg1 -1))
+                         (_
+                          (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 :invalid-type-definition))))
+                   args)
+    (let* (expr (make-spec-expr (joxa-cmp-path/incr-path 3 path0) ctx expression))
+      (joxa-cmp-ctx/pop-type-scope-ctx ctx)
+      (joxa-cmp-ctx/add-type-ctx ctx name arity {{:c_literal [line1] :type}
+                                    {:c_literal [line1]
+                                                [{name expr
+                                                       (lists/map
+                                                        (fn (el)
+                                                            {:var line1 el})
+                                                        args)}]}}))))
+
+(defn+ make-spec (path0 ctx form)
+  (case form
+    ([:deftype+ name args expression]
+     (when (erlang/and (erlang/is_atom name)
+                       (erlang/is-list args)))
+     (let* (arity (erlang/length args))
+       (joxa-cmp-ctx/add-type-export-ctx ctx name arity)
+       (def-top-level-function-spec (joxa-cmp-path/incr-path path0) ctx name args expression)))
+    ([:deftype name args expression]
+     (when (erlang/and (erlang/is_atom name)
+                       (erlang/is-list args)))
+     (make-implicit-spec (joxa-cmp-path/incr-path path0) ctx name args expression))
+    ([:defspec name args expression]
+     (make-implicit-spec (joxa-cmp-path/incr-path path0) ctx name args expression))
+    (_
+     (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 :invalid-type-definition))))

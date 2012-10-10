@@ -42,7 +42,7 @@ given([a,module,that,has,a,function,that,contains,'\'try\''], _State, _) ->
     {ok, Result}.
 
 then([a,beam,binary,is,produced], Ctx, _) ->
-    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(true, is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     ?assertMatch(false, 'joxa-compiler':'has-errors?'(Ctx)),
     {ok, Ctx};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->

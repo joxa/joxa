@@ -1,0 +1,45 @@
+(ns joxa-cmp-checks
+    (require (cerl :joxify)
+             (erlang :joxify)
+             (sets :joxify)
+             (lists :joxify)
+             joxa-cmp-util
+             joxa-cmp-path
+             joxa-cmp-ctx)
+    (use (erlang :only (>/2))))
+
+(defn sort-fun-deps (dep state)
+  (case state
+    ({unresolved0 resolved0}
+     (case (sets/is_element dep resolved0)
+       (:true
+        state)
+       (:false
+        {(sets/add_element dep unresolved0) resolved0})))))
+
+(defn+ has-unresolved-dependencies? (ctx)
+  (let* (reqs (joxa-cmp-ctx/get-definitions ctx)
+        result (lists/foldl
+                (fn (el acc)
+                    (case el
+                      ({var _ deps _}
+                       (case acc
+                         ({unresolved0 resolved0}
+                          (let* (element {(cerl/fname_id var) (cerl/fname_arity var)}
+                                resolved1 (sets/add_element element resolved0)
+                                unresolved1 (sets/del_element element unresolved0))
+                            (lists/foldl sort-fun-deps/2 {unresolved1 resolved1} (sets/to_list deps))))))))
+                {(sets/new) (sets/new)} reqs))
+    (case result
+      ({unresolved _}
+       (case (> (sets/size unresolved) 0)
+         (:true
+          (joxa-cmp-ctx/add-error-ctx ctx (joxa-cmp-path/new-path)
+                                      {:undefined-functions (sets/to_list unresolved)})
+          :true)
+         (:false
+          :false))))))
+
+(defn+ has-errors-or-warnings? (ctx)
+  (erlang/or (erlang/> (joxa-cmp-ctx/warning-count-ctx ctx) 0)
+             (erlang/> (joxa-cmp-ctx/error-count-ctx ctx) 0)))

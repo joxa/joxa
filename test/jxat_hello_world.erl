@@ -16,7 +16,7 @@ given([a,module,that,has,a,function,that,calls,
   {ok, 'joxa-compiler':forms(Source, [])}.
 
 then([a,beam,binary,is,produced], Ctx, _) ->
-    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(true, is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     ?assertMatch([{'--joxa-info',1},
                   {'--joxa-info',2},
                   {'hello-world',1},
@@ -28,4 +28,3 @@ then([the,described,function,can,be,called,'and',works,correctly],
      State, _) ->
     ?assertMatch(ok, helloworld:'hello-world'("Hello World")),
     {ok, State}.
-

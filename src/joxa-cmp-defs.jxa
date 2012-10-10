@@ -1,0 +1,112 @@
+(ns joxa-cmp-defs
+    (require (cerl :joxify)
+             (erlang :joxify)
+             (lists :joxify)
+             joxa-cmp-path
+             joxa-cmp-expr
+             joxa-cmp-spec
+             joxa-cmp-call
+             joxa-cmp-ns
+             joxa-cmp-ctx)
+    (use (erlang :only (and/2))))
+
+(defspec make-forms ((joxa-cmp-path/path) (joxa-cmp-ctx/context) (erlang/term)) (joxa-cmp-ctx/context))
+
+(defn make-function1 (path0 ctx name args expressions)
+  (joxa-cmp-ctx/function-name-ctx ctx name)
+  (case (joxa-cmp-expr/do-function-body (joxa-cmp-path/incr-path path0) ctx :false name args expressions)
+    ({arg-list body}
+     (joxa-cmp-ctx/function-name-ctx ctx :undefined)
+     {name arg-list body})))
+
+(defn+ make-function (path0 ctx form)
+  (case form
+    ((name . (args . expressions))
+     (when (and (erlang/is-list args)
+                (erlang/is_atom name)))
+     (make-function1 path0 ctx name args expressions))
+    (_
+     (joxa-cmp-ctx/add-error-ctx ctx path0 :invalid-definition)
+     {:no-name [] (cerl/c_nil)})))
+
+
+(defn+ make-definition (path0 ctx form)
+  (let* (annots (joxa-cmp-ctx/annots-from-context :traverse  path0 ctx))
+    (case form
+      ; An empty form is perfectly acceptable as it helps us have
+      ; macros that do validation but do not return anything compilable
+      ([] :ok)
+      ((:defn+ . details)
+       (case (make-function (joxa-cmp-path/incr-path path0) ctx details)
+         ({name arg-list body}
+          (joxa-cmp-ctx/add-exported-def-ctx path0 ctx annots name arg-list body))))
+      ((:defn . details)
+       (case (make-function (joxa-cmp-path/incr-path path0) ctx details)
+         ({name arg-list body}
+          (joxa-cmp-ctx/add-def-ctx path0 ctx annots name arg-list body))))
+      ((:definline . details)
+       (let* (inline-annots (:inline . annots))
+         (case (make-function (joxa-cmp-path/incr-path path0) ctx details)
+           ({name arg-list body}
+            (joxa-cmp-ctx/add-def-ctx path0 ctx inline-annots name arg-list body)))))
+      ((:defmacro+ . details)
+       (case (make-function (joxa-cmp-path/incr-path path0) ctx details)
+         ({name arg-list body}
+          (joxa-cmp-ctx/add-exported-def-ctx path0 ctx annots name arg-list body)
+          (joxa-cmp-ctx/add-macro-ctx ctx name (erlang/length arg-list) path0))))
+      ((:defmacro . details)
+       (case (make-function (joxa-cmp-path/incr-path path0) ctx details)
+         ({name arg-list body}
+          ;; Initially all macros have to be exported, since the
+          ;; caller is the compiler and not the namespace
+          ;; itself. However, we keep a list of macros that need to be
+          ;; hidden so that after the fact we can roll through the
+          ;; list unexporting things that do not need to be exported.
+          (joxa-cmp-ctx/add-exported-def-ctx path0 ctx annots name arg-list body)
+          (joxa-cmp-ctx/add-unexported-macro-ctx path0 ctx name (erlang/length arg-list)))))
+      ((:deftype+ . _)
+       (joxa-cmp-spec/make-spec path0 ctx form))
+      ((:deftype . _)
+       (joxa-cmp-spec/make-spec path0 ctx form))
+      ((:defspec . _)
+       (joxa-cmp-spec/make-spec path0 ctx form))
+      ((var . args)
+       (case (joxa-cmp-ctx/resolve-reference-ctx path0 ctx var (erlang/length args))
+         ({:apply :not-rest :macro {function arity}}
+          (joxa-cmp-call/call-macro path0 ctx (joxa-cmp-ctx/namespace-name-ctx ctx) function args
+                      (fn (form)
+                          (make-forms (joxa-cmp-path/suspend path0) ctx form))))
+         ({:apply :rest :macro {function arity}}
+          (joxa-cmp-call/call-macro path0 ctx (joxa-cmp-ctx/namespace-name-ctx ctx) function
+                      (joxa-cmp-call/runtime-called->rest args 1 arity [])
+                      (fn (form)
+                          (make-forms (joxa-cmp-path/suspend path0) ctx form))))
+         ({:remote :not-rest :macro {namespace function arity}}
+          (joxa-cmp-call/auto-require ctx namespace)
+          (joxa-cmp-call/call-macro path0 ctx namespace function
+                      args
+                      (fn (form)
+                          (make-forms (joxa-cmp-path/suspend path0) ctx form))))
+         ({:remote :rest :macro {namespace function arity}}
+          (joxa-cmp-call/auto-require ctx namespace)
+          (joxa-cmp-call/call-macro path0 ctx namespace function
+                      (joxa-cmp-call/runtime-called->rest args 1 arity [])
+                      (fn (form)
+                          (make-forms (joxa-cmp-path/suspend path0) ctx form))))
+         (_
+          (joxa-cmp-ctx/add-error-ctx ctx path0 {:invalid-definition-or-macro form}))))
+      (_
+       (joxa-cmp-ctx/add-error-ctx ctx path0 :invalid-definition)))))
+
+
+(defn+ make-forms (path0 ctx form0)
+  (case form0
+    ((:do . rest)
+     (lists/foldl (fn (form1 path1)
+                      (make-forms path1 ctx form1)
+                      (joxa-cmp-path/incr-path path1))
+                  (joxa-cmp-path/traverse-incr-path path0)  rest))
+    ((:ns . _)
+     (joxa-cmp-ns/make-namespace path0 ctx form0))
+    (_
+     (make-definition path0 ctx form0))))

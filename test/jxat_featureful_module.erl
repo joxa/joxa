@@ -25,7 +25,7 @@ given([a,featureful,module], _State, _) ->
     {ok, Result}.
 
 then([a,beam,binary,is,produced], Ctx, _) ->
-    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(true, is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     {ok, Ctx};
 then([the,joxa,context,for,a,featureful,module,is,correctly,formed], Ctx0, _) ->
     validate_module(string, Ctx0, [{join,2}]),
@@ -33,9 +33,9 @@ then([the,joxa,context,for,a,featureful,module,is,correctly,formed], Ctx0, _) ->
     validate_lists(Ctx0),
     validate_file(Ctx0),
     validate_filename(Ctx0),
-    Required = 'joxa-compiler':'get-context'(requires, Ctx0),
-    Alias = 'joxa-compiler':'get-context'(aliases, Ctx0),
-    _Attrs = 'joxa-compiler':'get-context'(attrs, Ctx0),
+    Required = 'joxa-cmp-ctx':'get-context'(requires, Ctx0),
+    Alias = 'joxa-cmp-ctx':'get-context'(aliases, Ctx0),
+    _Attrs = 'joxa-cmp-ctx':'get-context'(attrs, Ctx0),
     ?assertMatch(true, ec_dictionary:has_key({proplists, split, 2}, Required)),
     ?assertMatch(true, ec_dictionary:has_key({erlang, integer_to_list, 2}, Required)),
     ?assertMatch(true, ec_dictionary:has_key({code, which, 1}, Required)),
@@ -57,7 +57,7 @@ validate_module(Module, Ctx0, Exclude) ->
     FilteredExports = [FunArity || FunArity <- Exports,
                                    not lists:member(FunArity,
                                                     Exclude)],
-    Used = 'joxa-compiler':'get-context'(uses, Ctx0),
+    Used = 'joxa-cmp-ctx':'get-context'(uses, Ctx0),
     lists:foreach(fun(Export={Fun, _}) ->
                           ?assertMatch({Fun, Module},
                                        ec_dictionary:get(Export, Used))
@@ -70,7 +70,7 @@ validate_lists(Ctx0) ->
                      Fun =/= module_info],
     FilteredExports = [FunArity || FunArity <- Exports,
                                    not lists:member(FunArity, Required)],
-    Used = 'joxa-compiler':'get-context'(uses, Ctx0),
+    Used = 'joxa-cmp-ctx':'get-context'(uses, Ctx0),
     lists:foreach(fun(Export={Fun, _}) ->
                           ?assertMatch({Fun, lists},
                                        ec_dictionary:get(Export, Used))
@@ -99,7 +99,7 @@ validate_file(Ctx0) ->
                                                     [{delete, 1},
                                                      {change_group, 2},
                                                      {change_mode, 2}])],
-    Used = 'joxa-compiler':'get-context'(uses, Ctx0),
+    Used = 'joxa-cmp-ctx':'get-context'(uses, Ctx0),
     lists:foreach(fun({Export, Target}) ->
                           ?assertMatch({Target, file},
                                        ec_dictionary:get(Export, Used))
@@ -121,7 +121,7 @@ validate_filename(Ctx0) ->
     FilteredExports = [FunArity || FunArity <- Exports,
                                    not lists:member(FunArity,
                                                     DescExclude)],
-    Used = 'joxa-compiler':'get-context'(uses, Ctx0),
+    Used = 'joxa-cmp-ctx':'get-context'(uses, Ctx0),
     lists:foreach(fun(Export={Target, _}) ->
                           ?assertMatch({Target, filename},
                                        ec_dictionary:get(Export, Used))
