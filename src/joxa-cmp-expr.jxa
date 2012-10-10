@@ -1,0 +1,434 @@
+(ns joxa-cmp-expr
+    (require (cerl :joxify)
+             (erlang :joxify)
+             (lists :joxify)
+             joxa-cmp-util
+             joxa-cmp-path
+             joxa-cmp-call
+             joxa-cmp-case
+             joxa-cmp-binary
+             joxa-cmp-literal
+             joxa-cmp-special-forms
+             joxa-cmp-ctx)
+    (use (erlang :only (==/2 +/2))))
+
+(defspec make-expr ((joxa-cmp-path/path) (joxa-cmp-ctx/context) (erlang/term))  (cerl/cerl))
+(defspec make-quasi ((joxa-cmp-path/path) (joxa-cmp-ctx/context) (erlang/term))  (cerl/cerl))
+(defspec make-quasi-element ((joxa-cmp-path/path) (joxa-cmp-ctx/context) (erlang/term))  (cerl/cerl))
+
+(defn make-tuple-expr (path0 ctx values)
+  (case (lists/foldl (fn (val acc0)
+                         (case acc0
+                           ({path1 acc1}
+                            (let* (element (make-expr (joxa-cmp-path/traverse-path path1) ctx val))
+                              {(joxa-cmp-path/incr-path path1) (element . acc1)}))))
+                     {path0 []} values)
+    ({_ body}
+      (cerl/ann_c_tuple (joxa-cmp-ctx/annots-from-context [] path0 ctx)
+                        (lists/reverse body)))))
+(defn+ make-seq (path0 ctx form)
+  (let* (annots (joxa-cmp-ctx/annots-from-context :traverse path0 ctx))
+    (case form
+      ([arg1 arg2]
+       (let* (cerl-arg1 (make-expr (joxa-cmp-path/traverse-path path0) ctx arg1)
+             cerl-arg2 (make-expr (joxa-cmp-path/traverse-incr-path path0) ctx arg2))
+         (cerl/ann_c_seq annots cerl-arg1 cerl-arg2)))
+      ([arg1]
+       (make-expr (joxa-cmp-path/traverse-path path0) ctx arg1))
+      ((arg1 . rest)
+       (let* (cerl-arg1 (make-expr (joxa-cmp-path/traverse-path path0) ctx arg1)
+              cerl-arg2 (make-seq (joxa-cmp-path/incr-path path0) ctx rest))
+         (cerl/ann_c_seq annots cerl-arg1 cerl-arg2)))
+      ([]
+       (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 :invalid-sequence)))))
+
+(defn make-cons (annots arg1-path arg2-path ctx arg1 arg2)
+  (let* (cerl-arg1 (make-expr arg1-path ctx arg1)
+        cerl-arg2 (make-expr arg2-path ctx arg2))
+    (cerl/ann_c_cons annots cerl-arg1 cerl-arg2)))
+
+
+
+(defn make-remote-rest-fun (ctx namespace function arity rest-arity)
+  (let* (arg-list (lists/map (fn (_)
+                                (cerl/ann_c_var [:compiler_generated]
+                                                (joxa-cmp-util/gensym)))
+                            (lists/seq 1 arity))
+                 annots [:compiler_generated])
+    (joxa-cmp-ctx/incr-fun-index-ctx ctx)
+    (cerl/ann_c_fun annots arg-list
+                    (cerl/ann_c_call annots
+                                     (cerl/ann_c_atom annots namespace)
+                                     (cerl/ann_c_atom annots function)
+                                     (joxa-cmp-call/called->rest arg-list 1 rest-arity [])))))
+
+
+(defn make-fun (path0 ctx form)
+  (let* (annots (joxa-cmp-ctx/annots-from-context [] path0 ctx))
+    (case form
+      ({:--fun f a} (when (erlang/is_integer a))
+       (case (joxa-cmp-ctx/resolve-reference-ctx path0 ctx f a)
+         ({:reference {var _}}
+          (case (erlang/and (cerl/is_c_fname var)
+                            (== (cerl/fname_arity var) a))
+            (:true
+             (joxa-cmp-util/add-to-annots var annots))
+            (:false
+             (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 {:invalid-reference {f a}}))))
+         ({:apply :not-rest _ {name a}}
+          (joxa-cmp-ctx/add-fun-dep-ctx ctx name a)
+          (cerl/ann_c_fname annots name a))
+         ({:apply :rest _ {name rest-arity}}
+          (joxa-cmp-ctx/add-fun-dep-ctx ctx name rest-arity )
+          (joxa-cmp-call/make-apply-rest-fun ctx
+                               (cerl/ann_c_fname annots name a)
+                               a rest-arity))
+         (_
+          (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 {:invalid-reference {f a}}))))
+      ((= ref {:--fun _ _ a})
+       (when (erlang/is_integer a))
+       (case (joxa-cmp-ctx/resolve-reference-ctx path0 ctx ref a)
+         ({:reference (= detail {_ _})}
+          (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 {:invalid-reference detail}))
+         ({:remote :not-rest _ {namespace function arity}}
+          (when (erlang/and (erlang/is_atom namespace)
+                            (erlang/is_atom function)))
+          (cerl/ann_c_call annots
+                           (cerl/ann_c_atom annots
+                                            :erlang)
+                           (cerl/ann_c_atom annots
+                                            :make_fun)
+                           [(cerl/ann_c_atom annots namespace)
+                            (cerl/ann_c_atom annots function)
+                            (cerl/ann_c_int annots arity)]))
+         ({:remote :rest _ {namespace function rest-arity}}
+          (when (erlang/and (erlang/is_atom namespace)
+                            (erlang/is_atom function)))
+          (make-remote-rest-fun ctx namespace function a rest-arity))
+         (_
+          (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 {:undefined-reference ref}))))
+      (_
+       (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 {:undefined-reference form})))))
+
+(defn make-list (path0 ctx form)
+  (let* (annots (joxa-cmp-ctx/annots-from-context :traverse path0 ctx))
+    (case form
+      ([]
+       (cerl/c_nil))
+      ((h . t)
+       (let* (cerl-h (make-expr (joxa-cmp-path/traverse-path path0) ctx h)
+             cerl-t (make-list (joxa-cmp-path/incr-path path0)  ctx t))
+         (cerl/ann_c_cons annots cerl-h cerl-t))))))
+
+(defn make-try (path0 ctx form)
+  (let* (annots (joxa-cmp-ctx/annots-from-context [] path0 ctx))
+    (case form
+      ([:try* expr [:catch [type value] catch-expr]]
+       (when (erlang/and (erlang/is_atom type)
+                         (erlang/is_atom value)))
+       (let* (cerl-expr (make-expr (joxa-cmp-path/traverse-incr-path path0) ctx expr)
+             try-var (cerl/ann_c_var (:compiler_generated . annots) (joxa-cmp-util/gensym))
+             type-var (cerl/ann_c_var annots type)
+             value-var (cerl/ann_c_var annots value)
+             ignore-var (cerl/ann_c_var (:compiler_generated . annots) (joxa-cmp-util/gensym)))
+         (joxa-cmp-ctx/push-scope-ctx ctx)
+         (joxa-cmp-ctx/add-reference-to-scope-ctx path0 ctx value -1 value-var)
+         (joxa-cmp-ctx/add-reference-to-scope-ctx path0 ctx type -1 type-var)
+         (let* (cerl-catch (make-expr (joxa-cmp-path/traverse-incr-path 2
+                                      (joxa-cmp-path/traverse-incr-path 2 path0))
+                                     ctx catch-expr))
+           (joxa-cmp-ctx/pop-scope-ctx ctx)
+           (cerl/ann_c_try annots cerl-expr [try-var] try-var
+                           [type-var value-var ignore-var]
+                           cerl-catch)
+)))
+      (_
+       (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 :invalid-try-expression)))))
+
+
+(defn get-expr-arity (expr)
+  (case (cerl/type expr)
+    (:var
+     (case (cerl/var_name expr)
+       ({_ arity} (when (erlang/is_integer arity))
+        arity)
+       (_
+        -1)))
+    (:fun
+     (cerl/fun_arity expr))
+    (_ -1)))
+
+(defn arg-arity (args count)
+  (case args
+    ([]
+     {[{:not-rest count}] count})
+    ((:&rest . _)
+     {[{:rest (+ count 1)}]  (+ count 1)})
+    ((_ . rest)
+     (arg-arity rest (+ count 1)))))
+
+(defn make-let-binding (body-path0 binding-path0 ctx var expr continuation)
+  (let* (binding-path1 (joxa-cmp-path/traverse-path binding-path0)
+        annots (joxa-cmp-ctx/annots-from-context [] binding-path1 ctx))
+    (case expr
+      ((:fn . (args . _))
+       (case (arg-arity args 0)
+         ({new-annots arity}
+          (let* (fn-annots (lists/append annots new-annots)
+                cerl-var (cerl/ann_c_fname fn-annots var arity))
+            (joxa-cmp-ctx/push-scope-ctx ctx)
+            (joxa-cmp-ctx/add-reference-to-scope-ctx binding-path1 ctx
+                                        var arity cerl-var)
+            (let* (cerl-expr (make-expr (joxa-cmp-path/traverse-incr-path binding-path0) ctx expr)
+                  cerl-body (continuation body-path0 (joxa-cmp-path/incr-path binding-path0) ctx))
+              (joxa-cmp-ctx/pop-scope-ctx ctx)
+              (cerl/ann_c_letrec annots
+                                 [{cerl-var cerl-expr}]
+                                 cerl-body))))))
+      (_
+       (let* (cerl-expr (make-expr (joxa-cmp-path/traverse-incr-path binding-path0)
+                                  ctx
+                                  expr))
+         (joxa-cmp-ctx/push-scope-ctx ctx)
+         (joxa-cmp-ctx/add-reference-to-scope-ctx binding-path1 ctx var
+                                     (get-expr-arity cerl-expr)
+                                     (cerl/ann_c_var annots var))
+         (let* (cerl-body (continuation  body-path0 (joxa-cmp-path/incr-path binding-path0) ctx))
+           (joxa-cmp-ctx/pop-scope-ctx ctx)
+           (cerl/ann_c_let annots
+                           [(cerl/ann_c_var annots var)]
+                           cerl-expr
+                           cerl-body)))))))
+
+(defn make-let-bindings (body-path0 binding-path0 ctx bindings body)
+  (case bindings
+    ([var expr]
+     (make-let-binding body-path0 binding-path0 ctx var expr
+                       (fn (body-path1 binding-path1 ctx)
+                           (make-seq body-path1  ctx body))))
+    ((var . (expr . rest))
+     (make-let-binding body-path0 binding-path0 ctx var expr
+                       (fn (body-path1 binding-path1 ctx)
+                           (make-let-bindings body-path1
+                                              (joxa-cmp-path/incr-path binding-path1)
+                                              ctx rest body))))
+    (_
+     (joxa-cmp-ctx/add-error-r-nil-ctx ctx binding-path0 :invalid-let-binding ))))
+
+
+(defn make-let (path0 ctx form)
+  (let* (path1 (joxa-cmp-path/traverse-incr-path path0))
+    (case form
+      ((:let* . (bindings . body))
+       (make-let-bindings (joxa-cmp-path/incr-path 2 path0) path1 ctx bindings body))
+      (_
+       (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 :invalid-form)))))
+
+
+
+(defn gen-args (path0 ctx arg-list acc)
+  (let* (annots
+        (joxa-cmp-ctx/annots-from-context :traverse path0 ctx))
+    (case arg-list
+      ([:&rest rest-arg]
+       {(lists/reverse ((cerl/ann_c_var annots rest-arg) . acc)) :true})
+      ((:&rest . rest-arg)
+       (joxa-cmp-ctx/add-error-ctx ctx path0 :invalid-rest-arguments)
+       {(lists/reverse acc) :false})
+      ((a . rest) (when (erlang/is_atom a))
+       (gen-args (joxa-cmp-path/incr-path path0) ctx rest ((cerl/ann_c_var annots a) . acc)))
+      ([]
+       {(lists/reverse acc) :false})
+      (_
+       (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 :invalid-arg-list)
+       {(lists/reverse acc) :false}))))
+
+(defn+ do-function-body (path0 ctx is-anon name args0 expressions0)
+  (joxa-cmp-ctx/push-scope-ctx ctx)
+  ;; Add all of the args to the current scope
+    (lists/foreach (fn (arg)
+                       (case arg
+                         (_ (when (erlang/is_atom arg))
+                            (joxa-cmp-ctx/add-reference-to-scope-ctx path0 ctx arg -1 (cerl/c_var arg)))
+                         (else
+                          (joxa-cmp-ctx/add-error-ctx ctx path0 {:arg-is-not-proper-name else}))))
+                   args0)
+    (let* (arg-detail (gen-args (joxa-cmp-path/traverse-path path0) ctx args0 []))
+      ;; Correctly setup forward declarations
+      (case {is-anon arg-detail}
+        ({:true {arg-list :true}}
+         (let* (index (joxa-cmp-ctx/anon-fun-index-ctx ctx))
+           (joxa-cmp-ctx/add-rest-ctx path0 ctx {:anon index} (erlang/length arg-list))))
+        ({:false {arg-list :true}}
+         (joxa-cmp-ctx/add-rest-ctx path0 ctx name (erlang/length arg-list)))
+        ({:true {arg-list :false}}
+         (joxa-cmp-ctx/incr-fun-index-ctx ctx))
+        ({:false {arg-list :false}}
+         ;; predefine the function so it can be used recursively
+         (joxa-cmp-ctx/add-def-ctx path0 ctx [] name arg-list :undefined :ephemeral)))
+      (case arg-detail
+        ({arg-list _}
+         ;; Here we do something a bit different if there is a
+         ;; docstring verses no docstring.
+         (case expressions0
+           (([:string docstring] . expressions1)
+            (when (erlang/is_list docstring))
+            (let* (result (make-seq (joxa-cmp-path/incr-path 2 path0) ctx expressions1))
+              (joxa-cmp-ctx/pop-scope-ctx ctx)
+              {arg-list result}))
+           (_
+            (let* (result (make-seq (joxa-cmp-path/incr-path path0) ctx expressions0))
+              (joxa-cmp-ctx/pop-scope-ctx ctx)
+              {arg-list result})))))))
+
+(defn make-quasi-tuple (path0 ctx arg0)
+  (let* (annots  (joxa-cmp-ctx/annots-from-context [] path0 ctx)
+                result (lists/foldl (fn (element acc)
+                                        (case acc
+                                          ({path1 acc0}
+                                           (let* (cerl-el (make-quasi-element (joxa-cmp-path/traverse-path path1) ctx element))
+                                             {(joxa-cmp-path/incr-path path1)
+                                               ( cerl-el .  acc0)}))))
+                                    {path0 []} (erlang/tuple_to_list arg0)))
+    (case result
+      ({_ elements1}
+       (cerl/ann_c_tuple annots (lists/reverse  elements1))))))
+
+(defn make-quasi-element (path0 ctx arg0)
+  (let* (annots  (joxa-cmp-ctx/annots-from-context [] path0 ctx))
+    (case arg0
+      (arg1
+       (when (erlang/is-binary arg1))
+       (cerl/ann_make_data annots {:atomic arg1} []))
+      (arg1
+       (when (erlang/is_atom arg1))
+       (cerl/ann_c_atom annots arg1))
+      (arg1
+       (when (erlang/is_tuple arg1))
+       (make-quasi-tuple path0 ctx arg1))
+      (arg1
+       (when (erlang/is_integer arg1))
+       (cerl/ann_c_int annots arg1))
+      (arg1
+       (when (erlang/is_float arg1))
+        (cerl/ann_c_float annots arg1))
+      ([:unquote arg1]
+       (make-expr (joxa-cmp-path/incr-path (joxa-cmp-path/traverse-path path0)) ctx arg1))
+      (arg1
+       (when (erlang/is-list arg1))
+       (make-quasi (joxa-cmp-path/traverse-path path0) ctx arg1)))))
+
+(defn make-quasi (path0 ctx arg0)
+  (let* (annots  (joxa-cmp-ctx/annots-from-context [] path0 ctx))
+    (case arg0
+      ([]
+       (cerl/ann_c_nil annots))
+      (([:unquote-splicing arg1] . t)
+       (let* (cerl-h (make-expr (joxa-cmp-path/incr-path (joxa-cmp-path/traverse-path path0))  ctx arg1)
+              cerl-t (make-quasi (joxa-cmp-path/incr-path path0) ctx t))
+         (cerl/ann_c_call annots
+                          (cerl/ann_c_atom annots :lists)
+                          (cerl/ann_c_atom annots :append)
+                          [cerl-h cerl-t])))
+      ((h . t)
+       (let* (cerl-h (make-quasi-element path0 ctx h)
+              cerl-t (make-quasi (joxa-cmp-path/incr-path path0) ctx t))
+         (cerl/ann_c_cons annots
+                          cerl-h
+                          cerl-t)))
+      (else
+       (make-quasi-element path0 ctx else)))))
+
+(defn+ make-expr (path0 ctx form)
+  (let* (annots (joxa-cmp-ctx/annots-from-context [] path0 ctx))
+    (case form
+      (arg (when (erlang/is-binary arg))
+           (cerl/ann_make_data annots {:atomic arg} []))
+      (arg (when (erlang/is_integer arg))
+           (cerl/ann_c_int annots arg))
+      (arg (when (erlang/is_float arg))
+           (cerl/ann_c_float annots arg))
+      (arg (when (erlang/is_atom arg))
+           (case (joxa-cmp-ctx/resolve-reference-ctx path0 ctx arg -1)
+             ({:reference {var _}}
+              (joxa-cmp-util/add-to-annots var annots))
+             (e
+              (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 {:invalid-reference e arg}))))
+      (arg (when (erlang/and
+                  (erlang/is_tuple arg)
+                  (== (erlang/element 1 arg) :--fun)))
+           (make-fun path0 ctx form))
+      (arg (when (erlang/is_tuple arg))
+           (make-tuple-expr path0 ctx (erlang/tuple_to_list arg)))
+      ((:let* . _)
+       (make-let path0 ctx form))
+      ((:case . (expr . clauses))
+       (let* (cerl-expr (make-expr (joxa-cmp-path/traverse-incr-path path0) ctx expr)
+              cerl-clauses (joxa-cmp-case/make-pattern (joxa-cmp-path/incr-path 2 path0) ctx clauses []))
+         (cerl/ann_c_case annots cerl-expr cerl-clauses)))
+      ((:receive . ((:after . (timeout . do-exprs)) . clauses))
+       (let* (timeout-val (make-expr (joxa-cmp-path/incr-path (joxa-cmp-path/traverse-incr-path path0))
+                                    ctx timeout)
+             timeout-expr  (make-seq (joxa-cmp-path/incr-path 2 (joxa-cmp-path/traverse-incr-path path0))
+                                     ctx do-exprs)
+             cerl-clauses (joxa-cmp-case/make-pattern (joxa-cmp-path/incr-path 2 path0) ctx clauses []))
+         (case (cerl/is_c_int timeout-val)
+           (:true
+            (cerl/ann_c_receive annots
+                                cerl-clauses
+                                timeout-val
+                                timeout-expr))
+           (:false
+            (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 :invalid-receive)))))
+      ((:receive . ((:after . _) . _))
+       (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 :invalid-receive))
+      ((:receive . clauses)
+       (let* (cerl-clauses (joxa-cmp-case/make-pattern (joxa-cmp-path/incr-path path0) ctx clauses []))
+         (cerl/ann_c_receive annots cerl-clauses)))
+      ((:do . args)
+       (make-seq (joxa-cmp-path/incr-path path0) ctx args))
+      ((:binary . _)
+       (joxa-cmp-binary/make-binary path0 ctx form))
+      ([:$file-name]
+       (cerl/ann_c_string annots (joxa-cmp-ctx/filename-ctx ctx)))
+      ([:$namespace]
+       (cerl/ann_c_atom annots (joxa-cmp-ctx/namespace-name-ctx ctx)))
+      ([:$line-number]
+       (case (joxa-cmp-path/get-line-annots (joxa-cmp-path/path? path0) (joxa-cmp-ctx/annots-ctx ctx))
+         ([line-number _]
+          (cerl/ann_c_int annots line-number))))
+      ([:$function-name]
+       (cerl/ann_c_atom annots (joxa-cmp-ctx/function-name-ctx ctx)))
+      ([arg1 :. arg2]
+       (make-cons annots (joxa-cmp-path/traverse-path path0) (joxa-cmp-path/traverse-incr-path 2 path0)
+                  ctx arg1 arg2))
+      ([:cons arg1 arg2]
+       (make-cons annots (joxa-cmp-path/incr-path path0) (joxa-cmp-path/incr-path 2 path0) ctx arg1 arg2))
+      ((:apply . _)
+       (joxa-cmp-call/make-apply path0 ctx form))
+      ([:quote args]
+       (joxa-cmp-literal/make-literal (joxa-cmp-path/traverse-incr-path path0) ctx args))
+      ([:quasiquote args]
+       (make-quasi (joxa-cmp-path/traverse-incr-path path0) ctx args))
+      ([:string args]
+       (joxa-cmp-literal/make-literal-string (joxa-cmp-path/traverse-incr-path path0) annots ctx args))
+      ((:list . args)
+       (make-list (joxa-cmp-path/incr-path path0) ctx args))
+      ((:tuple . args)
+       (make-tuple-expr (joxa-cmp-path/incr-path path0) ctx args))
+      ([:macroexpand-1 (val . args)]
+       (joxa-cmp-special-forms/make-macroexpand-1 (joxa-cmp-path/incr-path path0) ctx val args))
+      ((:try* . _)
+       (make-try path0 ctx form))
+      ((:fn . fn-body)
+       (case fn-body
+         ((args . expression)
+          (case (do-function-body (joxa-cmp-path/incr-path path0) ctx :true :anon args expression)
+            ({arg-list body}
+             (cerl/ann_c_fun annots arg-list body))
+            (_
+             (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 :invalid-fn-form))))))
+      ((val . args)
+       (joxa-cmp-call/make-call path0 ctx val args :false))
+      (_
+       (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 :invalid-fn-form)))))

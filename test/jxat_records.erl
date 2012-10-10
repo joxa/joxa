@@ -71,8 +71,8 @@ given([another,module,uses,those,records], Source1, _) ->
     {ok, {Result1, Result2}}.
 
 then([a,beam,binary,is,produced,for,both], {Ctx1, Ctx2}, _) ->
-    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx1))),
-    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx2))),
+    ?assertMatch(true, is_binary('joxa-cmp-ctx':'get-context'(result, Ctx1))),
+    ?assertMatch(true, is_binary('joxa-cmp-ctx':'get-context'(result, Ctx2))),
     ?assertMatch(false, 'joxa-compiler':'has-errors?'(Ctx1)),
     ?assertMatch(false, 'joxa-compiler':'has-errors?'(Ctx2)),
     {ok, ok};

@@ -1,0 +1,234 @@
+(ns joxa-cmp-call
+    (require (cerl :joxify)
+             (lists :joxify)
+             (erlang :joxify)
+             joxa-cmp-path
+             joxa-cmp-ctx
+             joxa-cmp-util)
+    (use (erlang :only (</2 +/2))))
+
+(defspec joxa-cmp-expr/make-expr ((path) (context) (erlang/term))
+  (cerl/cerl))
+
+(defn is-rest-var? (var)
+  (let* (annots (cerl/get_ann var))
+    (case (lists/keysearch :rest 1 annots)
+      ({value val}
+       val)
+      (_
+       (case (lists/keysearch :not-rest 1 annots)
+         ({value val}
+          val)
+         (_
+          :unknown))))))
+
+(defn args-to-list (args)
+  (case args
+    ([]
+     (cerl/ann_c_nil [:compiler_generated]))
+    ((arg . rest)
+     (cerl/ann_c_cons [:compiler_generated]
+                      arg
+                      (args-to-list rest)))))
+
+(defn+ called->rest (args0 count arity acc)
+  (case args0
+    ([]
+     (case acc
+       ([]
+        ;; This is a special case to handle issues when a rest arg of
+        ;; 1 is called.
+        [(cerl/ann_c_nil [:compiler_generated])])
+       (_
+        (lists/reverse acc))))
+    ((arg . rest)
+     (case (erlang/< count arity)
+       (:true
+         (called->rest rest (erlang/+ count 1) arity (arg . acc)))
+        (:false
+         (called->rest [] 0 arity ((args-to-list args0) . acc)))))))
+
+(defn+ runtime-called->rest (args0 count arity acc)
+  (case args0
+    ([]
+     (case acc
+       ([]
+        ;; This is a special case to handle issues when a rest arg of
+        ;; 1 is called.
+        [[]])
+       (_
+        (lists/reverse acc))))
+    ((arg . rest)
+     (case (erlang/< count arity)
+       (:true
+        (runtime-called->rest rest (erlang/+ count 1) arity (arg . acc)))
+        (:false
+         (runtime-called->rest [] count arity (args0 . acc)))))))
+
+(defn eval-args (path0 ctx args0)
+  (case (lists/foldl (fn (arg acc0)
+                         (case acc0
+                           ({path1 acc1}
+                            (let* (cerl (joxa-cmp-expr/make-expr (joxa-cmp-path/traverse-path path1) ctx arg))
+                              {(joxa-cmp-path/incr-path path1) (cerl . acc1)}))))
+                     {path0 []} args0)
+    ({_ args1}
+     (lists/reverse args1))))
+
+(defn make-rest-apply-var (ctx annots cerl-var arg-list)
+  (case (is-rest-var? cerl-var)
+    ({:rest arity}
+     (cerl/ann_c_apply annots
+                       cerl-var
+                       (called->rest arg-list 1 arity [])))
+    (_
+     (cerl/ann_c_apply annots
+                             cerl-var
+                             arg-list))))
+
+(defn+ make-apply (path0 ctx form)
+  (let* (annots (joxa-cmp-ctx/annots-from-context [] path0 ctx))
+    (case form
+      ((:apply . (target . args))
+       (let* (arg-list (eval-args (joxa-cmp-path/incr-path 2 path0) ctx args))
+         (case (joxa-cmp-ctx/resolve-reference-ctx path0 ctx target (erlang/length args))
+           ({:remote :not-rest _ {namespace function arity}}
+            (cerl/ann_c_call annots
+                             (cerl/ann_c_atom annots namespace)
+                             (cerl/ann_c_atom annots function)
+                             (eval-args (joxa-cmp-path/incr-path 2 path0) ctx args)))
+           ({:remote :rest _ {namespace function arity}}
+            (cerl/ann_c_call annots
+                             (cerl/ann_c_atom annots namespace)
+                             (cerl/ann_c_atom annots function)
+                             (called->rest arg-list 1 arity [])))
+           ({:apply :not-rest _ {function arity}}
+            (joxa-cmp-ctx/add-fun-dep-ctx ctx function arity)
+            (cerl/ann_c_apply annots
+                              (cerl/ann_c_fname annots function arity)
+                              arg-list))
+           ({:apply :rest _ {function arity}}
+            (joxa-cmp-ctx/add-fun-dep-ctx ctx function arity)
+            (cerl/ann_c_apply annots
+                              (cerl/ann_c_fname annots function arity)
+                              (called->rest arg-list 1 arity [])))
+           ({:reference {val _}}
+            (make-rest-apply-var ctx annots val arg-list))
+           (:not-a-reference
+            (cerl/ann_c_apply annots
+                              (joxa-cmp-expr/make-expr (joxa-cmp-path/traverse-path path0) ctx target)
+                              arg-list)))))
+      (_
+       (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 {:invalid-reference form})))))
+
+(defn+ make-apply-rest-fun (ctx f-var arity rest-arity)
+  (let* (arg-list (lists/map (fn (_)
+                                (cerl/ann_c_var [:compiler_generated]
+                                                (joxa-cmp-util/gensym)))
+                            (lists/seq 1 arity))
+        annots [:compiler_generated])
+    (joxa-cmp-ctx/incr-fun-index-ctx ctx)
+    (cerl/ann_c_fun annots arg-list
+                     (cerl/ann_c_apply annots
+                                     f-var
+                                     (called->rest arg-list 1 rest-arity [])))))
+
+;; We auto require anything required by the namespace exporting the
+;; macro. The reduces by quite a bit the confusion involved in using
+;; macros
+(defn+ auto-require (ctx namespace)
+  (case (joxa-cmp-util/get-joxa-info :requires namespace)
+    (:false
+     :ok)
+    (external-requires
+     (lists/foreach (fn (mod-name)
+                        (joxa-cmp-ctx/add-require-ctx ctx mod-name))
+                    external-requires))))
+
+(defn+ call-macro (path ctx namespace function args continuation)
+  (try*
+   (continuation (erlang/apply namespace function args))
+   (catch (type body)
+     (joxa-cmp-ctx/add-error-r-nil-ctx ctx path
+                                       {:macro-failure {namespace function
+                                                                  (erlang/length args)}
+                                                       {type body (erlang/get-stacktrace)}}))))
+
+(defn+ make-call (path0 ctx val args macro-only?)
+  (let* (annots (joxa-cmp-ctx/annots-from-context [] path0 ctx))
+    (let* (possible-arity (erlang/length args)
+          path1 (joxa-cmp-path/traverse-path path0)
+          call-annots (joxa-cmp-ctx/annots-from-context [] path1 ctx))
+      (case (joxa-cmp-ctx/resolve-reference-ctx path0 ctx val possible-arity)
+        ({:apply :not-rest :macro {function arity}}
+         (call-macro path0 ctx (joxa-cmp-ctx/namespace-name-ctx ctx) function args
+                     (fn (expr)
+                         (joxa-cmp-expr/make-expr (joxa-cmp-path/suspend path0) ctx expr))))
+        ({:apply :rest :macro {function arity}}
+         (call-macro path0 ctx (joxa-cmp-ctx/namespace-name-ctx ctx) function
+                     (runtime-called->rest args 1 arity [])
+                     (fn (expr)
+                         (joxa-cmp-expr/make-expr (joxa-cmp-path/suspend path0) ctx expr))))
+        ({:remote :not-rest :macro {namespace function arity}}
+         (auto-require ctx namespace)
+         (call-macro path0 ctx namespace function args
+                     (fn (expr)
+                         (joxa-cmp-expr/make-expr (joxa-cmp-path/suspend path0) ctx expr))))
+        ({:remote :rest :macro {namespace function arity}}
+         (auto-require ctx namespace)
+         (call-macro path0 ctx namespace function
+                     (runtime-called->rest args 1 arity [])
+                     (fn (expr)
+                         (joxa-cmp-expr/make-expr (joxa-cmp-path/suspend path0) ctx expr))))
+        (ref
+         (let* (arg-list (eval-args (joxa-cmp-path/incr-path path0) ctx args))
+           (case ref
+             ({:reference {var _}}
+              (when (erlang/== :false macro-only?))
+              (make-rest-apply-var ctx annots (joxa-cmp-util/add-to-annots var annots) arg-list))
+             ({:apply :not-rest _ {name arity}}
+              (when (erlang/== :false macro-only?))
+              (joxa-cmp-ctx/add-fun-dep-ctx ctx name arity)
+              (cerl/ann_c_apply annots
+                                (cerl/ann_c_fname call-annots
+                                                  name
+                                                  arity)
+                                arg-list))
+             ({:apply :rest _ {name arity}}
+              (when (erlang/== :false macro-only?))
+              (joxa-cmp-ctx/add-fun-dep-ctx ctx name arity)
+              (cerl/ann_c_apply annots
+                                (cerl/ann_c_fname call-annots
+                                                  name
+                                                  arity)
+                                (called->rest arg-list 1 arity [])))
+             ({:remote :not-rest _ {namespace function possible-arity}}
+              (when (erlang/== :false macro-only?))
+              (cerl/ann_c_call annots
+                               (cerl/ann_c_atom call-annots
+                                                namespace)
+                               (cerl/ann_c_atom call-annots
+                                                function)
+                               arg-list))
+             ({:remote :rest _ {namespace function arity}}
+              (when (erlang/== :false macro-only?))
+              (cerl/ann_c_call annots
+                               (cerl/ann_c_atom call-annots
+                                                namespace)
+                               (cerl/ann_c_atom call-annots
+                                                function)
+                               (called->rest arg-list 1 arity [])))
+             ({:error error}
+              (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 error))
+             (:not-a-reference
+              (when (erlang/and (erlang/== :false macro-only?)
+                                (erlang/is-list val)))
+              (let* (cerl-val (joxa-cmp-expr/make-expr (joxa-cmp-path/traverse-path path0) ctx val))
+                (make-rest-apply-var ctx annots (joxa-cmp-util/add-to-annots cerl-val annots) arg-list)))
+             (:not-a-reference
+              (when (erlang/== :false macro-only?))
+              (case (joxa-cmp-ctx/resolve-reference-ctx path0 ctx val -1)
+                ({:reference {var _}}
+                 (make-rest-apply-var ctx annots (joxa-cmp-util/add-to-annots var annots) arg-list))
+                (_
+                 (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 {:invalid-reference {val possible-arity}})))))))))))

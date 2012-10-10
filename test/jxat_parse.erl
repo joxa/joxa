@@ -33,9 +33,9 @@ test1_test() ->
                                 (apply x 1 2)
                                 (apply a 22)
                                 (a 22))))">>,
-    {ok, Ctx} = 'joxa-compiler':'start-context'(),
-    {AST0, Remainder0} = 'joxa-compiler':parse(Ctx, Source),
-    Annots0 = 'joxa-compiler':'annots-ctx'(Ctx),
+    {ok, Ctx} = 'joxa-cmp-ctx':'start-context'(),
+    {AST0, Remainder0} = 'joxa-cmp-parser':parse(Ctx, Source),
+    Annots0 = 'joxa-cmp-ctx':'annots-ctx'(Ctx),
     test_type_idx([1,1], ident, 1, Annots0),
     test_type_idx([2,1], ident, 1, Annots0),
     test_type_idx([3,1], list, 2, Annots0),
@@ -47,8 +47,8 @@ test1_test() ->
                  AST0),
 
 
-    {AST1, Remainder1} = 'joxa-compiler':parse(Ctx, Remainder0),
-    Annots1 = 'joxa-compiler':'annots-ctx'(Ctx),
+    {AST1, Remainder1} = 'joxa-cmp-parser':parse(Ctx, Remainder0),
+    Annots1 = 'joxa-cmp-ctx':'annots-ctx'(Ctx),
     test_type_idx([1,2], ident, 4, Annots1),
     test_type_idx([2,2], ident, 4, Annots1),
     test_type_idx([3,2], list, 4, Annots1),
@@ -59,8 +59,8 @@ test1_test() ->
                   [fn,[arg1,arg2],{[quote,hello],arg1,arg2}]],
                  AST1),
 
-    {AST2, _Remainder2} = 'joxa-compiler':parse(Ctx, Remainder1),
-    Annots2 = 'joxa-compiler':'annots-ctx'(Ctx),
+    {AST2, _Remainder2} = 'joxa-cmp-parser':parse(Ctx, Remainder1),
+    Annots2 = 'joxa-cmp-ctx':'annots-ctx'(Ctx),
     test_type_idx([1,3], ident, 8, Annots2),
     test_type_idx([2,3], ident, 8, Annots2),
     test_type_idx([3,3], list, 8, Annots2),
@@ -82,12 +82,12 @@ test1_test() ->
           [apply,a,22],
           [a,22]]]],
        AST2),
-    ok = 'joxa-compiler':'stop-context'(Ctx).
+    ok = 'joxa-cmp-ctx':'stop-context'(Ctx).
 
 %%%===================================================================
 %%% Support Functions
 %%%===================================================================
 
 test_type_idx(Path, Type, Line, Annots) ->
-    ?assertMatch(Type, 'joxa-compiler':'get-type-annots'(Path, Annots)),
-    ?assertMatch({Line, _}, 'joxa-compiler':'get-idx-annots'(Path, Annots)).
+    ?assertMatch(Type, 'joxa-cmp-path':'get-type-annots'(Path, Annots)),
+    ?assertMatch({Line, _}, 'joxa-cmp-path':'get-idx-annots'(Path, Annots)).

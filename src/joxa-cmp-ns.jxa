@@ -1,0 +1,332 @@
+;;; The Joxa Compiler
+;;; =================
+;;; * author: Eric Merritt
+;;; * copyright: Erlware, LLC 2011 - 2012
+;;;
+;;; Licensed under the Apache License, Version 2.0 you may not use
+;;; this file except in compliance with the License.  You may obtain a
+;;; copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+;;;
+;;; Namespace Compilation
+;;; ------------------
+;;;
+;;; The form of the namespace is defined as follows.
+;;;
+;;;     (namespace <namespace_name>
+;;;        <require>
+;;;        <use>
+;;;        <attributes>)
+;;;
+;;; The namespace clause is a special form and its contents are not evaluated.
+;;;
+;;; comp compiles the provided AST into a Joxa context. Later that context
+;;; must be compiled to core erlang.
+(ns joxa-cmp-ns
+    (require (lists :joxify)
+             (erlang :joxify)
+             (code :joxify)
+             (ec_lists :joxify)
+             joxa-cmp-ctx
+             joxa-cmp-util
+             joxa-cmp-path)
+    (use (erlang :only (and/2))))
+
+(defspec  joxa-cmp-literal/make-literal ((joxa-cmp-path/path) (joxa-cmp-ctx/context)
+                                         (erlang/term)) (cerl/cerl))
+(defspec joxa-compiler/do-final-comp (joxa-cmp-ctx/context) (erlang/any))
+
+(defn get-exports (namespace)
+  (let* (mod-info (erlang/make_fun namespace :module_info 1)
+        exports (mod-info :exports))
+    (lists/map (fn (el)
+                   (case el
+                     ({fun arity}
+                      {{fun arity} fun})))
+               exports)))
+
+(defn gather-fun-arity-pairs (path ctx fun-arity-list acc)
+  (case fun-arity-list
+    (({:--fun fun arity} . rest)
+     (gather-fun-arity-pairs path ctx rest ({fun arity} . acc)))
+    ([] acc)
+    (inv-f
+     (joxa-cmp-ctx/add-error-ctx ctx path {:invalid-use :invalid-fun-spec inv-f})
+     acc)))
+
+(defn gather-fun-alias-pairs (path ctx fun-alias-pairs acc)
+  (case fun-alias-pairs
+    (([{:--fun fun arity} alias] . rest)
+     (when (erlang/is_atom alias))
+     (gather-fun-alias-pairs path ctx rest ({{fun arity} alias} . acc)))
+    ([]
+     acc)
+    (inv-f
+     (joxa-cmp-ctx/add-error-ctx ctx path {:invalid-use :invalid-fun-spec inv-f})
+     acc)))
+
+(defn populate-use-into-context (ctx namespace-name imports)
+  (case imports
+    ([]
+     :ok)
+    (_
+     (lists/foreach (fn (el)
+                        (case el
+                          ({{fun-name arity} alias-name}
+                           (joxa-cmp-ctx/add-use-ctx ctx alias-name arity fun-name namespace-name))))
+                    imports))))
+
+;; Joxa Namespace Definitions
+;; -----------------------
+;;
+;; Namespace declarations in Joxa are more complex then namespace definitions in
+;; Erlang. They follow the Clojure model much more closely then the Erlang
+;; namespace. That is that all namespaces used in the system must be required. You
+;; may provide an alias for a dependent namespace name in both the require
+;; clause and the use clauses. You may also import functions from namespaces in
+;; the use clause.
+;;
+;; ### Namespace Form
+;; The form of the namespace is defined as follows.
+;;
+;;     (namespace <namespace_name>
+;;        <require>
+;;        <use>
+;;        <attributes>)
+;;
+;; The namespace clause is a special form and its contents are not evaluated.
+;;
+;; comp compiles the provided AST into a Joxa context. Later that context
+;; must be compiled to core erlang.
+(defn check-for-invalid-fun-arity-pairs (path ctx fun-arity-pairs imports)
+  (lists/foreach (fn (fun-arity)
+                     (case fun-arity
+                       ({fun arity}
+                        (case (lists/any (fn (import)
+                                             (case import
+                                               ({{_ arity} fun}
+                                                :true)
+                                               (_
+                                                :false))) imports)
+                          (:true :ok)
+                          (:false
+                           (joxa-cmp-ctx/add-error-ctx ctx path {:invalid-use :non-existant-fun-name {fun arity}}))))))
+                 fun-arity-pairs))
+
+(defn filter-imports-to-onlys (path ctx target-funs imports0)
+  (let* (fun-arity-pairs (gather-fun-arity-pairs path ctx target-funs '()))
+    ;; check for fun-arity-pairs that doent actually exist
+    (check-for-invalid-fun-arity-pairs path ctx fun-arity-pairs imports0)
+    (lists/filter (fn (import)
+                      (case import
+                        ({{fun arity} alias}
+                         (lists/any (fn (fun-arity)
+                                        (case fun-arity
+                                          ({alias arity}
+                                           :true)
+                                          (_
+                                           :false))) fun-arity-pairs)))) imports0)))
+
+(defn exclude-specific-funs (path ctx excluded-funs imports0)
+  (let* (fun-arity-pairs (gather-fun-arity-pairs path ctx excluded-funs []))
+    (check-for-invalid-fun-arity-pairs path ctx fun-arity-pairs imports0)
+    (lists/filter (fn (import)
+                      (case import
+                        ({{fun arity} alias}
+                         (lists/all (fn (fun-arity)
+                                        (case fun-arity
+                                          ({alias arity}
+                                           :false)
+                                          (_
+                                           :true))) fun-arity-pairs)))) imports0)))
+
+(defn rename-funs (path ctx renames imports0)
+  (let* (fun-alias-pairs (gather-fun-alias-pairs path ctx renames []))
+    (lists/map (fn (import)
+                   (case import
+                     ({{fun arity} alias}
+                      (case (ec-lists/search (fn (el)
+                                                 (case el
+                                                   ({{alias arity} new-alias}
+                                                    {:ok new-alias})
+                                                   (_
+                                                    :not_found)))
+                                             fun-alias-pairs)
+                        ({:ok new-alias _}
+                         {{fun arity} new-alias})
+                        (:not_found
+                         import))))) imports0)))
+
+(defn handle-use-clauses (path ctx forms namespace-name imports0)
+  (case forms
+    ([]
+     (populate-use-into-context ctx namespace-name imports0))
+    (('(quote joxify) . rest)
+     (joxa-cmp-ctx/add-alias-ctx ctx (joxa-cmp-util/joxify-name namespace-name) namespace-name)
+     (handle-use-clauses path ctx rest namespace-name
+                         (lists/map (fn (el)
+                                        (case el
+                                          ({{fun arity} alias}
+                                           {{fun arity} (joxa-cmp-util/joxify-name alias)})))
+                                    imports0)))
+    (('(quote only) . (target-funs . rest))
+     (when (and (erlang/is_atom namespace-name)
+                (erlang/is-list target-funs)))
+     (let* (imports1 (filter-imports-to-onlys path ctx target-funs imports0))
+       (handle-use-clauses path ctx rest namespace-name imports1)))
+    (('(quote exclude) . (target-funs . rest))
+     (when (and (erlang/is_atom namespace-name)
+                (erlang/is-list target-funs)))
+     (let* (imports1 (exclude-specific-funs path ctx target-funs imports0))
+       (handle-use-clauses path ctx rest namespace-name imports1)))
+    (('(quote rename) . (target-funs . rest))
+     (when (and (erlang/is_atom namespace-name)
+                (erlang/is-list target-funs)))
+     (let* (imports1 (rename-funs path ctx target-funs imports0))
+       (handle-use-clauses path ctx rest namespace-name imports1)))
+    (_
+     (joxa-cmp-ctx/add-error-ctx ctx path {:invalid-use-clause {:bad-use-part forms}}))))
+
+(defn namespace-exists? (ctx mod-name)
+  (try*
+   (case (code/ensure_loaded mod-name)
+     ({:module _}
+      :true)
+     ({:error :embedded}
+      :true)
+     ({:error :native_code}
+      :true)
+     (_
+      :false))
+   (catch (_type _body)
+     :false)))
+
+;; Use Parsing and Compilation
+(defn+ make-use (path ctx form namespace-name imports)
+  (case form
+    ([]
+     (populate-use-into-context ctx namespace-name imports))
+    (((use-namespace-name . clause-body) . rest)
+     (when (erlang/is_atom use-namespace-name))
+     (case (namespace-exists? ctx use-namespace-name)
+       (:true
+        (let* (imports (get-exports use-namespace-name))
+          (joxa-cmp-ctx/add-require-ctx ctx use-namespace-name)
+          (handle-use-clauses path ctx
+                              clause-body use-namespace-name imports)
+          (make-use path ctx rest :undefined '())))
+       (:false
+        (joxa-cmp-ctx/add-error-ctx ctx path {:invalid-use-clause {:bad-namespace use-namespace-name}}))))
+    ((use-namespace-name . rest)
+     (when (erlang/is_atom use-namespace-name))
+     (let* (imports (get-exports use-namespace-name))
+       (populate-use-into-context ctx use-namespace-name imports)
+       (make-use path ctx rest :undefined '())))))
+
+;; Attribute Clauses
+;; -----------------
+(defn+ make-attr (path0 ctx form)
+  (case form
+    ([key value]
+     (joxa-cmp-ctx/add-attr-ctx ctx
+      (joxa-cmp-literal/make-literal (joxa-cmp-path/traverse-path path0) ctx key)
+      (joxa-cmp-literal/make-literal (joxa-cmp-path/traverse-incr-path path0) ctx value)))
+    (_
+     (joxa-cmp-ctx/add-error-ctx ctx path0 :invalid-attr-clause))))
+
+;; Require Clauses
+;; ---------------
+
+(defn+ handle-require-clause (path0 ctx namespace-name form)
+  (case form
+    ([]
+     ctx)
+    (new-namespace-name
+     (when (erlang/and (erlang/is_atom new-namespace-name)
+                       (erlang/== namespace-name :undefined)))
+     (case (namespace-exists? ctx new-namespace-name)
+       (:true
+        (joxa-cmp-ctx/add-require-ctx ctx new-namespace-name)
+        ctx)
+       (:false
+        (let* (idx (joxa-cmp-ctx/idx-from-context [] path0 ctx))
+          (joxa-cmp-ctx/add-error-ctx ctx path0
+                         {:invalid-require-clause
+                          {:bad-namespace new-namespace-name}})))))
+    ((new-namespace-name . rest)
+     (when (erlang/and (erlang/is_atom namespace-name)
+                       (erlang/== namespace-name :undefined)))
+     (case (namespace-exists? ctx new-namespace-name)
+       (:true
+        (joxa-cmp-ctx/add-require-ctx ctx new-namespace-name)
+        (handle-require-clause (joxa-cmp-path/incr-path path0) ctx new-namespace-name rest))
+       (:false
+        (let* (idx (joxa-cmp-ctx/idx-from-context [] path0 ctx))
+          (joxa-cmp-ctx/add-error-ctx ctx path0
+                         {:invalid-require-clause
+                          {:bad-namespace new-namespace-name}})))))
+    (([quote :joxify] . rest)
+     ;; adding this a second time (if it happens works just fine as we
+     ;; just overwrite the previous entries
+     (joxa-cmp-ctx/add-require-ctx ctx namespace-name :true)
+     (handle-require-clause (joxa-cmp-path/incr-path path0) ctx namespace-name rest))
+    (([quote :as] . (namespace-alias  . rest))
+     (when (erlang/is_atom namespace-alias))
+     (joxa-cmp-ctx/add-alias-ctx ctx namespace-alias namespace-name)
+     (handle-require-clause (joxa-cmp-path/incr-path path0) ctx namespace-name rest))
+    (clause
+     (let* (idx (joxa-cmp-ctx/idx-from-context :traverse path0 ctx))
+       (joxa-cmp-ctx/add-error-ctx ctx path0 {:invalid-require-clause clause})))))
+
+(defn+ make-require (path0 ctx forms)
+  (lists/foreach (fn (clause)
+                     (handle-require-clause path0 ctx :undefined clause))
+                 forms))
+
+
+
+;; Namespace Body
+;; --------------
+
+(defn+ make-namespace-body (path0 ctx form)
+  (case form
+    ([]
+     ctx)
+    ((:require . body)
+     (make-require (joxa-cmp-path/incr-path path0) ctx body))
+    ((:attr . body)
+     (make-attr (joxa-cmp-path/incr-path path0) ctx body))
+    ((:use . body)
+     (make-use path0 ctx body :undefined []))
+    (_
+     (joxa-cmp-ctx/add-error-ctx ctx path0 :invalid-form))))
+
+(defn+ attempt-namespace-transition (path0 ctx namespace-name)
+  (case (joxa-cmp-ctx/namespace-name-ctx ctx)
+    ;; Nothing to do in the case where there is no namespace
+    (:undefined :ok)
+    ;; In the case there is, we need to run the transition and cleanup the context
+    (_
+     (joxa-compiler/do-final-comp ctx)
+     (let* (ns-trans (joxa-cmp-ctx/namespace-transition-ctx ctx))
+       (case ns-trans
+         (:no-transition :no-transition)
+         ({transition-state transition-fun}
+          (joxa-cmp-ctx/namespace-transition-ctx ctx (transition-fun transition-state path0 ctx))))
+       (joxa-cmp-ctx/cleanup-after-transition-ctx ctx)))))
+
+(defn+ make-namespace (path0 ctx forms)
+  (let* (path1 (joxa-cmp-path/traverse-path path0))
+    (case forms
+      ((:ns . (namespace-name . rest))
+       (attempt-namespace-transition path0 ctx namespace-name)
+       (joxa-cmp-ctx/namespace-name-ctx ctx namespace-name)
+       (let* (annots (joxa-cmp-ctx/annots-from-context [] path0 ctx))
+         (lists/foldl
+          (fn (form path2)
+              (make-namespace-body (joxa-cmp-path/traverse-path path2) ctx form)
+              (joxa-cmp-path/incr-path path2))
+          (joxa-cmp-path/incr-path 2 path0) rest)
+         (joxa-cmp-ctx/line-ctx ctx annots)
+         :ok))
+      (_
+       (joxa-cmp-ctx/add-error-ctx ctx path0 :invalid-namespace-declaration)))))

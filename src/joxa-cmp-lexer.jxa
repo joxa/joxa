@@ -1,0 +1,374 @@
+;;; The Joxa Compiler
+;;; =================
+;;; * author: Eric Merritt
+;;; * copyright: Erlware, LLC 2011 - 2012
+;;;
+;;; Licensed under the Apache License, Version 2.0 you may not use
+;;; this file except in compliance with the License.  You may obtain a
+;;; copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+;;;
+;; The Lexer and Parser
+;; --------------------
+;;
+;; The parser for Joxa is a [Parsing Expression
+;; Grammer](http://en.wikipedia.org/wiki/Parsing_expression_grammar)3
+;; based heavily on the Neotoma project. It provides two classes of
+;; parse functions. The first set of parse functions are prefixed by a
+;; 'p-' and are low level constructor functions that are not part of
+;; the Joxa grammer. The second set are parsing functions that are not
+;; prefixed with a 'p-' and represent parts of the Joxa grammer it
+;; self. These are public because it is expected that they will be
+;; used for reader macros.
+(ns joxa-cmp-lexer
+    (require (erlang :joxify)
+             (lists :joxify))
+    (use joxa-cmp-peg))
+
+
+(defspec value ((binary) (index)) {:fail (erlang/any)})
+
+;; ### Joxa Grammer Lexer
+;;
+;; The following functions represent the grammer of Joxa and can be
+;; built on and used by reader macros.
+(defn+ space (input index)
+  (p input index :space
+     (p-charclass <<"[ \t\n\s\r]">>)))
+
+(defn+ comment (input index)
+  (p input index :comment
+     (p-seq [(p-string <<";">>)
+             (p-zero-or-more (p-charclass <<"[^\n\r]">>))
+             (p-choose [(p-eol)
+                        (p-eof)])])))
+
+(defn+ ignorable (input index)
+  (p input index :ignorable
+     (p-optional (p-zero-or-more (p-choose [space/2
+                                            (p-string <<",">>)
+                                            comment/2])))
+     (fn (node idx)
+         [])))
+
+(defn+ digit (input index)
+  (p input index :digit
+     (p-charclass <<"[0-9]">>)))
+
+(defn+ int-part (input index)
+  (p input index :int-part
+     (p-seq [(p-optional (p-string <<"-">>)),
+             (p-one-or-more digit/2)])))
+
+(defn+ frac-part (input index)
+  (p input index :frac-part
+     (p-seq [(p-string <<".">>)
+             (p-one-or-more digit/2)])))
+
+(defn+ integer (input index)
+  (p input index :integer
+     int-part/2
+     (fn (node idx)
+         (let* (result
+               (erlang/list_to_integer
+                (erlang/binary_to_list
+                 (erlang/iolist_to_binary node))))
+           {:integer result idx}))))
+
+(defn+ e (input index)
+  (p input index :e
+     (p-seq [(p-charclass <<"[eE]">>)
+             (p-optional (p-choose [(p-string <<"+">>)
+                                    (p-string <<"-">>)]))])))
+
+(defn+ exp-part (input index)
+  (p input index :exp-part
+     (p-seq [e/2
+             (p-one-or-more digit/2)])))
+
+(defn+ float (input index)
+  (p input index :float
+     (p-seq [int-part/2
+             frac-part/2
+             (p-optional exp-part/2)])
+     (fn (node idx)
+         (let* (result (erlang/list_to_float
+                       (erlang/binary_to_list
+                        (erlang/iolist_to_binary node))))
+           {:float result idx}))))
+
+(defn+ char (input index)
+  (p input index :char
+     (p-seq [(p-string <<"\\">>)
+             (p-choose [(p-string "\\\"")
+                        (p-string "\\\\")
+                        (p-string "\\b")
+                        (p-string "\\f")
+                        (p-string "\\n")
+                        (p-string "\\r")
+                        (p-string "\\t")
+                        (p-anything)])])
+     (fn (node idx)
+         (case node
+           ([_ <<"\\\"">>]
+            {:char \" idx})
+           ([_ <<"\\\\">>]
+            {:char \\ idx})
+           ([_ <<"\\b">>]
+            {:char \\b idx})
+           ([_ <<"\\f">>]
+            {:char \\f idx})
+           ([_ <<"\\n">>]
+            {:char \\n idx})
+           ([_ <<"\\r">>]
+            {:char \\r idx})
+           ([_ <<"\\t">>]
+            {:char \\t idx})
+           ([_ char]
+            {:char char idx})))))
+
+(defn+ ident (input index)
+  (p input index :ident
+     (p-one-or-more
+      (p-and [(p-not
+               (p-choose [(p-string <<"<<">>)
+                          (p-string <<">>">>)
+                          (p-string <<"~@">>)
+                          (p-charclass <<"[,`~'\\\\{}/\t\n\s\r\\(\\)\\[\\]\"]">>)]))
+              (p-anything)]))
+     (fn (node idx)
+         (let* (result
+               (erlang/list_to_atom
+                (erlang/binary_to_list
+                 (erlang/iolist_to_binary node))))
+           {:ident result idx}))))
+(definline convert-stringlike-thing (node)
+  (case node
+    ([_ string _]
+     (let* (convert (lists/map (fn (el)
+                                  (case el
+                                    ([_ <<"\\'">>]
+                                     <<"'">>)
+                                    ([_ <<"\\\"">>]
+                                     <<"\"">>)
+                                    ([_ <<"\\\\">>]
+                                     <<"\\">>)
+                                    ([_ <<"\\b">>]
+                                     <<"\b">>)
+                                    ([_ <<"\\f">>]
+                                     <<"\f">>)
+                                    ([_ <<"\\n">>]
+                                     <<"\n">>)
+                                    ([_ <<"\\r">>]
+                                     <<"\r">>)
+                                    ([_ <<"\\t">>]
+                                     <<"\t">>)
+                                    (_
+                                     el)))
+                              string))
+       (erlang/binary_to_list (erlang/iolist_to_binary convert))))))
+
+(defn+ quoted-ident (input index)
+  (p input index :quoted-ident
+     (p-seq [(p-string ":'")
+             (p-zero-or-more (p-seq [(p-not (p-string "'"))
+                                     (p-choose [(p-string "\\'")
+                                                (p-string "\\\"")
+                                                (p-string "\\\\")
+                                                (p-string "\\b")
+                                                (p-string "\\f")
+                                                (p-string "\\n")
+                                                (p-string "\\r")
+                                                (p-string "\\t")
+                                                (p-anything)])]))
+             (p-string "'")])
+     (fn (node idx)
+         {:ident (erlang/list_to_atom
+                  (convert-stringlike-thing node)) idx})))
+
+
+(defn inclusive-ident (input index)
+  (p input index :ident-types
+     (p-choose [quoted-ident/2
+                ident/2])))
+
+(defn+ fun-reference (input index)
+  (p input index :fun-reference
+     (p-choose [(p-seq [inclusive-ident/2
+                        (p-string "/")
+                        inclusive-ident/2
+                        (p-string "/")
+                        integer/2])
+                (p-seq [inclusive-ident/2
+                        (p-string "/")
+                        integer/2])
+                (p-seq [inclusive-ident/2
+                        (p-string "/")
+                        inclusive-ident/2])])
+     (fn (node idx)
+         (case node
+           ([{:ident namespace _} _
+             {:ident function _} _
+             {:integer arity _}]
+            {:call {:--fun namespace function arity} idx})
+           ([{:ident function _} _
+             {:integer arity _}]
+            {:call {:--fun function arity} idx})
+           ([{:ident namespace _} _
+             {:ident function _}]
+            {:call {:--fun namespace function} idx})))))
+
+(defn+ string (input index)
+  (p input index :string
+     (p-seq [(p-string "\"")
+             (p-zero-or-more (p-seq [(p-not (p-string "\""))
+                                     (p-choose [(p-string "\\\"")
+                                                (p-string "\\\\")
+                                                (p-string "\\b")
+                                                (p-string "\\f")
+                                                (p-string "\\n")
+                                                (p-string "\\r")
+                                                (p-string "\\t")
+                                                (p-anything)])]))
+             (p-string "\"")])
+     (fn (node idx)
+         {:string (convert-stringlike-thing node) idx})))
+
+(defn+ quote (input index)
+  (p input index :quote
+     (p-seq [(p-choose [ (p-string "'")
+                         (p-string ":")])
+             value/2])
+     (fn (node idx)
+         (case node
+           ([_ item]
+            {:quote item idx})))))
+
+(defn+ quasiquote (input index)
+  (p input index :quasiquote
+     (p-seq [(p-string "`")
+             value/2])
+     (fn (node idx)
+         (case node
+           ([_ item]
+            {:quasiquote item idx})))))
+
+(defn+ unquote (input index)
+  (p input index :unquote
+     (p-seq [(p-string "~")
+             value/2])
+     (fn (node idx)
+         (case node
+           ([_ item]
+            {:unquote item idx})))))
+
+(defn+ unquote-splicing (input index)
+  (p input index :unquote-splicing
+     (p-seq [(p-string "~@")
+             value/2])
+     (fn (node idx)
+         (case node
+           ([_ item]
+            {:unquote-splicing item idx})))))
+
+(defn+ list (input index)
+  (p input index :list
+     (p-choose [(p-seq [(p-string "(")
+                        ignorable/2
+                        value/2
+                        (p-zero-or-more (p-seq [ignorable/2
+                                                value/2]))
+                        ignorable/2
+                        (p-string ")")])
+                (p-seq [(p-string "(")
+                        ignorable/2
+                        (p-string ")")])
+                (p-seq [(p-string "[")
+                        ignorable/2
+                        value/2
+                        (p-zero-or-more (p-seq [ignorable/2
+                                                value/2]))
+                        ignorable/2
+                        (p-string "]")])
+                (p-seq [(p-string "[")
+                        ignorable/2
+                        (p-string "]")])])
+     (fn (node idx)
+         (case node
+           ([<<"(">> _ h t _ _]
+            {:list (lists/flatten [h t]) idx})
+           ([<<"[">> _ h t _ _]
+            {:literal-list (lists/flatten [h t]) idx})
+           ([<<"[">> _ _]
+            {:literal-list [] idx})
+           ([_ _ _]
+            {:list [] idx})))))
+
+(defn+ tuple (input index)
+  (p input index :tuple
+     (p-choose [(p-seq [(p-string "{")
+                        ignorable/2
+                        value/2
+                        (p-zero-or-more (p-seq [ignorable/2
+                                                value/2]))
+                        ignorable/2
+                        (p-string "}")])
+                (p-seq [(p-string "{")
+                        ignorable/2
+                        (p-string "}")])])
+     (fn (node idx)
+         (case node
+           ([_ _ h t _ _]
+            {:tuple (lists/flatten [h t]) idx})
+           ([_ _ _]
+            {:tuple [] idx})))))
+
+(defn+ binary (input index)
+  (let* (binary-contents (p-choose [integer/2
+                                   char/2
+                                   ident/2
+                                   list/2]))
+    (p input index :binary
+       (p-choose [(p-seq [(p-string "<<")
+                          ignorable/2
+                          binary-contents
+                          (p-zero-or-more (p-seq [ignorable/2
+                                                  binary-contents]))
+                          ignorable/2
+                          (p-string ">>")])
+                  (p-seq [(p-string "<<")
+                          ignorable/2
+                          string/2
+                          ignorable/2
+                          (p-string ">>")])
+                  (p-seq [(p-string "<<")
+                          ignorable/2
+                          (p-string ">>")])])
+       (fn (node idx)
+           (case node
+             ([_ _ h t _ _]
+              {:binary (lists/flatten [h t]) idx})
+             ([_ _ string _ _]
+              {:binary string idx})
+             ([_ _ _]
+              {:binary [] idx}))))))
+
+(defn+ value (input index)
+  (p input index :value
+     (p-seq [ignorable/2
+             (p-choose [float/2
+                        integer/2
+                        binary/2
+                        fun-reference/2
+                        quoted-ident/2
+                        quote/2
+                        ident/2
+                        list/2
+                        tuple/2
+                        string/2
+                        quasiquote/2
+                        unquote-splicing/2
+                        unquote/2
+                        char/2])
+             ignorable/2])
+     (fn (node idx)
+         (lists/nth 2 node))))

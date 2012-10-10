@@ -1,0 +1,169 @@
+(ns joxa-cmp-binary
+    (require (erlang :joxify)
+             (cerl :joxify)
+             (lists :joxify)
+             joxa-cmp-ctx
+             joxa-cmp-path
+             joxa-cmp-util))
+
+(defspec joxa-cmp-expr/make-expr ((path) (context) (erlang/term))  (cerl/cerl))
+
+(defn+ get-bitstring (field bit)
+  (case field
+    (:var (erlang/element 2 bit))
+    (:size (erlang/element 3 bit))
+    (:unit (erlang/element 4 bit))
+    (:type (erlang/element 5 bit))
+    (:signedness (erlang/element 6 bit))
+    (:endianness (erlang/element 7 bit))
+    (_ (erlang/throw {:invalid-field :bitstring field}))))
+
+(defn set-bitstring (field value bit)
+  (case field
+    (:var (erlang/setelement 2 bit value))
+    (:size (erlang/setelement 3 bit value))
+    (:unit (erlang/setelement 4 bit value))
+    (:type (erlang/setelement 5 bit value))
+    (:signedness (erlang/setelement 6 bit value))
+    (:endianness (erlang/setelement 7 bit value))
+    (_ (erlang/throw {:invalid-field :bitstring field}))))
+
+(defn+ new-bitstring ()
+  {:bitstring
+   :undefined
+   :undefined
+   :undefined
+   :integer
+   :unsigned
+   :big})
+
+(defn+ resolve-bitstring-defaults (value)
+  (case value
+    (_
+     (let* (annots '(compiler_generated)
+                  size0 (get-bitstring :size value)
+                  unit0 (get-bitstring :unit value)
+                  type0 (get-bitstring :type value)
+                  size1 (case size0
+                          (:undefined
+                           (case type0
+                             (:integer 8)
+                             (:float 64)
+                             (:binary [:quote :all])
+                             (:bitstring 1)
+                             (:bits 1)
+                             (:utf8 [:quote :undefined])
+                             (:utf16 [:quote :undefined])
+                             (:utf32 [:quote :undefined])))
+                          (val
+                           val))
+                  unit1 (case unit0
+                          (:undefined
+                           (case type0
+                             (:float (cerl/ann_c_int annots 1))
+                             (:integer (cerl/ann_c_int annots 1))
+                             (:bitstring (cerl/ann_c_int annots 1))
+                             (:bits (cerl/ann_c_int annots 1))
+                             (:binary (cerl/ann_c_int annots 8))
+                             (:utf8 (cerl/ann_c_int annots :undefined))
+                             (:utf16 (cerl/ann_c_int annots :undefined))
+                             (:utf32 (cerl/ann_c_int annots :undefined))))
+                          (val
+                           (when (erlang/is_integer val))
+                           (cerl/ann_c_int annots val))))
+       (set-bitstring :size size1
+                      (set-bitstring :unit unit1 value))))))
+
+(defn+ convert-bitstring (path ctx pairs bitstring)
+  (case pairs
+    (([:quote :size] . (value . rest))
+     (convert-bitstring ctx path rest (set-bitstring :size value bitstring)))
+    (([:quote :unit] . (value . rest))
+     (convert-bitstring ctx path rest (set-bitstring :unit value bitstring)))
+    (([:quote :little] . rest)
+     (convert-bitstring ctx path rest (set-bitstring :endianness :little bitstring)))
+    (([:quote :big] . rest)
+     (convert-bitstring ctx path rest (set-bitstring :endianness :big bitstring)))
+    (([:quote :native] . rest)
+     (convert-bitstring ctx path rest (set-bitstring :endianness :native bitstring)))
+    (([:quote :signed] . rest)
+     (convert-bitstring ctx path rest (set-bitstring :signedness :signed bitstring)))
+    (([:quote :unsigned] . rest)
+     (convert-bitstring ctx path rest (set-bitstring :signedness :unsigned bitstring)))
+    (([:quote :integer] . rest)
+     (convert-bitstring ctx path rest (set-bitstring :type :integer bitstring)))
+    (([:quote :binary] . rest)
+     (convert-bitstring ctx path rest (set-bitstring :type :binary bitstring)))
+    (([:quote :utf8] . rest)
+     (convert-bitstring ctx path rest (set-bitstring :type :utf8 bitstring)))
+    (([:quote :utf16] . rest)
+     (convert-bitstring ctx path rest (set-bitstring :type :utf16 bitstring)))
+    (([:quote :utf32] . rest)
+     (convert-bitstring ctx path rest (set-bitstring :type :utf32 bitstring)))
+    (([:quote :float] . rest)
+     (convert-bitstring ctx path rest (set-bitstring :type :float bitstring)))
+    ([]
+     bitstring)
+    (_
+     (joxa-cmp-ctx/add-error-ctx ctx path :invalid-bitstring-spec)
+     bitstring)))
+
+(defn make-binary-element (element acc0)
+  (case acc0
+    ({path0 ctx acc1}
+     (let* (idx (joxa-cmp-ctx/idx-from-context [] path0 ctx))
+       (case element
+         ((var . pairs0)
+          (let* (path1 (joxa-cmp-path/traverse-path path0)
+                bitstring
+                (resolve-bitstring-defaults
+                 (convert-bitstring path0 ctx pairs0
+                                    (new-bitstring)))
+                annots (joxa-cmp-ctx/annots-from-context :traverse path1 ctx)
+                cerl-var (joxa-cmp-expr/make-expr path1 ctx var)
+                size (joxa-cmp-expr/make-expr path1 ctx (get-bitstring :size bitstring)))
+            {(joxa-cmp-path/incr-path path1) ctx
+             ((cerl/ann_c_bitstr annots
+                                 cerl-var
+                                 size
+                                 (get-bitstring :unit bitstring)
+                                 (cerl/ann_c_atom annots
+                                                  (get-bitstring :type bitstring))
+                                 (cerl/ann_make_list annots
+                                                     [(cerl/ann_c_atom annots
+                                                                       (get-bitstring :signedness bitstring))
+                                                      (cerl/ann_c_atom annots
+                                                                       (get-bitstring :endianness bitstring))]))
+              . acc1)}))
+         (var (when (erlang/or (erlang/is_atom  var)
+                               (erlang/is_integer var)))
+              (let* (annots (joxa-cmp-ctx/annots-from-context :traverse path0 ctx)
+                    bitstring (resolve-bitstring-defaults (new-bitstring))
+                    cerl-var (joxa-cmp-expr/make-expr path0 ctx var)
+                    size (joxa-cmp-expr/make-expr path0 ctx (get-bitstring :size bitstring)))
+                {(joxa-cmp-path/incr-path path0)
+                 ctx
+                 ((cerl/ann_c_bitstr annots
+                                     cerl-var
+                                     size
+                                     (get-bitstring :unit bitstring)
+                                     (cerl/ann_c_atom annots (get-bitstring :type bitstring))
+                                     (cerl/ann_make_list annots
+                                                         [(cerl/ann_c_atom annots
+                                                                           (get-bitstring :signedness bitstring))
+                                                          (cerl/ann_c_atom annots
+                                                                           (get-bitstring :endianness bitstring))]))
+                  . acc1)}))
+         (_
+          (joxa-cmp-ctx/add-error-ctx ctx path0 :invalid-bitstring )
+          {(joxa-cmp-path/incr-path path0)
+           ctx
+           acc1}))))))
+
+(defn+ make-binary (path0 ctx form)
+  (let* (annots (joxa-cmp-ctx/annots-from-context [] path0 ctx))
+    (case form
+      ((:binary . args)
+       (case (lists/foldl make-binary-element/2 {(joxa-cmp-path/incr-path path0) ctx []} args)
+         ({_ ctx acc}
+          (cerl/ann_c_binary annots (lists/reverse acc))))))))

@@ -1,0 +1,209 @@
+(ns joxa-cmp-joxa-info
+    (require (cerl :joxify)
+             (sets :joxify)
+             (lists :joxify)
+             (ec_dictionary :joxify)
+             joxa-cmp-util
+             joxa-cmp-path
+             joxa-cmp-ctx))
+
+(defn get-context-exports (ctx)
+  (lists/map (fn (el)
+                 (case el
+                   ({fun arity annots}
+                    (cerl/ann_c_fname annots fun arity))))
+             (sets/to_list (joxa-cmp-ctx/exports-ctx ctx))))
+
+;; ### make-joxa-info-1 Function Set
+;;
+;; The make-joxa-info-1 set of functions creates a namespace level
+;; function that returns information sigficant to the joxa compilation
+;; system for each function. This set of functions builds a function,
+;; that if written in normal joxa would look like.
+;;
+;;    (defn __joxa_info (type)
+;;        (case type
+;;              (:rest
+;;                   <rest-info>...)
+;;              (:macro
+;;                   <macro-info>...)))
+;;
+;; more may be added to this over time.
+;; at the moment the <rest-info> looks as follows
+;;
+;; [{<fun-id> <restish-arity>}]
+;;
+;; Where <fun-id> is either the name of the function if it is a named
+;; namespace level function. Or the tuple {:anon index} in the case of an
+;; anonymous function where the index is the index of the fun in the
+;; namespaces function table.
+;;
+;; macros follow a similar senario with the exception that there are
+;; currently no anonymous macros. so macros are defined by function
+;; name and return :true or :false depending on if the function is a
+;; macro.
+;;
+(defn make-joxa-info-rest-1 (ctx)
+  (let* (annots [:compiler_generated]
+        rests (joxa-cmp-ctx/rests-ctx ctx))
+    (cerl/ann_c_clause [:compiler_generated]
+                       [(cerl/ann_c_atom annots :rest)]
+                       (cerl/ann_c_atom annots :true)
+                       (cerl/ann_make_data annots
+                                           {:atomic rests} []))))
+
+(defn make-joxa-info-macro-1 (ctx)
+  (let* (annots [:compiler_generated]
+        macros (joxa-cmp-ctx/macros-ctx ctx))
+    (cerl/ann_c_clause [:compiler_generated]
+                       [(cerl/ann_c_atom annots :macro)]
+                       (cerl/ann_c_atom annots :true)
+                       (cerl/ann_make_data annots
+                                           {:atomic macros} []))))
+
+(defn make-joxa-info-require-1 (ctx)
+  (let* (annots [:compiler_generated]
+        requires (sets/to_list
+                  (sets/from_list
+                   (lists/foldl (fn (req-info acc)
+                                    (case req-info
+                                      ({{mod _ _} _}
+                                       (mod . acc))))
+                                [] (ec-dictionary/to-list (joxa-cmp-ctx/requires-ctx ctx))))))
+    (cerl/ann_c_clause [:compiler_generated]
+                       [(cerl/ann_c_atom annots :requires)]
+                       (cerl/ann_c_atom annots :true)
+                       (cerl/ann_make_data annots
+                                           {:atomic requires} []))))
+
+(defn make-joxa-info-use-1 (ctx)
+  (let* (annots [:compiler_generated]
+        uses (ec-dictionary/to-list (joxa-cmp-ctx/uses-ctx ctx)))
+    (cerl/ann_c_clause [:compiler_generated]
+                       [(cerl/ann_c_atom annots :uses)]
+                       (cerl/ann_c_atom annots :true)
+                       (cerl/ann_make_data annots
+                                           {:atomic uses} []))))
+
+(defn make-joxa-info-terminator (ctx)
+  (let* (annots [:compiler_generated]
+        var (joxa-cmp-util/gensym))
+    (cerl/ann_c_clause
+     annots
+     [(cerl/ann_c_var annots var)]
+     (cerl/ann_c_atom annots :true)
+     (cerl/ann_c_primop annots
+                        (cerl/ann_c_atom annots :match_fail)
+                        [(cerl/ann_c_tuple
+                          annots
+                          [(cerl/ann_c_atom annots :case_clause)
+                           (cerl/ann_c_var annots var)])]))))
+
+(defn make-joxa-info-1 (ctx)
+  (let* (annots [:compiler_generated]
+        clauses [(make-joxa-info-rest-1 ctx)
+                 (make-joxa-info-macro-1 ctx)
+                 (make-joxa-info-require-1 ctx)
+                 (make-joxa-info-use-1 ctx)
+                 (make-joxa-info-terminator ctx)]
+        detail-var (joxa-cmp-util/gensym)
+        var-name (cerl/c_var detail-var))
+    (joxa-cmp-ctx/add-exported-def-ctx (joxa-cmp-path/new-path) ctx
+                          annots :--joxa-info
+                          [var-name]
+                          (cerl/ann_c_case annots
+                                           var-name
+                                           clauses)
+                          :replace)))
+
+;; ### make-joxa-info-2 function set
+;;
+;; The make-joxa-info-2 functions are similar to the
+;; make-joxa-info-1. However, they also take a function id as well as
+;; the type. this allows you to get information about a specific
+;; function. if written in normal joxa would look like.
+;;
+;;    (defn __joxa_info (type fun-id)
+;;        (case type
+;;              (:rest
+;;                 (case fun-id
+;;                     <fun-clauses>...))
+;;              (:macro
+;;                 (case fun-id
+;;                     <macro-clauses>...))
+;;
+;; more may be added to this over time.
+;;
+;; In this case the fun and macro clauses provide the same information
+;; as the single arg __joxa_info function, however just for the
+;; function specifid.
+;;
+(defn make-joxa-info-rest-2 (fun-var ctx)
+  (let* (annots [:compiler_generated]
+        rests (joxa-cmp-ctx/rests-ctx ctx)
+        catch-all-var (cerl/ann_c_var [:compiler_generated] (joxa-cmp-util/gensym)))
+    (cerl/ann_c_case annots
+                     fun-var
+                     (lists/append
+                      (lists/map (fn (rest-el)
+                                     (case rest-el
+                                       ({fun-id, value}
+                                        (cerl/ann_c_clause annots
+                                                           [(cerl/ann_make_data annots
+                                                                                {:atomic fun-id} [])]
+                                                           (cerl/ann_c_atom annots :true)
+                                                           (cerl/ann_make_data annots
+                                                                               {:atomic value} [])))))
+                                 rests)
+                      [(cerl/ann_c_clause annots
+                                         [catch-all-var]
+                                         (cerl/ann_c_atom annots :true)
+                                         (cerl/ann_c_atom annots :false))
+                       (make-joxa-info-terminator ctx)]))))
+
+(defn make-joxa-info-macro-2 (fun-var ctx)
+  (let* (annots [:compiler_generated]
+       macros (joxa-cmp-ctx/macros-ctx ctx)
+       catch-all-var (cerl/ann_c_var [:compiler_generated] (joxa-cmp-util/gensym)))
+    (cerl/ann_c_case annots
+                     fun-var
+                     (lists/append
+                      (lists/map (fn (macro-el)
+                                     (cerl/ann_c_clause annots
+                                                        [(cerl/ann_make_data annots
+                                                                             {:atomic macro-el} [])]
+                                                        (cerl/ann_c_atom annots :true)
+                                                        (cerl/ann_c_atom annots :true)))
+                                 macros)
+                      [(cerl/ann_c_clause annots
+                                          [catch-all-var]
+                                          (cerl/ann_c_atom annots :true)
+                                          (cerl/ann_c_atom annots :false))
+                       (make-joxa-info-terminator ctx)]))))
+(defn make-joxa-info-2 (ctx)
+  (let* (annots [:compiler_generated]
+        type-var (cerl/c_var (joxa-cmp-util/gensym))
+        fun-id-var (cerl/c_var (joxa-cmp-util/gensym))
+        rest-clause (cerl/ann_c_clause annots
+                                       [(cerl/ann_c_atom annots :rest)]
+                                       (cerl/ann_c_atom annots :true)
+                                       (make-joxa-info-rest-2 fun-id-var ctx))
+        macro-clause (cerl/ann_c_clause annots
+                                        [(cerl/ann_c_atom annots :macro)]
+                                        (cerl/ann_c_atom annots :true)
+                                        (make-joxa-info-macro-2  fun-id-var ctx))
+
+
+        clauses [rest-clause macro-clause (make-joxa-info-terminator ctx)])
+
+    (joxa-cmp-ctx/add-exported-def-ctx (joxa-cmp-path/new-path) ctx
+                          [:compiler_generated] :--joxa-info
+                          [type-var fun-id-var]
+                          (cerl/ann_c_case [:compiler_generated]
+                                           type-var
+                                           clauses)
+                          :replace)))
+
+(defn+ make-joxa-info (ctx)
+  (make-joxa-info-1 ctx)
+  (make-joxa-info-2 ctx))

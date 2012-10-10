@@ -59,13 +59,13 @@ given([a,module,that,contains,a,macro,that,errors], _State, _) ->
     Result = 'joxa-compiler':forms(Source, []),
     {ok, Result}.
 then([a,beam,binary,is,produced], Ctx, _) ->
-    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(true, is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     {ok, Ctx};
 then([an,error,is,produced], Ctx, _) ->
     ?assertMatch(true, 'joxa-compiler':'has-errors?'(Ctx)),
     {ok, Ctx};
 then([that,error,is,in,the,error,list], Ctx, _) ->
-    ErrorList = 'joxa-compiler':'get-context'(errors, Ctx),
+    ErrorList = 'joxa-cmp-ctx':'get-context'(errors, Ctx),
     ?assert(lists:any(fun(Err) ->
                               case Err of
                                   {{'macro-failure',{'jxat-error-macro-test',test1,2},

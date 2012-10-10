@@ -1,0 +1,115 @@
+(ns joxa-cmp-error-format
+    (require (io_lib :joxify)
+             (lists :joxify)
+             (erlang :joxify)
+             (io :joxify)))
+
+(defn format-fun-ref (ref)
+  (case ref
+    ({:--fun name function}
+     (io-lib/format "~s/~s" [name function]))
+    ({:--fun namespace function arity}
+     (io-lib/format "~s/~s/~p" [namespace function arity]))
+    ({:reference {var -1}}
+     (io-lib/format "~s" [var]))
+    ({:reference {var arity}}
+     (io-lib/format "~s/~p" [var arity]))
+    (_
+     (io-lib/format "~p" [ref]))))
+
+(defn+ format-detail (message)
+  (case message
+    ({:invalid-reference :not-a-reference ref}
+     (io-lib/format "reference does not exist: ~s" [ref]))
+    ({:invalid-reference ref arity}
+     (io-lib/format "invalid reference ~s/~p" [(format-fun-ref ref) arity]))
+    ({:invalid-use :invalid-fun-spec inv-f}
+     (io-lib/format "invalid use declaration: invalid function reference (~p)"
+                    [inv-f]))
+    ({:invalid-use :invalid-fun-spec}
+     "invalid use declaration: invalid function reference")
+    ({:invalid-use :non-existant-fun-name {fun arity}}
+     (io-lib/format "invalid use declaration: function does not exist ~s/~p"
+                    [fun arity]))
+    ({:invalid-use-clause {:bad-namespace use-namespace-name}}
+     (io-lib/format "invalid use declaration: bad namespace name ~p"
+                    [use-namespace-name]))
+    (:invalid-attr-clause
+     "invalid attribute clause")
+    ({:invalid-require-clause {:bad-namespace namespace-name}}
+     (io-lib/format "invalid require declaration: bad namespace name ~p"
+                    [namespace-name]))
+    ({:invalid-require-clause _}
+      "invalid require declaration")
+    (:invalid-form
+     "invalid form")
+    (:invalid-namespace-declaration
+     "invalid namespace declaration")
+    (:invalid-sequence
+     "invalid sequence")
+    ({:invalid-use-clause {:bad-use-part forms}}
+     (io-lib/format "invalid use clause ~p" [forms]))
+    ({:invalid-reference {f -1}}
+     (io-lib/format "invalid reference ~s" [(format-fun-ref f) ]))
+    ({:invalid-reference {f a}}
+     (io-lib/format "invalid reference ~s/~p" [(format-fun-ref f) a]))
+    ({:undefined-reference ref}
+     (io-lib/format "invalid reference ~s" [(format-fun-ref ref)]))
+    ({:invalid-reference form}
+     (io-lib/format "invalid reference (~p)" [form]))
+    ({:arg-is-not-proper-name form}
+     (io-lib/format "argument is not a proper reference name (~p)" [form]))
+    ({:function-exists fun-name arity}
+     (io-lib/format "~p/~p already exists" [fun-name arity]))
+    ({:not-a-macro {ref arity}}
+     (io-lib/format "not a macro ~s called with ~p args" [(format-fun-ref ref) arity]))
+    (:invalid-receive
+     "invalid receive clause")
+    ({:invalid-try-expression}
+     "invalid try expression")
+    (:invalid-bitstring-spec
+     "invalid bitstring specification")
+    (:invalid-bitstring
+     "invalid bitstring ")
+    (:invalid-let-binding
+     "invalid let binding")
+    (:no-clauses-provided
+     "no clauses provided for case statement")
+    (:invalid-guard
+     "invalid guard expression")
+    ({:reference-already-defined ref}
+     (io-lib/format "reference already defined ~s" [(format-fun-ref ref)]))
+    ({:invalid-definition-or-macro name}
+     (io-lib/format "invalid definition or macro (~s)" [(format-fun-ref name)]))
+    ({:renamed-fun-does-not-exist {fun arity}}
+     (io-lib/format "function ~p/~p defined in rename does not exist" [fun arity]))
+    ({:macro-failure {namespace function arity} error-info}
+     (io-lib/format "error during evaluation of macro ~p/~p/~p: (~p)" [namespace function arity
+                                                                                 error-info]))
+    (:invalid-definition
+     "invalid definition")
+    (:invalid-pattern
+     "invalid guard pattern")
+    ({:invalid-type-reference name}
+     (io-lib/format "invalid type refrence to ~p" [name]))
+    ({:undefined-functions Funs}
+     (io-lib/format "Specs for undefined functions exist: ~s"
+                    [(lists/map (fn (el)
+                                    (case el
+                                      ({N A} (io-lib/format "~p/~p,~n" [N A]))))
+                                Funs)]))
+    (_
+     (io-lib/format "~p" [message]))))
+
+(defn+ print-erl-errors-or-warnings (errs)
+  (lists/foreach (fn (err)
+                     (case err
+                       ({file sub-errors}
+                        (lists/foreach
+                         (fn (sub-err)
+                             (case sub-err
+                               ({line namespace error-descriptor}
+                                (let* (p-fun (erlang/make_fun namespace :format_error 1))
+                                  (io/format "~s:~p ~s~n" [file line (p-fun error-descriptor)])))))
+                         sub-errors))))
+                 errs))
