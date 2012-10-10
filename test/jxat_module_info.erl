@@ -17,7 +17,8 @@ given([a,module,that,has,a,require,'and',use], _State, _) ->
                     (require
                         (lists :joxify)
                         code
-                        (erl_prim_loader :as loader))
+                        (erl_prim_loader :as loader)
+                        (gen_server :as server :joxify))
                     (use (erlang :only (==/2 phash2/1 and/2))))
 
                 (defn internal-test (arg1 arg2)
@@ -34,5 +35,6 @@ then([context,is,produced], Deps, _) ->
     ?assertMatch(true, erlang:is_list(Deps)),
     {ok, Deps};
 then([context,contains,the,required,information], Deps, _) ->
-      ?assertMatch([{'jxat-case-test2',[erlang,erl_prim_loader,code,lists]},
+      ?assertMatch([{'jxat-case-test2',[erlang,gen_server,erl_prim_loader,
+                                        code,lists]},
                     {'jxat-case-test',[erlang,jxat_module_info]}], Deps).
