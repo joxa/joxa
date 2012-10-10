@@ -27,7 +27,7 @@ given([a,module,that,has,a,predicates], _State, _) ->
     {ok, Result}.
 
 then([a,beam,binary,is,produced], Ctx, _) ->
-    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(true, is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     {ok, Ctx};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch([{'--joxa-info',1},
@@ -45,4 +45,3 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch(ok, 'jxat-predicate-test':'do-unless-test'(true)),
     ?assertMatch(hit, 'jxat-predicate-test':'do-unless-test'(false)),
     {ok, State}.
-

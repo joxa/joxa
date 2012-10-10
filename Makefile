@@ -18,9 +18,6 @@ BEAMDIR=$(APPDIR)/ebin
 
 # Bootstrap Directories In Build
 JOXA_BOOTSTRAP_DIR=$(abspath .bootstrap)
-BOOTSTRAP_LIBDIR=$(JOXA_BOOTSTRAP_DIR)
-BOOTSTRAP_APPDIR=$(BOOTSTRAP_LIBDIR)/joxa-$(VSN)
-BOOTSTRAP_BEAMDIR=$(BOOTSTRAP_APPDIR)/ebin
 
 # Location of the support makefiles
 BUILD_SUPPORT=$(CURDIR)/build-support

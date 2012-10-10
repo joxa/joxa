@@ -1,0 +1,189 @@
+(ns joxa-cmp-parser
+    (require (erlang :joxify)
+             (lists :joxify)
+             (file :joxify)
+             joxa-cmp-peg
+             joxa-cmp-path
+             joxa-cmp-ctx
+             joxa-cmp-lexer))
+
+
+(defspec transform-ast ((erlang/any) (erlang/any) (erlang/any) (erlang/any))
+  {(erlang/any) (erlang/list)})
+
+;; ### The First Ast Transformation
+;;
+;; Most of the AST transformations in Joxa happen via macros. however,
+;; this very first initial transformation happens here. Turning the
+;; marked up AST into an annotated lisp AST where the annotations are
+;; hidden unless requested.
+
+(definline convert-list-ast (path0 filename annotations0 elements idx)
+  (let* (transformed
+        (lists/foldl
+         (fn (el, acc)
+             (case acc
+               ({path1 annotations1 elements-acc}
+                (let* (result
+                      (transform-ast (joxa-cmp-path/traverse-path path1) filename annotations1 el))
+                  (case result
+                    ({annotations2 transformed}
+                     {(joxa-cmp-path/incr-path path1) annotations2
+                      (transformed . elements-acc)}))))))
+         {path0 annotations0 []}
+         elements))
+    transformed))
+
+(definline convert-list-call-ast (path0 filename annotations0 elements idx type)
+  (let* (transformed
+        (convert-list-ast (joxa-cmp-path/incr-path path0) filename
+                          annotations0 elements idx))
+    (case transformed
+      ({_ annotations3 transform-list}
+       (let* (annotations4 (joxa-cmp-path/make-annots (joxa-cmp-path/traverse-and-get-path path0)
+                                       filename
+                                       :ident
+                                       idx annotations3))
+         {(joxa-cmp-path/make-annots (joxa-cmp-path/path? path0)
+                       filename
+                       type idx
+                       annotations4)
+          (type . (lists/reverse transform-list))})))))
+
+(definline convert-binary-string (path0 filename annotations0 elements idx)
+  (let* (transformed
+        (lists/foldl
+         (fn (el, acc)
+             (case acc
+               ({path1 annotations1 elements-acc}
+                {(joxa-cmp-path/incr-path path1)
+                 (joxa-cmp-path/make-annots (joxa-cmp-path/traverse-and-get-path path1)
+                              filename
+                              :integer
+                              idx
+                              annotations1)
+                 (el . elements-acc)})))
+         {path0 annotations0 []}
+         elements))
+    (case transformed
+      ({_ annotations3 transform-list}
+       (let* (annotations4 (joxa-cmp-path/make-annots
+                           (joxa-cmp-path/traverse-and-get-path path0)
+                           filename
+                           :ident
+                           idx annotations3))
+         {(joxa-cmp-path/make-annots (joxa-cmp-path/path? path0)
+                       filename
+                      :binary idx
+                      annotations4)
+          (:binary . (lists/reverse transform-list))})))))
+
+(defn+ transform-ast (path0 filename annotations node)
+  (case node
+    ({:call mfa idx}
+     {(joxa-cmp-path/make-annots (joxa-cmp-path/path? path0)
+                   filename
+                   :call idx annotations) mfa})
+    ({:literal-list list idx}
+     (convert-list-call-ast path0 filename annotations list idx :list))
+    ({:binary {:string string _} idx}
+     (convert-binary-string path0 filename annotations string idx))
+    ({:binary list idx}
+     (convert-list-call-ast path0 filename annotations list idx :binary))
+    ({:tuple list idx}
+     (let* (transformed (convert-list-ast path0 filename annotations list idx))
+       (case transformed
+         ({_ annotations1 transform-list}
+          {(joxa-cmp-path/make-annots (joxa-cmp-path/path? path0)
+                        filename
+                        :tuple idx
+                        annotations1)
+           (erlang/list_to_tuple (lists/reverse transform-list))}))))
+    ({:list list idx}
+     (let* (transformed (convert-list-ast path0 filename annotations list idx))
+       (case transformed
+         ({_ annotations1 transform-list}
+          {(joxa-cmp-path/make-annots (joxa-cmp-path/path? path0)
+                        filename
+                        :list idx
+                        annotations1)
+           (lists/reverse transform-list)}))))
+    ({:string result idx}
+     {(joxa-cmp-path/make-annots (joxa-cmp-path/path? path0) filename :string idx
+                  (joxa-cmp-path/make-annots (joxa-cmp-path/traverse-and-get-path path0)
+                               filename
+                               :ident idx
+                               annotations))
+      [:string, result]})
+    ({type (= val {_ _ _}) idx}
+     (let* (result (transform-ast (joxa-cmp-path/traverse-incr-path path0)
+                                 filename
+                                 annotations val))
+       (case result
+         ({annotations1 p-val}
+
+          {(joxa-cmp-path/make-annots (joxa-cmp-path/path? path0) filename type idx
+                        (joxa-cmp-path/make-annots (joxa-cmp-path/traverse-and-get-path path0)
+                                     filename
+                                     :ident idx
+                                     annotations1))
+           [type, p-val]}))))
+    ({type val idx}
+     {(joxa-cmp-path/make-annots (joxa-cmp-path/path? path0) filename type idx annotations) val})))
+
+;; These are mostly exponsed for testing purposes
+(defn+ intermediate-parse (input index)
+  (joxa-cmp-peg/setup-memo)
+  (let* (result (joxa-cmp-lexer/value input index))
+    (joxa-cmp-peg/release-memo)
+    result))
+
+(defn+ intermediate-parse (input)
+  (intermediate-parse input {1,1}))
+
+(defn+ new-index ()
+  {1,1})
+
+(defn+ has-more-data-to-parse (input)
+  (case input
+    (<<>>
+     :false)
+    ({:parse-output <<>> _ _}
+     :false)
+    (_
+     :true)))
+
+(defn do-parse (ctx path input idx0)
+  (case input
+    (<<>>
+     {<<>> path idx0})
+    (_
+     (case (intermediate-parse input idx0)
+       ({:fail {:expected expected idx1}}
+        (joxa-cmp-ctx/add-error-ctx ctx path {:parse-fail expected idx1})
+        {:error input})
+       ({intermediate-ast rest idx2}
+        (case (transform-ast
+               (joxa-cmp-path/traverse-path path)
+               (joxa-cmp-ctx/filename-ctx ctx)
+               (joxa-cmp-ctx/annots-ctx ctx)
+               intermediate-ast)
+          ({annots1 final-ast}
+           (joxa-cmp-ctx/annots-ctx ctx annots1)
+           {final-ast {:parse-output rest path idx2}})))))))
+
+(defn+ parse (ctx input)
+  (case input
+    (input (when (erlang/is-binary input))
+           (do-parse ctx
+                     (joxa-cmp-path/new-path)
+                     input
+                     (new-index)))
+    ({:parse-output new-input path index}
+     (do-parse ctx (joxa-cmp-path/incr-path path) new-input index))))
+
+(defn+ parse-file (ctx filename)
+  (joxa-cmp-ctx/filename-ctx ctx filename)
+  (case (file/read_file filename)
+    ({:ok bin}
+     (parse ctx bin))))

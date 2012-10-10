@@ -21,7 +21,7 @@ fun_var_test() ->
       ((get-it1) 1 2))">>,
 
     Ctx = 'joxa-compiler':forms(Source, []),
-    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(true, is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     ?assertMatch({1, 2},
                  'jxat-fun-var-test':'test-case0'()),
     ?assertMatch({1, 2},

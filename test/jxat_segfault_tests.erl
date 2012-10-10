@@ -24,7 +24,7 @@ bad_arity_test() ->
     ?assertMatch(true, 'joxa-compiler':'has-errors?'(RawCtx)),
     ?assertMatch([{{'invalid-reference',{'rest-used-function-ctx?',3}},
                    {[],_}}],
-                 'joxa-compiler':'get-context'(errors, RawCtx)).
+                 'joxa-cmp-ctx':'get-context'(errors, RawCtx)).
 
 
 bad_call_test() ->
@@ -37,7 +37,7 @@ bad_call_test() ->
     ?assertMatch(true, 'joxa-compiler':'has-errors?'(RawCtx)),
     ?assertMatch([{{'invalid-reference','not-a-reference','-x'},
                               {[],_}}]
-                 , 'joxa-compiler':'get-context'(errors, RawCtx)).
+                 , 'joxa-cmp-ctx':'get-context'(errors, RawCtx)).
 
 
 
@@ -77,7 +77,7 @@ segfault_test() ->
                                                    {3 3}}))))))))">>,
 
     Ctx = 'joxa-compiler':forms(Source, []),
-    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(true, is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     ?assertThrow({'invalid-reference', ok, _},
                  'jxat-invalid-arity-test2':'test-case'({ok, 'not-a-reference'})).
 

@@ -1,0 +1,885 @@
+;;; The Joxa Compiler
+;;; =================
+;;; * author: Eric Merritt
+;;; * copyright: Erlware, LLC 2011 - 2012
+;;;
+;;; Licensed under the Apache License, Version 2.0 you may not use
+;;; this file except in compliance with the License.  You may obtain a
+;;; copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+;;;
+;;; The Compile Context
+;;; -------------------
+;;;
+;;; The context is the heart of the system. It stores all the
+;;; information about the namespace undergoing compilation.
+(ns joxa-cmp-ctx
+    (require (ec_lists :joxify)
+             (sets :joxify)
+             (lists :joxify)
+             (cerl :joxify)
+             (erlang :joxify)
+             (ec_dictionary :joxify)
+             (gen_server :joxify)
+             joxa-cmp-util
+             joxa-cmp-path)
+    (use (erlang :joxify :only (and/2 is-list/1))))
+
+;; ### Internal Context Implementation
+(defn+ get-context (field raw-ctx)
+  (case field
+    (:namespace-name (erlang/element 2 raw-ctx))
+    (:annots (erlang/element 3 raw-ctx))
+    (:attrs (erlang/element 4 raw-ctx))
+    (:exports (erlang/element 5 raw-ctx))
+    (:type-exports (erlang/element 6 raw-ctx))
+    (:scopes (erlang/element 7 raw-ctx))
+    (:type-scopes (erlang/element 8 raw-ctx))
+    (:definitions (erlang/element 9 raw-ctx))
+    (:types (erlang/element 10 raw-ctx))
+    (:aliases (erlang/element 11 raw-ctx))
+    (:requires (erlang/element 12 raw-ctx))
+    (:uses (erlang/element 13 raw-ctx))
+    (:line (erlang/element 14 raw-ctx))
+    (:options (erlang/element 15 raw-ctx))
+    (:rests (erlang/element 16 raw-ctx))
+    (:anon-fun-index (erlang/element 17 raw-ctx))
+    (:fun-deps (erlang/element 18 raw-ctx))
+    (:macros (erlang/element 19 raw-ctx))
+    (:unexported-macros (erlang/element 20 raw-ctx))
+    (:warnings (erlang/element 21 raw-ctx))
+    (:errors (erlang/element 22 raw-ctx))
+    (:result (erlang/element 23 raw-ctx))
+    (:filename (erlang/element 24 raw-ctx))
+    (:function-name (erlang/element 25 raw-ctx))
+    (:namespace-transition (erlang/element 26 raw-ctx))
+    (_ (erlang/throw {:invalid-field, :context field}))))
+
+(defn+ set-context (field value raw-ctx)
+  (case field
+    (:namespace-name (erlang/setelement 2 raw-ctx value))
+    (:annots (erlang/setelement 3 raw-ctx value))
+    (:attrs (erlang/setelement 4 raw-ctx value))
+    (:exports (erlang/setelement 5 raw-ctx value))
+    (:type-exports (erlang/setelement 6 raw-ctx value))
+    (:scopes (erlang/setelement 7 raw-ctx value))
+    (:type-scopes (erlang/setelement 8 raw-ctx value))
+    (:definitions (erlang/setelement 9 raw-ctx value))
+    (:types (erlang/setelement 10 raw-ctx value))
+    (:aliases (erlang/setelement 11 raw-ctx value))
+    (:requires (erlang/setelement 12 raw-ctx value))
+    (:uses (erlang/setelement 13 raw-ctx value))
+    (:line (erlang/setelement 14 raw-ctx value))
+    (:options (erlang/setelement 15 raw-ctx value))
+    (:rests (erlang/setelement 16 raw-ctx value))
+    (:anon-fun-index (erlang/setelement 17 raw-ctx value))
+    (:fun-deps (erlang/setelement 18 raw-ctx value))
+    (:macros (erlang/setelement 19 raw-ctx value))
+    (:unexported-macros (erlang/setelement 20 raw-ctx value))
+    (:warnings (erlang/setelement 21 raw-ctx value))
+    (:errors (erlang/setelement 22 raw-ctx value))
+    (:result (erlang/setelement 23 raw-ctx value))
+    (:filename (erlang/setelement 24 raw-ctx value))
+    (:function-name (erlang/setelement 25 raw-ctx value))
+    (:namespace-transition (erlang/setelement 26 raw-ctx value))
+    (_ (erlang/throw {:invalid-field, :context field}))))
+
+(defn internal-new-context (key-values)
+  (lists/foldl (fn (set-val raw-ctx)
+                   (case set-val
+                     ({field value}
+                      (set-context field value raw-ctx))))
+               {:context
+                :undefined ; namespace-name
+                (ec-dictionary/new :ec_dict) ; annots
+                []  ; attrs
+                (sets/new) ; exports
+                (sets/new) ; type-exports
+                [] ; scopes
+                [] ; type-scopes
+                [] ; definitions
+                (ec-dictionary/new :ec_dict) ; types
+                (ec-dictionary/new :ec_dict) ; alias
+                (ec-dictionary/new :ec_dict) ; require
+                (ec-dictionary/new :ec_dict) ; use
+                [] ; options
+                :undefined ; line
+                [] ; rest functions
+                -1 ; anonymous function index
+                (sets/new) ; fun deps
+                [] ; macros functions
+                [] ; unexported macros
+                [] ; warnings
+                [] ; Errors
+                :undefined ; binary
+                "" ; Filename
+                :undefined ; function name
+                :no-transition ; namespace-transition
+                } key-values))
+
+(defn internal-cleanup-after-transition (ctx)
+  ;; We only want to retain the file level things
+  (internal-new-context
+   [{:options (get-context :options ctx)}
+    {:warnings (get-context :warnings ctx)}
+    {:errors (get-context :errors ctx)}
+    {:filename (get-context :filename ctx)}
+    {:namespace-transition (get-context :namespace-transition ctx)}]))
+
+(defn internal-add-warning (warning raw-ctx)
+  (let* (warnings (get-context :warnings raw-ctx))
+    (set-context :warnings (warning . warnings) raw-ctx)))
+
+(defn internal-add-error (error raw-ctx)
+  (let* (errors (get-context :errors raw-ctx))
+    (set-context :errors (error . errors) raw-ctx)))
+
+(defn internal-erri-from-context (path raw-ctx)
+  (try*
+   (let* (idx (joxa-cmp-path/get-idx-annots (joxa-cmp-path/path? path) (get-context :annots raw-ctx))
+         filename (get-context :filename raw-ctx))
+     {filename idx})
+   (catch (type body)
+     {"" {0 0}})))
+
+(defn internal-add-macro (name arity path raw-ctx)
+  (let* (macros (get-context :macros raw-ctx))
+    (case (lists/any (fn (el)
+                         (erlang/== el {name arity})) macros)
+      (:true
+       (internal-add-error {{:rest-fun-exists name}
+                            (internal-erri-from-context path raw-ctx)} raw-ctx))
+      (:false
+       (set-context :macros ({name arity}  . macros) raw-ctx)))))
+
+(defn internal-add-def (path raw-ctx annots name vars body replace)
+  (let* (arity (erlang/length vars)
+        defs (get-context :definitions raw-ctx)
+        fun-deps (get-context :fun-deps raw-ctx)
+        cerl-name (cerl/ann_c_fname annots name arity)
+        cerl-body (cerl/ann_c_fun annots vars body)
+        fun-type (case replace
+                   (:ephemeral :ephemeral)
+                   (_ :durable))
+        raw
+        (case replace
+          (:ephemeral
+           ;; we dont warn on an ephemeral we just go ahead and replace
+           (case (lists/keymember {name arity} 1 defs)
+             (:true
+              {raw-ctx defs})
+             (:false
+              {raw-ctx (lists/keystore {name arity} 1 defs
+                                       {{name arity}
+                                        {cerl-name cerl-body fun-deps fun-type}})})))
+          (:replace
+           ;; Again no warning on a replace its designed simply to be
+           ;; replaced silently. We do however clear the fun deps
+           {(set-context :fun-deps (sets/new) raw-ctx)
+            (lists/keystore {name arity} 1 defs
+                            {{name arity} {cerl-name cerl-body fun-deps fun-type}})})
+          (:no-replace
+           {(lists/foldl (fn (el raw-ctx1)
+                             (case el
+                               ;; With no replace we warn when the last definition was durabl
+                               ;; That is it was both not expected to be replaced
+                               ({{name arity}, {_ _ _ :durable}}
+                                (internal-add-warning
+                                 {{:function-exists name arity}
+                                  (internal-erri-from-context path raw-ctx1)} raw-ctx1))
+                               (_
+                                raw-ctx1)))
+                         ;; Same here the fun deps get cleared
+                         (set-context :fun-deps (sets/new) raw-ctx) defs)
+            (lists/keystore {name arity} 1 defs
+                            {{name arity} {cerl-name cerl-body fun-deps fun-type}})})))
+    (case raw
+      ({new-ctx new-defs}
+       (set-context :definitions new-defs new-ctx)))))
+
+(defn internal-add-alias (aliased-name namespace raw-ctx)
+  (let* (aliases (get-context :aliases raw-ctx))
+    (set-context :aliases
+                 (ec-dictionary/add aliased-name namespace aliases)
+                 raw-ctx)))
+
+(defn propogate-require-info (namespace function possible-arity joxify dict)
+  (let* (detail (case (joxa-cmp-util/get-joxa-info :rest namespace function)
+                 (:false
+                  {{namespace function possible-arity}
+                   {:remote :not-rest {namespace function possible-arity}}})
+                 (arity (when (erlang/is_integer arity))
+                        {{namespace function :rest}
+                         {:remote :rest {namespace function arity}}})))
+    (case detail
+      ({(= key {namespace function arity})
+        function-detail}
+       (let* (new-dict (ec-dictionary/add key function-detail dict))
+         (case joxify
+           (:true
+            (ec-dictionary/add {namespace (joxa-cmp-util/joxify-name function) arity}
+                               function-detail new-dict))
+           (:false
+            new-dict)))))))
+
+(defn internal-add-require (namespace joxify raw-ctx0)
+  (let* (requires (get-context :requires raw-ctx0)
+        exports ((erlang/make_fun namespace :module_info 1) :exports)
+        new-requires (lists/foldl (fn (fun-arity dict)
+                                      (case fun-arity
+                                        ({function arity}
+                                         (propogate-require-info
+                                          namespace function arity
+                                          joxify dict))))
+                                  requires exports)
+        raw-ctx1 (set-context :requires new-requires raw-ctx0))
+    (case joxify
+      (:true
+       (internal-add-alias (joxa-cmp-util/joxify-name namespace) namespace raw-ctx1))
+      (_
+       raw-ctx1))))
+
+(defspec internal-alias? ((erlang/atom) (erlang/atom)
+                          (erlang/non_neg_integer) (erlang/term))
+  (erlang/term))
+
+(defn internal-remote-function? (namespace function possible-arity raw-ctx aliased)
+  (try*
+   (let* (requires (get-context :requires raw-ctx))
+     (case (ec-dictionary/has_key {namespace function :rest} requires)
+       (:true
+        (ec-dictionary/get {namespace function :rest} requires))
+       (:false
+        (ec-dictionary/get {namespace function possible-arity} requires))))
+   (catch (_type body)
+     (case body
+       (:not_found
+        (case aliased
+          (:false
+           (internal-alias? namespace function possible-arity raw-ctx))
+          (:true
+           :not-a-reference)))))))
+
+(defn internal-remote-function? (namespace function possible-arity raw-ctx)
+  (internal-remote-function? namespace function possible-arity raw-ctx :false))
+
+(defn internal-alias? (namespace function possible-arity raw-ctx)
+  (try*
+   (let* (aliases (get-context :aliases raw-ctx)
+         aliased-namespace  (ec-dictionary/get namespace aliases))
+     (internal-remote-function?
+      aliased-namespace function possible-arity raw-ctx :true))
+   (catch (type body)
+     (case body
+       (:not_found
+        :not-a-reference)))))
+
+(defn internal-is-local-rest-fun? (name possible-arity raw-ctx)
+  (let* (rests (get-context :rests raw-ctx))
+    (lists/foldl (fn (el acc)
+                     (case acc
+                       (:false
+                        (case el
+                          ({name arity} (when (erlang/>= possible-arity arity))
+                           {:true arity})
+                          (_
+                           :false)))
+                       (_
+                        acc))) :false rests)))
+
+(defn internal-is-speced? (name possible-arity raw-ctx)
+  (let* (types (get-context :types raw-ctx))
+    (case (ec-dictionary/get {name possible-arity} :undefined types)
+      (:undefined
+       :not-a-reference)
+      (_
+       {:apply :not-rest {name possible-arity}}))))
+
+(defn internal-rest-used-function? (name uses)
+  (lists/foldl (fn (el acc)
+                   (case acc
+                     (:not-a-reference
+                      (case el
+                        ({{name _} {real-fun namespace}}
+                         (case (joxa-cmp-util/get-joxa-info :rest namespace real-fun)
+                           (:false
+                            :not-a-reference)
+                           (arity (when (erlang/is_integer arity))
+                                  {:remote :rest {namespace real-fun arity}})))
+                        (_
+                         :not-a-reference)))
+                     (_
+                      acc))) :not-a-reference (ec-dictionary/to-list  uses)))
+
+(defn internal-used-function? (name possible-arity raw-ctx)
+  (let* (uses (get-context :uses raw-ctx))
+    (case (internal-rest-used-function? name uses)
+      (:not-a-reference
+       (case (ec-dictionary/get {name possible-arity} :undefined uses)
+         ({fun-name namespace-name}
+          {:remote :not-rest {namespace-name fun-name possible-arity}})
+         (:undefined
+          (internal-is-speced? name possible-arity raw-ctx))))
+      (result
+       result))))
+
+(defn internal-rest-defined-function? (function possible-arity raw-ctx)
+  (case (internal-is-local-rest-fun? function possible-arity raw-ctx)
+    ({:true arity}
+     (when (erlang/>= possible-arity arity))
+     {:apply :rest {function arity}})
+    (x
+     :not-a-reference)))
+
+(defn internal-defined-used-function? (name possible-arity raw-ctx)
+  (case (internal-rest-defined-function? name possible-arity raw-ctx)
+    (:not-a-reference
+     (let* (defs (get-context :definitions raw-ctx))
+       (case (lists/any (fn (el)
+                            (case el
+                              ({{name possible-arity} _}
+                               :true)
+                              (_
+                               :false)))
+                        defs)
+         (:true
+          {:apply :not-rest {name possible-arity}})
+         (:false
+          (internal-used-function? name possible-arity raw-ctx)))))
+    (rest-apply
+     rest-apply)))
+
+(defn internal-resolve-reference (ref arity path raw-ctx)
+  (case ref
+    ({:--fun _ arity}
+     (when (erlang/is_integer arity))
+     {raw-ctx (internal-defined-used-function? ref arity raw-ctx)})
+    ({:--fun namespace function}
+     (when (and (erlang/is_atom namespace)
+                (erlang/is_atom function)))
+     {raw-ctx (internal-remote-function? namespace function arity raw-ctx)})
+    ({:--fun fun invalid-arity}
+     {(internal-add-error {{:mismatched-arity fun arity invalid-arity}
+                           (internal-erri-from-context path raw-ctx)} raw-ctx)
+      :not-a-reference})
+    ({:--fun namespace function arity}
+     {raw-ctx (internal-remote-function? namespace function arity raw-ctx)})
+    ({:--fun namespace function invalid-arity}
+     {(internal-add-error {{:mismatched-arity function arity invalid-arity}
+                           (internal-erri-from-context path raw-ctx)} raw-ctx)
+      :not-a-reference})
+    (name
+     (when (erlang/is_atom name))
+     (let* (scopes (get-context :scopes raw-ctx))
+       (case (ec-lists/search (fn (scope)
+                                  (try*
+                                   {:ok (ec-dictionary/get name scope)}
+                                   (catch (_type body)
+                                     (case body
+                                       (:not_found
+                                        :not_found))))) scopes)
+         ({:ok {var new-arity}  _}
+          (when (erlang/or (erlang/== -1 arity)
+                           (erlang/== new-arity arity)))
+          {raw-ctx {:reference {var new-arity}}})
+         (_
+          {raw-ctx  (internal-defined-used-function? name arity raw-ctx)}))))
+    (_
+     {raw-ctx  :not-a-reference})))
+
+(defn get-macro-tag (namespace function arity)
+  (case (joxa-cmp-util/get-joxa-info :macro namespace {function arity})
+    (:true
+     :macro)
+    (:false
+     :not-macro)))
+
+(defn+ start-context ()
+  (gen-server/start-link :joxa-cmp-ctx [] []))
+
+(defn+ start-context (initial-values)
+  (gen-server/start-link :joxa-cmp-ctx [initial-values] []))
+
+;; ### gen_server callbacks for the container
+(defn+ init (args0)
+  (case args0
+    ([]
+     {:ok (internal-new-context '())})
+    ([args1]
+     (when (is-list args1))
+     {:ok (internal-new-context args1)})
+    ([args1]
+     (when (erlang/and (erlang/is_tuple args1)
+                       (erlang/== :context (erlang/element 1 args1))))
+     {:ok args1})))
+
+(defn+ handle_call (request from raw-ctx)
+   (let* (result
+        (case request
+          (:annots
+           {raw-ctx (get-context :annots raw-ctx)})
+          (:filename
+           {raw-ctx (get-context :filename raw-ctx)})
+          (:function-name
+           {raw-ctx (get-context :function-name raw-ctx)})
+          (:anon-fun-index
+           {raw-ctx (get-context :anon-fun-index raw-ctx)})
+          (:options
+           {raw-ctx (get-context :options raw-ctx)})
+          (:exports
+           {raw-ctx (get-context :exports raw-ctx)})
+          (:definitions
+           {raw-ctx (get-context :definitions raw-ctx)})
+          (:rests
+           {raw-ctx (get-context :rests raw-ctx)})
+          (:macros
+           {raw-ctx (get-context :macros raw-ctx)})
+          (:types
+           {raw-ctx (get-context :types raw-ctx)})
+          (:type-exports
+           {raw-ctx (get-context :type-exports raw-ctx)})
+          (:unexported-macros
+           {raw-ctx (get-context :unexported-macros raw-ctx)})
+          (:namespace-name
+           {raw-ctx (get-context :namespace-name raw-ctx)})
+          (:warnings
+           {raw-ctx (get-context :warnings raw-ctx)})
+          (:errors
+           {raw-ctx (get-context :errors raw-ctx)})
+          (:line
+           {raw-ctx (get-context :line raw-ctx)})
+          (:attrs
+           {raw-ctx (get-context :attrs raw-ctx)})
+          (:requires
+           {raw-ctx (get-context :requires raw-ctx)})
+          (:uses
+           {raw-ctx (get-context :uses raw-ctx)})
+          ({:thing-from-context actions path0 do-fun}
+           (let* (do-action (fn (action path1)
+                               (case action
+                                 (:traverse
+                                  (joxa-cmp-path/traverse-path path1))
+                                 (:incr
+                                  (joxa-cmp-path/incr-path path1))))
+                           path1     (case actions
+                                       (a1 (when (is-list a1))
+                                           (lists/foldl do-action/2 path0 actions))
+                                       (a2 (when (erlang/is_atom a2))
+                                           (do-action actions path0))))
+             {raw-ctx  (do-fun (joxa-cmp-path/path? path1) (get-context :annots raw-ctx))}))
+          (:warning-count
+           {raw-ctx (erlang/length (get-context :warnings raw-ctx))})
+          (:error-count
+           {raw-ctx (erlang/length (get-context :errors raw-ctx))})
+          ({:resolve-reference path ref arity}
+           (case (internal-resolve-reference ref arity path raw-ctx)
+             ({raw-ctx1 {:remote rest (= mfa {namespace function rest-arity})}}
+              {raw-ctx1 {:remote rest (get-macro-tag namespace function rest-arity) mfa}})
+             ({raw-ctx1  {:apply rest (= fa {function rest-arity})}}
+              {raw-ctx1 {:apply rest (get-macro-tag (get-context :namespace-name raw-ctx)
+                                                function rest-arity)
+                            fa}})
+             (val
+              val)))
+          ({:resolve-type-reference name arity}
+           {raw-ctx (let* (type-scopes (get-context :type-scopes raw-ctx)
+                             types (get-context :types raw-ctx))
+                   (case (lists/any (fn (set-scope)
+                                        (sets/is_element {name arity} set-scope)) type-scopes)
+                     (:true
+                      :true)
+                     (:false
+                      (case (ec-dictionary/get {name arity} :undefined types)
+                        (:undefined
+                         :false)
+                        (_
+                         :true)))))})
+          (:namespace-transition
+           {raw-ctx (get-context :namespace-transition raw-ctx)})
+          (:get-raw-context
+           {raw-ctx raw-ctx})
+          (:result
+           {raw-ctx (get-context :result raw-ctx)})))
+     (case result
+       ({raw-ctx1 reply}
+        {:reply reply raw-ctx1}))))
+
+(defn+ handle_cast (msg raw-ctx)
+  (case msg
+    ({:exports new-exports}
+     {:noreply (set-context :exports new-exports raw-ctx)})
+    ({:options options}
+     {:noreply (set-context :options options raw-ctx)})
+    ({:filename filename}
+     {:noreply (set-context :filename filename raw-ctx)})
+    ({:function-name name}
+     {:noreply (set-context :function-name name raw-ctx)})
+    ({:namespace-name new-namespace-name}
+     {:noreply (set-context :namespace-name new-namespace-name raw-ctx)})
+    ({:line line-annots}
+     {:noreply (set-context :line line-annots raw-ctx)})
+    ({:namespace-transition ns-trans}
+     {:noreply (set-context :namespace-transition ns-trans raw-ctx)})
+    ({:annots annots}
+     {:noreply (set-context :annots annots raw-ctx)})
+    ({:add-warning path warning}
+     {:noreply (internal-add-warning
+                {warning (internal-erri-from-context path raw-ctx)}
+                raw-ctx)})
+    ({:add-error path error}
+     {:noreply (internal-add-error
+                {error (internal-erri-from-context path raw-ctx)} raw-ctx)})
+    (:incr-fun-index
+     {:noreply (set-context :anon-fun-index
+                            (erlang/+ (get-context :anon-fun-index raw-ctx) 1) raw-ctx)})
+    ({:add-export fun-name arity annots}
+     (let* (exports (get-context :exports raw-ctx))
+       {:noreply
+         (set-context
+          :exports (sets/add_element {fun-name arity annots} exports)
+          raw-ctx)}))
+    ({:add-rest name arity path}
+     (let* (rests (get-context :rests raw-ctx))
+       (case (lists/any (fn (el)
+                            (erlang/== el name)) rests)
+         (:true
+          {:noreply (internal-add-error
+                     {{:rest-fun-exists name}
+                      (internal-erri-from-context path raw-ctx)} raw-ctx)})
+         (:false
+          {:noreply (set-context :rests ({name arity}  . rests) raw-ctx)}))))
+    ({:add-macro name arity path}
+     {:noreply (internal-add-macro name arity path raw-ctx)})
+    ({:add-unexported-macro name arity path}
+     (let* (unexported-macros (get-context :unexported-macros raw-ctx))
+       {:noreply (set-context :unexported-macros ({name arity}  . unexported-macros)
+                              (internal-add-macro name arity path raw-ctx))}))
+    ({:add-attr key value}
+     (let* (attrs (get-context :attrs raw-ctx))
+       {:noreply (set-context :attrs ({key value} . attrs) raw-ctx)}))
+    ({:add-alias aliased-name namespace}
+     {:noreply (internal-add-alias aliased-name namespace raw-ctx)})
+    ({:add-require namespace joxify}
+     {:noreply (internal-add-require namespace joxify raw-ctx)})
+    ({:add-require namespace function arity is-rest}
+     (let* (requires (get-context :requires raw-ctx)
+           new-requires
+           (case is-rest
+             (:false (ec-dictionary/add {namespace function arity}
+                                        {:remote :not-rest {namespace function arity}}
+                                        requires))
+             (:true (ec-dictionary/add {namespace function :rest}
+                                       {:remote :rest {namespace function arity}}
+                                       requires))))
+       {:noreply (set-context :requires new-requires raw-ctx)}))
+    ({:add-use alias arity target namespace}
+     (let* (use (get-context :uses raw-ctx))
+        {:noreply (set-context :uses (ec-dictionary/add {alias arity}
+                                                        {target namespace} use)
+                               raw-ctx)}))
+     ({:add-def path annots name vars body replace}
+      {:noreply (internal-add-def path raw-ctx annots name vars body replace)})
+     ({:add-fun-dep name arity}
+      (let* (fun-deps (get-context :fun-deps raw-ctx))
+        {:noreply (set-context :fun-deps (sets/add_element {name arity} fun-deps) raw-ctx)}))
+     (:push-scope
+      (let* (scopes (get-context :scopes raw-ctx))
+        {:noreply (set-context :scopes ((ec-dictionary/new :ec_dict) . scopes) raw-ctx)}))
+     (:pop-scope
+      (case (get-context :scopes raw-ctx)
+        ((_ . scopes)
+         {:noreply (set-context :scopes scopes raw-ctx)})))
+     (:cleanup-after-transition
+      {:noreply (internal-cleanup-after-transition raw-ctx)})
+     ({:add-reference path name arity cerl-var}
+      (let* (scopes (get-context :scopes raw-ctx))
+        (case scopes
+          ((current . rest)
+           (case (ec-dictionary/get name :not-in-scope current)
+             (:not-in-scope
+              {:noreply (set-context :scopes
+                                     ((ec-dictionary/add name {cerl-var arity} current) . rest) raw-ctx)})
+             (_
+              {:noreply (internal-add-error {{:variable-redefinition name}
+                                             (internal-erri-from-context path raw-ctx)} raw-ctx)})))
+          ([]
+           {:noreply (internal-add-error {:no-scope
+                                          (internal-erri-from-context path raw-ctx)} raw-ctx)}))))
+     (:push-type-scope
+      (let* (type-scopes (get-context :type-scopes raw-ctx))
+        {:noreply (set-context :type-scopes ((sets/new) . type-scopes) raw-ctx)}))
+     (:pop-type-scope
+      (case (get-context :type-scopes raw-ctx)
+        ((_ . scopes)
+         {:noreply (set-context :type-scopes scopes raw-ctx)})))
+     ({:add-type-reference name arity}
+      (case (get-context :type-scopes raw-ctx)
+        ((current . scopes)
+         {:noreply (set-context :type-scopes ((sets/add_element {name arity} current) . scopes) raw-ctx)})))
+     ({:add-type-export name arity}
+      (let* (type-exports (get-context :type-exports raw-ctx))
+        {:noreply (set-context :type-exports (sets/add_element {name arity} type-exports) raw-ctx)}))
+     ({:add-type type-name arity body}
+      (let* (types (get-context :types raw-ctx))
+        {:noreply (set-context :types  (ec-dictionary/add {type-name arity}  body types) raw-ctx)}))
+     ({:set-context-all args}
+      {:noreply (lists/foldl (fn (set-val raw-ctx1)
+                                 (case set-val
+                                   ({field value}
+                                    (set-context field value raw-ctx1))))
+                             raw-ctx args)})
+    ({:result result}
+     {:noreply (set-context :result result raw-ctx)})
+    ({:errors errors}
+     {:noreply (set-context :errors errors raw-ctx)})
+    ({:warnings warnings}
+     {:noreply (set-context :warnings warnings raw-ctx)})
+     (:stop-context
+      {:stop :normal raw-ctx})))
+
+(defn+ handle_info (info state)
+  {:noreply state})
+
+(defn+ terminate (reason state)
+  :ok)
+
+(defn+ code_change (old-vsn state extra)
+  {:ok state})
+
+;; ### Publically Facing Context API
+(defn+ start-context (annots namespace-name)
+  (start-context ([(:annots . annots)
+                   (:namespace-name . namespace-name)])))
+
+(defn+ get-raw-context (ctx)
+  (gen-server/call ctx :get-raw-context))
+
+(defn+ set-context-all-ctx (ctx args)
+  (gen-server/cast ctx {:set-context-all args}))
+
+(defn+ add-warning-ctx (ctx path warning)
+  (gen-server/cast ctx {:add-warning path warning}))
+
+(defn+ add-error-ctx (ctx path error)
+  (gen-server/cast ctx {:add-error path error}))
+
+(defn+ namespace-name-ctx (ctx)
+  (gen-server/call ctx :namespace-name))
+
+(defn+ namespace-name-ctx (ctx namespace-name)
+  (gen-server/cast ctx {:namespace-name namespace-name}))
+
+(defn+ anon-fun-index-ctx (ctx)
+  (gen-server/call ctx :anon-fun-index))
+
+(defn+ options-ctx (ctx)
+  (gen-server/call ctx :options))
+
+(defn+ options-ctx (ctx options)
+  (gen-server/cast ctx {:options options}))
+
+(defn+ exports-ctx (ctx)
+  (gen-server/call ctx :exports))
+
+(defn+ exports-ctx (ctx exports)
+  (gen-server/cast ctx {:exports exports}))
+
+(defn+ definitions-ctx (ctx)
+  (gen-server/call ctx :definitions))
+
+(defn+ rests-ctx (ctx)
+  (gen-server/call ctx :rests))
+
+(defn+ macros-ctx (ctx)
+  (gen-server/call ctx :macros))
+
+(defn+ types-ctx (ctx)
+  (gen-server/call ctx :types))
+
+(defn+ type-exports-ctx (ctx)
+  (gen-server/call ctx :type-exports))
+
+(defn+ unexported-macros-ctx (ctx)
+  (gen-server/call ctx :unexported-macros))
+
+(defn+ warnings-ctx (ctx)
+  (gen-server/call ctx :warnings))
+
+(defn+ warnings-ctx (ctx warnings)
+  (gen-server/cast ctx {:warnings warnings}))
+
+(defn+ errors-ctx (ctx)
+  (gen-server/call ctx :errors))
+
+(defn+ errors-ctx (ctx errors)
+  (gen-server/cast ctx {:errors errors}))
+
+(defn+ line-ctx (ctx)
+  (gen-server/call ctx :line))
+
+(defn+ line-ctx (ctx line-annots)
+  (gen-server/cast ctx {:line line-annots}))
+
+(defn+ attrs-ctx (ctx)
+  (gen-server/call ctx :attrs))
+
+(defn+ error-count-ctx (ctx)
+  (gen-server/call ctx :error-count))
+
+(defn+ annots-ctx (ctx)
+  (gen-server/call ctx :annots))
+
+(defn+ annots-ctx (ctx annots)
+  (gen-server/cast ctx {:annots annots}))
+
+(defn+ result-ctx (ctx)
+  (gen-server/call ctx :result))
+
+(defn+ result-ctx (ctx result)
+  (gen-server/cast ctx {:result result}))
+
+(defn+ function-name-ctx (ctx)
+  (gen-server/call ctx :function-name))
+
+(defn+ function-name-ctx (ctx name)
+  (gen-server/cast ctx {:function-name name}))
+
+(defn+ filename-ctx (ctx)
+  (gen-server/call ctx :filename))
+
+(defn+ filename-ctx (ctx filename)
+  (gen-server/cast ctx {:filename filename}))
+
+(defn+ namespace-transition-ctx (ctx)
+  (gen-server/call ctx :namespace-transition))
+
+(defn+ namespace-transition-ctx (ctx namespace-transition)
+  (gen-server/cast ctx {:namespace-transition namespace-transition}))
+
+(defn+ cleanup-after-transition-ctx (ctx)
+  (gen-server/cast ctx :cleanup-after-transition))
+
+(defn+ warning-count-ctx (ctx)
+  (gen-server/call ctx :warning-count))
+
+(defn+ incr-fun-index-ctx (ctx)
+  (gen-server/cast ctx :incr-fun-index))
+
+(defn+ add-export-ctx (ctx annots fun-name arity)
+  (gen-server/cast ctx {:add-export fun-name arity annots}))
+
+(defn+ add-rest-ctx (path ctx name arity)
+  (gen-server/cast ctx {:add-rest name arity path}))
+
+(defn+ add-macro-ctx (ctx name arity path)
+  (gen-server/cast ctx {:add-macro name arity path}))
+
+(defn+ add-unexported-macro-ctx (path ctx name arity)
+  (gen-server/cast ctx {:add-unexported-macro name arity path}))
+
+(defn+ add-attr-ctx (ctx key value)
+  (gen-server/cast ctx {:add-attr key value}))
+
+(defn+ add-alias-ctx (ctx aliased-name namespace)
+  (gen-server/cast ctx {:add-alias aliased-name namespace}))
+
+(defn+ add-require-ctx (ctx namespace joxify)
+  (gen-server/cast ctx {:add-require namespace joxify}))
+
+(defn+ add-require-ctx (ctx namespace)
+  (add-require-ctx ctx namespace :false))
+
+(defn+ add-pre-require-ctx (ctx namespace function arity is-rest)
+  (gen-server/cast ctx {:add-require namespace function arity is-rest}))
+
+(defn+ requires-ctx (ctx)
+  (gen-server/call ctx :requires))
+
+(defn+ add-use-ctx (ctx alias arity target namespace)
+  (gen-server/cast ctx {:add-use alias arity target namespace}))
+
+(defn+ uses-ctx (ctx)
+  (gen-server/call ctx :uses))
+
+(defn+ add-def-ctx (path ctx annots name vars body replace)
+  (gen-server/cast ctx {:add-def path annots name vars body replace}))
+
+(defn+ add-def-ctx (path ctx annots name vars body)
+  (add-def-ctx path ctx annots name vars body :no-replace))
+
+(defn+ add-exported-def-ctx (path ctx annots name vars body replace)
+  (let* (arity (erlang/length vars))
+    (add-export-ctx ctx annots name arity)
+    (add-def-ctx path ctx annots name vars body replace)))
+
+(defn+ add-exported-def-ctx (path ctx annots name vars body)
+  (add-exported-def-ctx path ctx annots name vars body :no-replace))
+
+(defn+ add-fun-dep-ctx (ctx name arity)
+  (gen-server/cast ctx {:add-fun-dep name arity}))
+
+(defn+ push-scope-ctx (ctx)
+  (gen-server/cast ctx :push-scope))
+
+(defn+ pop-scope-ctx (ctx)
+  (gen-server/cast ctx :pop-scope))
+
+(defn+ add-reference-to-scope-ctx (path ctx name arity cerl-var)
+  (gen-server/cast ctx {:add-reference path name arity cerl-var}))
+
+(defn+ resolve-reference-ctx (path ctx ref possible-arity)
+  (gen-server/call ctx {:resolve-reference path ref possible-arity}))
+
+(defn+ push-type-scope-ctx (ctx)
+  (gen-server/cast ctx :push-type-scope))
+
+(defn+ pop-type-scope-ctx (ctx)
+  (gen-server/cast ctx :pop-type-scope))
+
+(defn+ add-type-reference-to-scope-ctx (ctx name arity)
+  (gen-server/cast ctx {:add-type-reference name arity}))
+
+(defn+ resolve-type-reference-ctx (ctx name arity)
+  (gen-server/call ctx {:resolve-type-reference name arity}))
+
+(defn+ add-type-export-ctx (ctx type-name arity)
+  (gen-server/cast ctx {:add-type-export type-name arity}))
+
+(defn+ add-type-ctx (ctx type-name arity body)
+  (gen-server/cast ctx {:add-type type-name arity body}))
+
+(defn+ stop-context (ctx)
+  (gen-server/cast ctx :stop-context))
+
+(defn+ add-error-r-nil-ctx (ctx path error)
+  (gen-server/cast ctx {:add-error path error})
+  (cerl/c_nil))
+
+;; #### Context Helper Functions
+;;
+;; These mostly exist to reduce the visual cost of function calls to
+;; get values from the annotations.
+
+(defn+ idx-from-context (actions path0 ctx)
+  (gen-server/call ctx {:thing-from-context actions path0 joxa-cmp-path/get-idx-annots/2}))
+
+(defn+ annots-from-context (actions path0 ctx)
+  (gen-server/call ctx {:thing-from-context actions path0 joxa-cmp-path/get-line-annots/2}))
+
+(defn+ erri-from-context (actions path0 ctx)
+   (let* (idx (idx-from-context actions path0 ctx)
+         filename (ec-dictionary/get :annots (annots-ctx ctx)))
+       {filename idx}))
+
+(defn+ get-definitions (ctx)
+  (lists/map (fn (el)
+                 (case el
+                   ({_ value}
+                    value)))
+             (definitions-ctx ctx)))
+
+(defn+ get-context-exports (ctx)
+  (lists/map (fn (el)
+                 (case el
+                   ({fun arity annots}
+                    (cerl/ann_c_fname annots fun arity))))
+             (sets/to_list (exports-ctx ctx))))

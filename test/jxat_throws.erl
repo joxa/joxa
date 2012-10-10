@@ -33,7 +33,7 @@ given([a,module,that,catches,an,exception], _State, _) ->
     {ok, Result}.
 
 then([a,beam,binary,is,produced], Ctx,  _) ->
-      ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
+      ?assertMatch(true, is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     {ok, Ctx};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch([{'--joxa-info',1},

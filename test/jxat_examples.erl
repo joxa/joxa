@@ -35,7 +35,7 @@ prop_seive() ->
     Ctx = 'joxa-compiler':forms(Source, []),
     ?FORALL(STarget, range(3, 1000),
             begin
-                (is_binary('joxa-compiler':'get-context'(result, Ctx))
+                (is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))
                  andalso (not 'joxa-compiler':'has-errors?'(Ctx))
                  andalso eratosthenes(STarget) == 'jxat-sieve-of-eratosthenes':sieve(STarget))
             end).
@@ -57,7 +57,7 @@ prop_fib() ->
     Ctx = 'joxa-compiler':forms(Source, []),
     ?FORALL(FibTarget, range(0, 15),
             begin
-                (is_binary('joxa-compiler':'get-context'(result, Ctx))
+                (is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))
                  andalso (not 'joxa-compiler':'has-errors?'(Ctx))
                  andalso fibo(FibTarget) == 'jxat-fibonacci':fibo(FibTarget))
             end).

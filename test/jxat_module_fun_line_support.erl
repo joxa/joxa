@@ -36,7 +36,7 @@ given([a,module,that,has,a,function,that,calls,
 
 then([a,beam,binary,is,produced], Ctx, _) ->
     ?assertMatch(false, 'joxa-compiler':'has-errors?'(Ctx)),
-    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(true, is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     ?assertMatch([{'--joxa-info',1},
                   {'--joxa-info',2},
                   {'get-fun',0},
@@ -54,4 +54,3 @@ then([the,described,function,returns,the,name,'of',the,module],
     ?assertMatch(11, 'jxat-module-fun':'get-line'()),
     'jxat-module-fun':'test-case'(),
     {ok, State}.
-

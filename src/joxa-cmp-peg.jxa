@@ -1,0 +1,243 @@
+;;; The Joxa Compiler
+;;; =================
+;;; * author: Eric Merritt
+;;; * copyright: Erlware, LLC 2011 - 2012
+;;;
+;;; Licensed under the Apache License, Version 2.0 you may not use
+;;; this file except in compliance with the License.  You may obtain a
+;;; copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+;;;
+;; The Lexer and Parser
+;; --------------------
+;;
+;; The parser for Joxa is a [Parsing Expression
+;; Grammer](http://en.wikipedia.org/wiki/Parsing_expression_grammar)3
+;; based heavily on the Neotoma project. It provides two classes of
+;; parse functions. The first set of parse functions are prefixed by a
+;; 'p-' and are low level constructor functions that are not part of
+;; the Joxa grammer. The second set are parsing functions that are not
+;; prefixed with a 'p-' and represent parts of the Joxa grammer it
+;; self. These are public because it is expected that they will be
+;; used for reader macros.
+(ns joxa-cmp-peg
+    (require (lists :joxify)
+             (erlang :joxify)
+             (unicode :joxify)
+             (ets :joxify)
+             (proplists :joxify)
+             (re :joxify))
+    (use (erlang :only (or/2 +/2))))
+
+(defn+ line (index)
+  (case index
+    ({l _}
+     l)))
+
+(defn+ column (index)
+  (case index
+    ({_  c}
+     c)))
+
+(defn+ p-advance-index (matched-input index)
+  (case index
+    ({ln col}
+     (case matched-input
+       (mi
+        (when (or (erlang/is-list mi)
+                  (erlang/is-binary mi)))
+        (lists/foldl p-advance-index/2 index
+                     (unicode/characters-to-list mi)))
+       (\\n
+        {(+ ln 1) 1})
+       (_
+        {ln (+ col 1)})))))
+
+(defn+ p-charclass (class)
+  (case class
+    (class (when (erlang/is-list class))
+           (p-charclass (erlang/list-to-binary class)))
+    (class
+     (when (erlang/is-binary class))
+     (case (re/compile class  [:unicode :dotall])
+       ({:ok re}
+        (fn (inp index)
+            (case (re/run inp re [:anchored])
+              ({:match ({0 length} . _)}
+               (case (erlang/split-binary inp length)
+                 ({head tail}
+                  {head tail (p-advance-index head index)})))
+              (_
+               {:fail {:expected {:character-class
+                                  (erlang/binary-to-list class)} index}}))))))))
+
+(defn+ p-anything ()
+  (fn (input index)
+      (case input
+        (<<>>
+         {:fail {:expected :any-character index}})
+        (<<(c :utf8) (rest :binary)>>
+         {c rest (p-advance-index c index)}))))
+
+
+(defn+ p-string (s)
+  (case s
+    (s (when (erlang/is-list s))
+       (p-string (erlang/list-to-binary s)))
+    (s (when (erlang/is-binary s))
+       (let* (length (erlang/byte-size s))
+         (fn (input index)
+             (case input
+               (<<(s :size length :binary) (rest :binary)>>
+                {s rest (p-advance-index s index)})
+               (_
+                {:fail {:expected {:string s} index}})))))))
+
+(defn+ p-scan (p inp index acc)
+  (case inp
+    ([]
+     {(lists/reverse acc) [] index})
+    (_
+     (case (p inp index)
+       ({:fail _}
+        {(lists/reverse acc) inp index})
+       ({result inprem new-index}
+        (p-scan p inprem new-index (result . acc)))))))
+
+(defn+ p-one-or-more (p)
+  (fn (input index)
+      (let* (result (p-scan p input index []))
+        (case result
+          ({(_ . _) _ _}
+           result)
+          (_
+           (case (p input index)
+             ({:fail {:expected failure e}}
+              {:fail {:expected {:at-least-one failure} index}})))))))
+
+(defn+ p-zero-or-more (p)
+  (fn (input index)
+      (p-scan p input index [])))
+
+(defn+ p-attempt (in-p input index first-failure)
+  (case in-p
+    ([]
+     first-failure)
+    ((p . parsers)
+     (case (p input index)
+       ((= {:fail _} failure)
+        (case first-failure
+          (:none
+           (p-attempt parsers input index failure))
+          (_
+           (p-attempt parsers input index first-failure))))
+       (result
+        result)))))
+
+(defn+ p-choose (parsers)
+  (fn (input index)
+      (p-attempt parsers input index :none)))
+
+(defn+ p-all (in-p input index acc)
+  (case in-p
+    ([]
+     {(lists/reverse acc) input index})
+    ((p . parsers)
+     (case (p input index)
+       ((= {:fail _} failure)
+        failure)
+       ({result input-rem new-index}
+        (p-all parsers input-rem new-index (result . acc)))))))
+
+(defn+ p-seq (p)
+  (fn (input index)
+      (p-all p input index [])))
+
+(defn+ p-and (p)
+  (fn (input index)
+      (p-all p input index [])))
+
+(defn+ p-assert (p)
+  (fn (input index)
+      (case (p input index)
+        ((= {:fail _} failure)
+         failure)
+        (_
+         {[] input index}))))
+
+(defn+ p-not (p)
+  (fn (input index)
+      (case (p input index)
+        ({:fail _}
+         {[] input index})
+        ({result _ _}
+         {:fail {:expected {:no-match result} index}}))))
+
+(defn+ p-optional (p)
+  (fn (input index)
+      (case (p input index)
+        ({:fail _}
+         {[] input index})
+        ((= {_ _ _} success)
+         success))))
+
+(defn+ p-eol ()
+  (fn (input index)
+      ((p-charclass <<"[\n\r]">>) input index)))
+
+(defn+ p-eof ()
+  (fn (input index)
+      (case input
+        (<<>>
+         {:eof <<>> index})
+        (_
+         {:fail {:expected :eof index}}))))
+
+;; ### Memoization Support Functions
+;;
+;; The following functions support memoization of for the parser. This
+;; is critically important to getting any kind of reasonable speed at
+;; all out of the parser.
+(definline memo-table-name ()
+  (erlang/get :parse-memo-table))
+
+(definline get-memo (index name)
+  (case (ets/lookup (memo-table-name) index)
+    ([]
+     {:error :not-found})
+    ([{index plist}]
+     (case (proplists/lookup name plist)
+       ({name result}
+        {:ok result})
+       (_
+        {:error :not-found})))))
+
+(definline memoize (index name result)
+  (let* (memo (case (ets/lookup (memo-table-name) index)
+               ([]
+                [])
+               ([{index plist}]
+                plist)))
+    (ets/insert (memo-table-name) {index ({name result} . memo)})))
+
+(defn+ release-memo ()
+  (ets/delete (memo-table-name)))
+
+(defn+ setup-memo ()
+  (erlang/put :parse-memo-table (ets/new :joxa-compiler [:set])))
+
+(defn+ p (inp start-index name parse-fun transform-fun)
+  (case (get-memo start-index name)
+    ({:ok memo}
+     memo)
+    (_
+     (let* (result (case (parse-fun inp start-index)
+                    ((= {:fail _} failure)
+                     failure)
+                    ({match inp-rem new-index}
+                     {(transform-fun match start-index)
+                      inp-rem new-index})))
+       (memoize start-index name result)
+       result))))
+
+(defn+ p (inp start-index name parse-fun)
+  (p inp start-index name parse-fun (fn (n idx) n)))

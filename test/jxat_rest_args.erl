@@ -72,8 +72,8 @@ given([a,module,that,has,rest,arguments], _State, _) ->
    {ok, {Result1, Result2}}.
 
 then([a,beam,binary,is,produced], {Ctx1, Ctx2}, _) ->
-    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx1))),
-    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx2))),
+    ?assertMatch(true, is_binary('joxa-cmp-ctx':'get-context'(result, Ctx1))),
+    ?assertMatch(true, is_binary('joxa-cmp-ctx':'get-context'(result, Ctx2))),
     {ok, {Ctx1, Ctx2}};
 then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch(2, 'jxat-rest-test1':'--joxa-info'(rest, 'do-test0')),
@@ -90,4 +90,3 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch({1,2,3,4,5,6,7,8,9,0}, 'jxat-rest-test2':'internal-test1'(Fun)),
     ?assertMatch({1,[2,3,4,5,6,7,8,9,0]}, 'jxat-rest-test2':'do-test5'()),
     {ok, State}.
-

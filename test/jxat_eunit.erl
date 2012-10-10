@@ -21,7 +21,7 @@ under_eunit_test() ->
                     (joxa-eunit/under-eunit?))">>,
 
     Ctx = 'joxa-compiler':forms(Source, []),
-    ?assertMatch(true,is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(true,is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     ?assertMatch(true, 'jxat-eunit-under-eunit-test':'under-eunit-pass'()).
 
 test_test() ->
@@ -32,7 +32,7 @@ test_test() ->
                     (joxa-eunit/-test :foo))">>,
 
     Ctx = 'joxa-compiler':forms(Source, []),
-    ?assertMatch(true,is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(true,is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     ?assertMatch({5,_}, 'jxat-eunit-test-test':'test-test'()),
     {_, Fun} = 'jxat-eunit-test-test':'test-test'(),
     ?assertMatch(foo, Fun()).
@@ -45,7 +45,7 @@ assert_test() ->
                     (joxa-eunit/-assert (erlang/== :foo :bar)))">>,
 
     Ctx = 'joxa-compiler':forms(Source, []),
-    ?assertMatch(true,is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(true,is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     ?assertMatch({5,_}, 'jxat-eunit-assert-test':'assert-test'()),
     {_, Fun} = 'jxat-eunit-assert-test':'assert-test'(),
     ?assertError({assertion_failed,[{namespace,'jxat-eunit-assert-test'},
@@ -66,7 +66,7 @@ assert_not_test() ->
                     (joxa-eunit/-assert-not (erlang/== :foo :foo)))">>,
 
     Ctx = 'joxa-compiler':forms(Source, []),
-    ?assertMatch(true,is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(true,is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     ?assertMatch({5,_}, 'jxat-eunit-assert-not-test':'assert-not-test'()),
     {_, Fun} = 'jxat-eunit-assert-not-test':'assert-not-test'(),
     ?assertError({assertion_failed,[{namespace,'jxat-eunit-assert-not-test'},
@@ -88,7 +88,7 @@ cmd_test() ->
                     (joxa-eunit/-cmd- \"erl -s init stop\"))">>,
 
     Ctx = 'joxa-compiler':forms(Source, []),
-    ?assertMatch(true,is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(true,is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     ?assertMatch({0, [$E, $s, $h, $e, $l, $l |_]}, 'jxat-eunit-cmd-test':'cmd-test'()).
 
 cmd_status_test() ->
@@ -102,7 +102,7 @@ cmd_status_test() ->
                     (joxa-eunit/cmd-status  1 \"erl -s init stop\"))">>,
 
     Ctx = 'joxa-compiler':forms(Source, []),
-    ?assertMatch(true,is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(true,is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     ?assertMatch([$E, $s, $h, $e, $l, $l |_],
                  'jxat-eunit-cmd-status-test':'cmd-status-test'()),
 
@@ -125,7 +125,7 @@ assert_cmd_status_test() ->
                     (joxa-eunit/assert-cmd-status  1 \"erl -s init stop\"))">>,
 
     Ctx = 'joxa-compiler':forms(Source, []),
-    ?assertMatch(true,is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(true,is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     ?assertMatch([$E, $s, $h, $e, $l, $l |_],
                  'jxat-eunit-assert-cmd-status-test':'assert-cmd-status-test'()),
     ?assertError({assertCmd_failed,[{namespace,'jxat-eunit-assert-cmd-status-test'},
@@ -146,7 +146,7 @@ assert_cmd_output_test() ->
                     (joxa-eunit/assert-cmd-output  \"Foo!\" \"erl -s init stop\"))">>,
 
     Ctx = 'joxa-compiler':forms(Source, []),
-    ?assertMatch(true,is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(true,is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     ?assertMatch(ok,
                  'jxat-eunit-assert-cmd-output-test':'assert-cmd-output-test'()),
     ?assertError({assertCmdOutput_failed,
@@ -178,7 +178,7 @@ debug_msg_test() ->
 ">>,
 
     Ctx = 'joxa-compiler':forms(Source, []),
-    ?assertMatch(true,is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(true,is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     ?assertMatch(ok,
                  'jxat-eunit-debug-msg-test':'debug-msg-test'()),
     ?assertMatch(ok,
@@ -191,8 +191,3 @@ debug_msg_test() ->
 
     ?assertMatch(3,
                  'jxat-eunit-debug-msg-test':'debug-time'()).
-
-
-
-
-

@@ -27,7 +27,7 @@ do_test() ->
                       c)
                    ">>,
     Ctx = 'joxa-compiler':forms(Source, []),
-    ?assertMatch(true, is_binary('joxa-compiler':'get-context'(result, Ctx))),
+    ?assertMatch(true, is_binary('joxa-cmp-ctx':'get-context'(result, Ctx))),
     ?assertMatch([{'--joxa-info',1},
                   {'--joxa-info',2},
                   {'do-test0',1},
@@ -45,5 +45,3 @@ do_test() ->
 %%%===================================================================
 %%% Support Functions
 %%%===================================================================
-
-

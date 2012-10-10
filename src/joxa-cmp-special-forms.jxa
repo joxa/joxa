@@ -1,0 +1,50 @@
+(ns joxa-cmp-special-forms
+    (require (erlang :joxify)
+             (cerl :joxify)
+             (lists :joxify)
+             joxa-cmp-ctx
+             joxa-cmp-path
+             joxa-cmp-call))
+
+(defn+ make-macroexpand-1 (path0 ctx val args)
+  (let* (annots (joxa-cmp-ctx/annots-from-context [] path0 ctx)
+        possible-arity (erlang/length args)
+        path1 (joxa-cmp-path/traverse-path path0)
+        call-annots (joxa-cmp-ctx/annots-from-context [] path1 ctx)
+        process-args (fn (args)
+                         (lists/map
+                          (fn (arg)
+                              (cerl/ann_make_data annots {:atomic arg} []))
+                          args)))
+    (case (joxa-cmp-ctx/resolve-reference-ctx path0 ctx val possible-arity)
+      ({:apply :not-rest :macro {function arity}}
+       (cerl/ann_c_apply annots
+                         (cerl/ann_c_fname call-annots
+                                           function
+                                           arity)
+                         (process-args args)))
+      ({:apply :rest :macro {function arity}}
+       (cerl/ann_c_apply annots
+                         (cerl/ann_c_fname call-annots
+                                           function
+                                           arity)
+                         (process-args
+                          (joxa-cmp-call/runtime-called->rest args 1 arity []))))
+      ({:remote :not-rest :macro {namespace function arity}}
+       (cerl/ann_c_call annots
+                        (cerl/ann_c_atom call-annots
+                                         namespace)
+                        (cerl/ann_c_atom call-annots
+                                         function)
+                        (process-args args)))
+      ({:remote :rest :macro {namespace function arity}}
+       (cerl/ann_c_call annots
+                        (cerl/ann_c_atom call-annots
+                                         namespace)
+                        (cerl/ann_c_atom call-annots
+                                         function)
+
+                        (process-args (joxa-cmp-call/runtime-called->rest args 1 arity []))))
+      (_
+       (joxa-cmp-ctx/add-error-r-nil-ctx ctx path1 {:not-a-macro
+                                       {val possible-arity}})))))
