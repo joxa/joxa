@@ -107,7 +107,7 @@ jxa-distclean: jxa-clean
 
 test: build proper eunit cucumber
 
-eunit: $(SRCBEAMS) $(TESTBEAMS)
+eunit: build
 	$(REBAR) skip_deps=true eunit
 	$(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa-build-support' main eunit $(BEAMDIR) -s init stop
 	$(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa-build-support' main eunit $(TEST_EBIN) -s init stop
