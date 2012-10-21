@@ -181,7 +181,7 @@
         bindings (core/gensym)
         rest (core/gensym))
     `(~def let (~obj ~bindings &rest ~rest)
-           (joxa-records/make-let ~obj ~name '~descs ~bindings ~rest))))
+           (joxa-records/make-let ~obj '~name '~descs ~bindings ~rest))))
 
 (defn create-record (name decl descs)
   (let* (ells (create-elements decl descs)
