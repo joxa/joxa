@@ -56,7 +56,7 @@ TESTBEAMS = $(TEST_EBIN)/joxa-test-let-match.beam \
 	$(TEST_EBIN)/joxa-test-namespace-mutual-recursion.beam \
 	$(TEST_EBIN)/joxa-test-joxification.beam
 
-.PHONY: all ootstrap clean \
+.PHONY: all ootstrap clean update-versions \
 	jxa test build get-deps proper eunit \
 	cucumber shell bare-escript
 
@@ -86,7 +86,10 @@ $(TEST_EBIN)/%.beam: $(TESTDIR)/%.jxa $(TEST_EBIN)/.d $(BEAMDIR)/joxa-compiler.b
 
 jxa: $(SRCBEAMS)
 
-build:
+update-versions:
+	$(CURDIR)/build-support/update-versions.sh
+
+build: update-versions
 	$(REBAR) compile
 
 get-deps:
