@@ -1,5 +1,6 @@
 ## -*- mode: Makefile; fill-column: 75; comment-column: 50; -*-
 SRCDIR=$(CURDIR)/src
+BOOTSTRAP=$(CURDIR)/.bootstrap
 BEAMDIR=$(CURDIR)/ebin
 DEPS_DIR=$(CURDIR)/deps
 ERL=$(shell which erl)
@@ -35,12 +36,18 @@ ASTS=$(ASTDIR)/joxa-cmp-util.ast \
 
 .PHONY: all
 
-.PRECIOUS: %/.d
 
-all: $(ASTS)
+all: $(BOOTSTRAP) $(ASTS)
+	@for ast in $(ASTS);\
+	do \
+		$(ERL) $(ERLFLAGS) -s jxa_bootstrap do_bootstrap $(BOOTSTRAP) $$ast -s init stop; \
+	done
+	mv $(BOOTSTRAP)/*.beam $(BEAMDIR)/
+
+$(BOOTSTRAP):
+	mkdir -p $(BOOTSTRAP)
 
 $(ASTDIR)/%.ast: $(SRCDIR)/%.jxa $(BEAMDIR)/jxa_bootstrap.beam
 	$(ERL) $(ERLFLAGS) -s joxa-compiler main \
-	-extra --bootstrap --to_ast -o $(ASTDIR) $<
+	-extra --to_ast -o $(ASTDIR) $<
 	echo "." >> $@
-	$(ERL) $(ERLFLAGS) -s jxa_bootstrap do_bootstrap $(BEAMDIR) $@ -s init stop
