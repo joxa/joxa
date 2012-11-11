@@ -1,0 +1,4 @@
+all functions should return a ctx and a noop or form
+check unferenced variables at each scope pop
+provide the ability to alias non-existant functions
+require and use should be statements that can be used at any level
