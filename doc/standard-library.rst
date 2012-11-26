@@ -8,7 +8,7 @@ Core
 ----
 
 
-This is a 'not equal' operator for Joxa. It is basically equivelent to
+This is a 'not equal' operator for Joxa. It is basically equivalent to
 (not (= ...)) or the erlang `=:=`
 
 Example
@@ -400,31 +400,30 @@ Records
 =======
 
 Records in Joxa are equivalent and compatible with records in
-Erlang. However, like many things in Joxa they are used in very
+Erlang. However, like many things in Joxa, they are used in very
 different ways.
 
-Before we get started there are a few things to keep in mind. Records
+Before we get started, there are a few things to keep in mind. Records
 are designed to be contained in a single namespace. Defining multiple
 records in the same namespace will cause the record system to stomp on
-itself. That is the record macros generate many functions and macros
-to access various parts of the record. With multiple records in the
-same namespace those function names that are generated will conflict.
+itself. That is, the record macros generate many functions and macros
+to access various parts of a record. With multiple records in the
+same namespace, those function names that are generated will conflict.
 
 Overview
 --------
 
-Having a namespace per record is no big deal sense you can have
-multiple namespaces per file. So to get started lets look at a
+Having a namespace per record is no big deal, since you can have
+multiple namespaces per file. To get started, lets look at a
 trivial, contrived example
 
 .. code-block:: clojure
 
      (ns example-person
             (require erlang lists)
-            (use (joxa-records :only (defrecord/2))))
+            (use (joxa-records :only (defrecord+/1))))
 
-     (joxa-records/defrecord+ person name age {sex male}
-                              {address "unknown"} city)
+     (defrecord+ name age {sex :male} {address "unknown"} city)
 
 
      (ns example-walker
@@ -435,7 +434,8 @@ trivial, contrived example
                           "Robert"
                           1024
                           :male
-                          "Somewhere in Ireland"))
+                          "Somewhere in Ireland"
+                          :undefined))
 
      (defn+ is-robert? (person)
        (case person
@@ -447,16 +447,16 @@ trivial, contrived example
      (defn+ is-robert-male? (person)
        (case person
          ((example-person/t name "Robert"
-                                 sex male)
+                            sex :male)
             :true)
          (_
            :false)))
 
      (defn+ get-name-age-address (person)
         (example-person/let person
-                           (name local-name
+                            (name local-name
                             age local-age
-                           address local-address)
+                            address local-address)
           {local-name local-age local-address}))
 
 This gives a quick overview of some of the things you can do with
@@ -470,23 +470,25 @@ Definition
 Joxa. The two functions that you will interact the most are
 `defrecord` and `defrecord+`. `defrecord` and `defrecord+` both have
 the exact same api. Just like with `defn` and `defmacro` the `+` added
-to defrecord means that the record functions and macros will be
+to `defrecord` means that the record functions and macros will be
 exported.
 
-`defrecord` takes a name for the record followed by a list of field
-descriptions. In our example we called our record `person`
+`defrecord` only takes a list of field descriptions. The record name
+(which the first element in the tuple that represents a record) always
+equals to the name of the current namespace. For instance, in our
+example below, the record name is `example-person`
 
 .. code-block:: clojure
 
-     (joxa-records/defrecord+ person name age {sex male}
-                              {address "unknown"} city)
+     (ns example-person
+       (require joxa-records))
 
-We then followed it up with the fields `name`, `age`, `sex`, `address`
-and city. As you can see, the `sex` and `address` fields are a bit
+     (joxa-records/defrecord+ name age {sex :male} {address "unknown"} city)
+
+As you can see here, the `sex` and `address` fields are a bit
 different. That is because in these cases we are providing a default
-value. So in record definitions you can provide just a name, or a name
-and a default value. Just as a note, the name must be an atom and the
-value a literal.
+value respectively. As you can see, in record definitions you can
+provide either a name, or a tuple with a name and a default value.
 
 This is really all there is to it. The `defrecord` macro generates a
 bunch of functions and macros used to interact with the record.
@@ -494,9 +496,9 @@ bunch of functions and macros used to interact with the record.
 Creating Records
 ----------------
 
-Once the record is defined we want to create it in the code that is
-making use of the record. When a record is defined two functions are
-defined that are used to create records. The first is the `make`
+Once the record is defined, we want to create it in the code that makes
+use of the record. When a record is defined, two functions are
+defined that can be used to create records. The first is the `make`
 function. The second is the `make-fields` function.
 
 Lets start by looking at the make function
@@ -507,9 +509,10 @@ Lets start by looking at the make function
                         "Robert"
                         1024
                         :male
-                        "Somewhere in Ireland"),
+                        "Somewhere in Ireland"
+                        :undefined),
 
-The make function is fairly strait forward, simple pass values for the
+The make function is fairly straightforward: simply pass values for the
 record in the order in which those fields where defined in the
 `defrecord` definition. In this case you must pass a value for every
 field in the record.
@@ -517,8 +520,8 @@ field in the record.
 The make fields function is a bit more flexible. In this case you call
 `make-fields` with a property list that provides a value for each
 field that you are interested in defining a value for. Undefined
-fields will simple get the value `undefined` or the default value
-specified on record definition. As we can see in the following example
+fields will simply get the value `undefined` or the default value
+specified on record definition, as we can see in the following example
 
 .. code-block:: clojure
 
@@ -528,20 +531,20 @@ specified on record definition. As we can see in the following example
                         {:address "Somewhere in Ireland"}])
 
 We do not provide a value for the `sex` field or the `city` field. In
-the case of `sex` the value will default to `mail` while in the case
+the case of `sex`, the value will default to `male`, while in the case
 of `city` it will default to `undefined`.
 
 Getters and Setters
 -------------------
 
 `defrecord` generates several different ways of getting and setting
-values from a function. The most strait forward of these is the field
-name accessors. For each field defined Joxa generates a function to
+values from a function. The most straightforward of these are the field
+name accessors. For each defined field, Joxa generates a function to
 get and set the value. The getter is a function with the name of the
 field that takes a single value (the record). The setter is the name
 of the field post-fixed by a `!` that takes the record as the first
-argument as the new value as the second argument. So for example if we
-wanted to get and set the `age` field of the person record we could do
+argument as the new value as the second argument. So for example, if we
+wanted to get and set the `age` field of the person record, we could do
 the following
 
 .. code-block:: clojure
@@ -562,25 +565,25 @@ with these anonymous functions we could do the following
 This makes it quite a bit easier to pragmatically manipulate a
 record.
 
-Finally, the record system provides a way for the use to get access
+Finally, the record system provides a way for the user to get access
 to several fields at the same time. This is accomplished through a
 specialized let function. So lets say we wanted to get the `name`,
 `age` and `address` fields from the record all at once. We could use
-the generated let as follows
+the generated `let` as follows
 
 .. code-block:: clojure
 
         (example-person/let person-record
-                           (name local-name
+                            (name local-name
                             age local-age
                             address local-address)
           {local-name local-age local-address})
 
 The first argument is the record that will have fields extracted. The
-second argument is a list of field name, reference name pairs while
-the rest is the body of the let. So in this case the value of the
+second argument is a list of field name, reference name pairs, while
+the rest is the body of the `let`. So in this case, the value of the
 `name` field in the `person-record` will be bound to the reference
-`local-name` and be made available in the body of the let. The same is
+`local-name` and be made available in the body of the `let`. The same is
 true for `age` and `address`.
 
 
@@ -588,12 +591,13 @@ Pattern Matching
 ----------------
 
 Joxa has pattern matching and, of course, you want to be able to
-trivially match on records. To that end the Joxa record system
-provides a macro that generated a matchable thing. That macro is the
+trivially match on records. To that end, the Joxa record system
+provides a macro that generates a matchable thing. That macro is the
 `t` macro. The `t` macro takes a list of field name, data pairs that
 are used to construct a pattern for that record. Lets look at some
 examples. In the first example we want to create something that will
-match on a record with the `name` "Robert" and nothing else
+match on a `example-person` record with the `name` "Robert", and
+nothing else
 
 .. code-block:: clojure
 
@@ -603,14 +607,14 @@ match on a record with the `name` "Robert" and nothing else
      (_
          :did-not-match))
 
-If we want to match on more fields we can simple add more to the
+If we want to match on more fields, we can simply add more to the
 field/value list
 
 .. code-block:: clojure
 
     (case person
      ((example-person/t name "Robert"
-                              sex male)
+                              sex :male)
          :matched)
      (_
          :did-not-match))
@@ -621,8 +625,8 @@ or even
 
     (case person
       ((example-person/t name "Robert"
-                              sex :male
-                              city :chicago)
+                         sex :male
+                         city :chicago)
           :matched)
       (_
           :did-not-match)))
