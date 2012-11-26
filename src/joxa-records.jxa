@@ -125,11 +125,6 @@
                             . acc))))))
                  [] descs)))
 
-(defn create-macro-body (name descs)
-  (erlang/list_to_tuple
-   (name . (lists/map (fn (desc)
-                          :_) descs))))
-
 (defn+ get-field-index (f-name descs)
   (case  (lists/foldl (fn (el acc)
                           (case el
@@ -143,7 +138,6 @@
      val)))
 
 (defn+ make-t-body (name descs fields acc)
-
   (case fields
     ([]
      acc)
@@ -160,16 +154,18 @@
               (:defn
                :defmacro))
         fields (core/gensym)
-        pattern-tmp (create-macro-body name descs))
+        pattern-tmp (erlang/list_to_tuple
+                      (name . (lists/map (fn (desc) ':_) descs))))
     `(~def t (&rest ~fields)
-           (joxa-records/make-t-body ~name '~descs ~fields :~pattern-tmp))))
+      (joxa-records/make-t-body ~name '~descs ~fields ~pattern-tmp))))
 
 
 (defn+ make-let (obj name descs bindings body)
-  (let* (pattern-tmp (create-macro-body name descs))
+  (let* (pattern-tmp (erlang/list_to_tuple
+                       ([:quote name] . (lists/map (fn (desc) :_) descs))))
     `(case ~obj
-       (~(joxa-records/make-t-body name descs bindings pattern-tmp)
-         ~@body))))
+      (~(joxa-records/make-t-body name descs bindings pattern-tmp)
+        ~@body))))
 
 (defn create-let (name decl descs)
   (let* (def (case decl
@@ -181,10 +177,11 @@
         bindings (core/gensym)
         rest (core/gensym))
     `(~def let (~obj ~bindings &rest ~rest)
-           (joxa-records/make-let ~obj '~name '~descs ~bindings ~rest))))
+           (joxa-records/make-let ~obj ~name '~descs ~bindings ~rest))))
 
-(defn create-record (name decl descs)
-  (let* (ells (create-elements decl descs)
+(defn create-record (decl descs)
+  (let* (name `($namespace)
+        ells (create-elements decl descs)
         constr (create-constructors name decl descs)
         field-info (create-field-info decl descs)
         accessors (create-accessors decl descs)
@@ -192,8 +189,8 @@
         lets (create-let name decl descs))
     `(do ~@ells ~@constr ~@field-info ~@accessors ~t ~lets)))
 
-(defmacro+ defrecord+ (name &rest field-descriptions)
-  (create-record name :defn+ (convert-to-record-description field-descriptions)))
+(defmacro+ defrecord+ (&rest field-descriptions)
+  (create-record :defn+ (convert-to-record-description field-descriptions)))
 
-(defmacro+ defrecord (name &rest field-descriptions)
-  (create-record name :defn (convert-to-record-description field-descriptions)))
+(defmacro+ defrecord (&rest field-descriptions)
+  (create-record :defn (convert-to-record-description field-descriptions)))

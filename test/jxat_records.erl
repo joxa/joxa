@@ -9,7 +9,7 @@ given([a,module,that,has,defined,records], _State, _) ->
           (require joxa-records
                    erlang lists))
 
-(joxa-records/defrecord+ :test-record name age {sex :male} {address \"unknown\"})
+(joxa-records/defrecord+ name age {sex :male} {address \"unknown\"})
 
 ">>,
 
@@ -100,7 +100,7 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
                   {t,1}],
                  lists:sort('jxat-records-def-test':module_info(exports))),
     {A, B} = 'jxat-records-uses-test':create1(),
-    ?assertMatch({'test-record',"Robert",1024,male,
+    ?assertMatch({'jxat-records-def-test',"Robert",1024,male,
                   "Somewhere in Ireland"}, A),
     ?assertMatch(A, B),
     ?assertMatch(matched, 'jxat-records-uses-test':match1(A)),
@@ -113,13 +113,13 @@ then([the,described,function,can,be,called,'and',works,correctly], State, _) ->
     ?assertMatch(male, 'jxat-records-def-test':sex(B)),
     ?assertMatch("Somewhere in Ireland",
                  'jxat-records-def-test':address(B)),
-    ?assertMatch({'test-record',"Brian",1024,male,
+    ?assertMatch({'jxat-records-def-test',"Brian",1024,male,
                   "Somewhere in Ireland"}, 'jxat-records-def-test':'name!'(B, "Brian")),
-    ?assertMatch({'test-record',"Robert",3,male,
+    ?assertMatch({'jxat-records-def-test',"Robert",3,male,
                   "Somewhere in Ireland"}, 'jxat-records-def-test':'age!'(B, 3)),
-    ?assertMatch({'test-record',"Robert",1024,never,
+    ?assertMatch({'jxat-records-def-test',"Robert",1024,never,
                   "Somewhere in Ireland"}, 'jxat-records-def-test':'sex!'(B, never)),
-    ?assertMatch({'test-record',"Robert",1024,male,
+    ?assertMatch({'jxat-records-def-test',"Robert",1024,male,
                   "wanderer"},
                  'jxat-records-def-test':'address!'(B, "wanderer")),
   {ok, State}.
