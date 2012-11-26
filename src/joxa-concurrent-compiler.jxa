@@ -6,9 +6,9 @@
 (ns joxa-cc-state
     (require joxa-sort-topo
              (ec_dictionary :joxify))
-    (use (joxa-records :only (defrecord+/2))))
+    (use (joxa-records :only (defrecord+/1))))
 
-(defrecord+ ($namespace)
+(defrecord+
   {dep-graph []} ; topo sorted dep graph for cycle detection
   {all-pids []}
   {starting []}
