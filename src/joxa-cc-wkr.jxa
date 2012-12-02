@@ -7,7 +7,10 @@
     (require joxa-compiler
              joxa-concurrent-compiler
              joxa-otp-gen-server
+             joxa-lists
+             io
              (lists :joxify)
+             (sets :joxify)
              (filelib :joxify)
              (filename :joxify)
              (gen_server :joxify)
@@ -20,44 +23,37 @@
          (joxa-lists :only (dolist/2))
          (joxa-core :only (let/2 if/3))))
 
-(defn+ force-build (pid)
-  "Just tell the specified pid to build. Even if the file has not
-changed the build should take place anyway."
-  (gen-server/cast pid {:do-build :forced}))
-
 (defn+ build (pid)
   "Just tell the specified pid to go ahead and build normally, if the
 file has not changed then no need to actually build."
-  (gen-server/cast pid {:do-build :normal}))
+  (gen-server/cast pid :do-build))
 
-(defn do-build (state build-type)
+(defn do-build (state)
   "Actually builds using the joxa compiler"
   (let ({file opts ({namespace _} . _)} state
         outdir (proplists/get-value :outdir opts "./")
         target (filename/join [outdir (lists/flatten
                                        (erlang/atom-to-list namespace) ".beam")]))
 
-    (if (or (=:= build-type :forced)
-            (< (filelib/last-modified target)
-               (filelib/last-modified file)))
-        (let (result (joxa-compiler/has-errors?  (joxa-compiler/do-compile file opts)))
-          (case result
-            (:true
-             (joxa-concurrent-compiler/build-failure file)
-             (erlang/exit :build-failure))
-            (:false
-             (joxa-concurrent-compiler/build-success file)
-             (erlang/exit :normal))))
-      ;; Its not been modified so lets not build
+    (if (< (filelib/last-modified target) (filelib/last-modified file))
+      (let (result (joxa-compiler/has-errors? (joxa-compiler/do-compile file opts)))
+        (case result
+          (:true
+           (joxa-concurrent-compiler/build-failure file)
+           (erlang/exit :build-failure))
+          (:false
+           (joxa-concurrent-compiler/build-success file)
+           (erlang/exit :normal))))
+      ;; it's not been modified, so don't build
       (do
-          (joxa-concurrent-compiler/build-skip file)
-          (erlang/exit :normal)))))
+        (joxa-concurrent-compiler/build-skip file)
+        (erlang/exit :normal)))))
 
 (defn+ handle-cast (request state)
   "We only wait for the do-build everything else happens in init"
   (case request
-    ({:do-build build-type}
-     (do-build state build-type)
+    (:do-build
+     (do-build state)
      {:noreply state})))
 
 (defn+ handle-info (request state)
@@ -65,15 +61,23 @@ file has not changed then no need to actually build."
     (:timeout
      (let ({file opts} state)
        (case (joxa-compiler/info file)
-         ((= all {:error error})
-          (joxa-concurrent-compiler/build-failure file))
+         ({:error error}
+          (io/format :standard_error "~s: Error: ~p~n" [file error])
+          (joxa-concurrent-compiler/build-failure file)
+          {:stop error state})
          ([]
-          (io/format "~s:0:0 No namespace definition~n" [file])
+          (io/format :standard_error "~s:0:0 No namespace definition~n" [file])
+          (joxa-concurrent-compiler/build-failure file)
           {:stop :invalid-namespace-definition state})
          (elements
-          (dolist ({namespace name-deps} elements)
-            (joxa-concurrent-compiler/register-namespaces file namespace name-deps))
-          {:noreply {file opts elements}}))))))
+          (let ({namespaces deps}
+                (joxa-lists/foldl
+                  ({namespace namespace-deps} elements)
+                  ({namespaces deps} {[] []})
+                  {(namespace . namespaces) (lists/append namespace-deps deps)})
+                deps1 (sets/to-list (sets/from-list deps)))
+            (joxa-concurrent-compiler/register-namespaces file namespaces deps1)
+            {:noreply {file opts elements}})))))))
 
 (defn+ terminate (_reason state)
   :ok)
