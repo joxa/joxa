@@ -41,12 +41,12 @@
 
 (defn+ build-skip (file)
   "When a worker skips building a file because the file has already been
-  build"
+built."
   (gen-server/cast ($namespace) {:skip file}))
 
 (defn+ build-success (file)
-  "When a worker successfully completes a build this function is called
-to notify the coordinator"
+  "When a worker successfully completes a build, this function is called
+to notify the coordinator."
   (gen-server/cast ($namespace) {:success file}))
 
 (defn+ build-failure (file)
@@ -54,12 +54,11 @@ to notify the coordinator"
 notify the coordinator."
   (gen-server/cast ($namespace) {:failure file}))
 
-(defn+ register-namespaces (file namespace deps)
-  "Register the namespaces and the deps that those namespaces have."
-  (gen-server/cast ($namespace) {:register file namespace deps}))
+(defn+ register-namespaces (file namespaces deps)
+  "Register a namespace with its dependencies."
+  (gen-server/cast ($namespace) {:register file namespaces deps}))
 
 (defspec joxa-cc-wkr/start-link ((string) (list))  (pid))
-(defspec joxa-cc-wkr/force-build (pid) :ok)
 (defspec joxa-cc-wkr/build (pid) :ok)
 
 (defn check-cycles! (state namespace deps)
@@ -73,37 +72,15 @@ are exit the build."
       ({:ok new-dep-graph}
        (state/dep-graph! state new-dep-graph))
       ({:cycle cycle}
-       (io/format "Dependency cycle detected ~p~n" [cycle])
+       (io/format :standard_error "Dependency cycle detected ~p~n" [cycle])
        (erlang/exit {:cycle-detected cycle})))))
 
-(defn check-existance! (state file namespace)
+(defn check-existence! (state file namespace)
 "Make sure that the same namespace is not being defined in multiple
 files."
   (when (lists/keymember namespace 1 (state/dep-info state))
-    (io/format "Namespace ~p redefined in ~n" [namespace file])
+    (io/format :standard_error "Namespace ~p redefined in ~n" [namespace file])
     (erlang/exit {:redefined-namespace namespace})))
-
-(defn how-should-it-be-built? (file deps build-status)
-  "Check if and how the file specified should be built. If it has a
-dependency that was built then it must be built for macroish reasons."
-  (case build-status
-    (:unbuilt
-     (case (joxa-lists/foldl (dep deps) (acc :init)
-                          (case dep
-                            ;; If dependency had to be built then we must
-                            ;; be built as well.
-                            ({dep-atom :built}
-                             :force)
-                            (dep-atom (when (erlang/is-atom dep-atom))
-                                      :no-build)
-                            (_
-                             acc)))
-       (:init
-        :build)
-       (val
-        val)))
-    (_
-     :no-build)))
 
 (defn done-building (state0 file build-type)
   "When a file is done building this cleans up the dependencies and
@@ -113,30 +90,19 @@ frees for building anything that is currently able to be built."
          dep-info0 (state/dep-info state0)
          namespaces (map ({file namespace _ _} dep-info0)
                          namespace)
+         update-deps (fn (deps)
+                       (# (dep deps) (not (lists/member dep namespaces))))
          dep-info1 (map ({f namespace deps build-status} dep-info0)
                         (case f
                           (file
-                           {f namespace
-                              (map (dep deps)
-                                   (if (lists/member dep namespaces)
-                                       {dep build-type}
-                                     dep))
-                              build-type})
+                           {f namespace (update-deps deps) build-type})
                           (_
-                           {f namespace
-                              (map (dep deps)
-                                   (if (lists/member dep namespaces)
-                                       {dep build-type}
-                                     dep))
-                              build-status}))))
+                           {f namespace (update-deps deps) build-status}))))
     ;; when the deps are empty tell the worker to build itself
     (dolist ({f _ deps build-status} dep-info1)
-      (case (how-should-it-be-built? f deps build-status)
-        (:force
-         (let ({value {f pid}} (lists/keysearch f 1 (state/all-pids state0)))
-          (joxa-cc-wkr/force-build pid)))
-        (:build
-         (let ({value {f pid}} (lists/keysearch f 1 (state/all-pids state0)))
+      (case deps
+        ([] (when (=:= build-status :unbuilt))
+         (let ({:value {f pid}} (lists/keysearch f 1 (state/all-pids state0)))
            (joxa-cc-wkr/build pid)))
         (_
          :ok)))
@@ -162,39 +128,36 @@ frees for building anything that is currently able to be built."
                               build-status}))
     ;; when the deps are empty tell the worker to build itself
     (dolist ({file _ deps build-status} dep-info1)
-      (case (how-should-it-be-built? file deps build-status)
-        (:force
-         (let ({value {file pid}} (lists/keysearch file 1 (state/all-pids state0)))
-          (joxa-cc-wkr/force-build pid)))
-        (:build
-         (let ({value {file pid}} (lists/keysearch file 1 (state/all-pids state0)))
+      (case deps
+        ([]
+         (let ({:value {file pid}} (lists/keysearch file 1 (state/all-pids state0)))
            (joxa-cc-wkr/build pid)))
         (_
          :ok)))
     (state/dep-info! state0 dep-info1)))
 
-(defn register (state0 file namespace deps)
+(defn register (state0 file namespaces deps)
   "When a worker gets done gathering information about the
 file/namespace it registers that information with the concurrent
 compiler. This does the register and when all files are registered it
 starts building."
-  (check-existance! state0 file namespace)
-  (let* (state1 (check-cycles! state0 namespace deps)
-         state2 (state/dep-info! state1 ({file namespace deps :unbuilt} .
-                                         (state/dep-info state1)))
+  (let* (state1 (joxa-lists/foldl (namespace namespaces) (state state0)
+                  (check-existence! state file namespace)
+                  (let* (state (check-cycles! state namespace deps))
+                    (state/dep-info! state ({file namespace deps :unbuilt} .
+                                            (state/dep-info state)))))
          new-starting (lists/delete file (state/starting state1)))
-
     (case new-starting
       ([]
-       (start-building (state/starting! state2 new-starting)))
+       (start-building (state/starting! state1 new-starting)))
       (_
-       (state/starting! state2 new-starting)))))
+       (state/starting! state1 new-starting)))))
 
 ;;; gen-server callbacks
 (defn+ handle-cast (request state)
   (case request
-    ({:register file namespace deps}
-     {:noreply (register state file namespace deps)})
+    ({:register file namespaces deps}
+     {:noreply (register state file namespaces deps)})
     ({:success file}
      {:noreply (done-building state file :built)})
     ({:skip file}
@@ -217,7 +180,7 @@ starts building."
                                {file pid})))
     (case pids
       ([]
-       (io/format "Nothing found to build~n")
+       (io/format :standard_error "Nothing found to build~n" [])
        {:stop :nothing-to-build})
       (_
        {:ok (state/make-fields [{:starting filelist}
@@ -232,6 +195,15 @@ starts building."
 (joxa-otp-gen-server/local-server-start-link filelist opts)
 (joxa-otp-gen-server/implement-missing joxa-concurrent-compiler)
 
+(defn wait-until-finished (pid)
+  (receive
+    ({:EXIT pid :normal}
+     :ok)
+    ({:EXIT _ :normal} ; when a worker process finishes
+     (wait-until-finished pid))
+    ({:EXIT _ error}
+     {:error error})))
+
 (defn+ do-compile (filelist opts)
   "Starts the compilation process with the list of files to be built and
 the build options"
@@ -240,8 +212,4 @@ the build options"
     ((= error {:error _})
      error)
     ({:ok pid}
-     (receive
-      ({:EXIT pid :normal}
-       :ok)
-      ({:EXIT pid error}
-       {:error error})))))
+      (wait-until-finished pid))))
