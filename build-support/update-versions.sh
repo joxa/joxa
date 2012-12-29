@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 set -e
 
@@ -8,7 +8,7 @@ JOXA_SHELL=./src/joxa-shell.jxa
 
 version=`$BINDIR/semver.sh`
 
-sed -e "s/\({vsn, \"\).*\(\"\},\)/\1${version}\2/g" ${JOXA_SRC} > ${JOXA_SRC}.tmp
+sed -e "s/\({vsn, \"\).*\(\"},\)/\1${version}\2/g" ${JOXA_SRC} > ${JOXA_SRC}.tmp
 mv ${JOXA_SRC}.tmp ${JOXA_SRC}
 
 sed -e "s/\(Joxa Version \).*\(~n~n\)/\1${version}\2/g" ${JOXA_SHELL} > ${JOXA_SHELL}.tmp

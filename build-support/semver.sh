@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # If run inside a git repository will return a valid semver based on
 # the semver formatted tags. For example if the current HEAD is tagged
@@ -19,18 +19,19 @@ version_candidate=
 version_tag=
 vsn=
 
-get-version-candidate()
+get_version_candidate()
 {
-    local ver_regex='tag: (v([^,\)]+)|([0-9]+(\.[0-9]+)*))'
-    local tag_lines=`git log --oneline --decorate  |  fgrep "tag: "`
+    version_regex='tag: (v([^,\)]+)|([0-9]+(\.[0-9]+)*))'
+    tag_lines=`git log --oneline --decorate | fgrep "tag: "`
+    version_match=`echo "$tag_lines" | sed -r -e "s/^.*\($version_regex\).*/\1/;q"`
 
-    if [[ $tag_lines =~ $ver_regex ]]; then
-        if [[ ${BASH_REMATCH[1]:0:1} = "v" ]]; then
-            version_tag=${BASH_REMATCH[1]}
-            version_candidate=${BASH_REMATCH[2]}
+    if [ -n "$version_match" ]; then
+        if [ `echo "$version_match" | sed -r -e 's/^(.).*/\1/'` = "v" ]; then
+            version_tag="$version_match"
+            version_candidate=`echo "$tag_lines" | sed -r -e "s/^.*\($version_regex\).*/\2/;q"`
         else
-            version_tag=${BASH_REMATCH[3]}
-            version_candidate=${BASH_REMATCH[3]}
+            version_tag=`echo "$tag_lines" | sed -r -e "s/.*\($version_regex\).*/\3/;q"`
+            version_candidate="$version_tag"
         fi
     else
         version_tag=""
@@ -38,9 +39,9 @@ get-version-candidate()
     fi
 }
 
-get-commit-count()
+get_commit_count()
 {
-    if [[ $version_tag = "" ]]; then
+    if [ $version_tag = "" ]; then
         commit_count=`git rev-list HEAD | wc -l`
     else
         commit_count=`git rev-list ${version_tag}..HEAD | wc -l`
@@ -48,9 +49,9 @@ get-commit-count()
     commit_count=`echo $commit_count | tr -d ' 't`
 }
 
-build-version()
+build_version()
 {
-    if [[ $commit_count = 0 ]]; then
+    if [ $commit_count = 0 ]; then
         vsn=$version_candidate
     else
         local ref=`git log -n 1 --pretty=format:'%h'`
@@ -58,9 +59,9 @@ build-version()
     fi
 }
 
-check-tag()
+check_tag()
 {
-    if [[ "$1" = "release" ]]; then
+    if [ "$1" = "release" ]; then
         if [[ $commit_count != 0 ]]; then
             echo "The current head *must* be tagged"
             exit 127
@@ -68,9 +69,9 @@ check-tag()
     fi
 }
 
-get-version-candidate
-get-commit-count
-build-version
-check-tag "$1"
+get_version_candidate
+get_commit_count
+build_version
+check_tag "$1"
 
 echo $vsn
