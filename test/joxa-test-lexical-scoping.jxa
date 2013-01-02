@@ -1,0 +1,66 @@
+(ns joxa-test-lexical-scoping
+  (use joxa-assert)
+  (require joxa-eunit))
+
+(defn f ()
+  41)
+
+(defn f (f)
+  42)
+
+(defn g (f)
+  (f 43))
+
+(defn h (h)
+  (h 44))
+
+(defn i (f)
+  f)
+
+(defn j (j)
+  (f 45))
+
+(defn k (f)
+  (f f))
+
+(defn l (f)
+  (f (f 46)))
+
+(defn let-1 ()
+  (let* (f (fn () 47) g f)
+    (g)))
+
+(defn let-2 ()
+  (let* (f (fn () 47) g (f))
+    g))
+
+(defn+ f_test ()
+  (assert-equal 42 (f 3.14)))
+
+(defn+ g_test ()
+  (assert-exception :error {:badarity _} (g f/0))
+  (assert-exception :error {:badarity _} (g (fn () 43))))
+
+(defn+ h_test ()
+  (assert-equal 42 (h f/1)))
+
+(defn+ i_test ()
+  (assert-equal 44 (i 44)))
+
+(defn+ j_test ()
+  (assert-equal 42 (j 0.1337)))
+
+(defn+ k_test ()
+  (assert-exception :error {:badfun 45} (k 45)))
+
+(defn+ l_test ()
+  (assert-equal 46 (l i/1))
+  (assert-equal 46 (l (fn (x) x))))
+
+(defn+ let-1_test ()
+  (assert-equal 47 (let-1)))
+
+(defn+ let-2_test ()
+  (assert-equal 47 (let-2)))
+
+(joxa-eunit/testable)
