@@ -3,6 +3,8 @@ ERL=$(shell which erl)
 ERLC=$(shell which erlc)
 REBAR=$(shell which rebar)
 
+CURDIR=$(shell [ -n "$$CURDIR" ] && echo "$$CURDIR" || echo `pwd`)
+
 ifeq ($(REBAR),)
 	$(error "Rebar not available on this system")
 endif
@@ -24,8 +26,8 @@ BUILD_SUPPORT=$(CURDIR)/build-support
 .SUFFIXES:
 .SUFFIXES:.jxa
 
-include $(BUILD_SUPPORT)/core-build.mkf
-include $(BUILD_SUPPORT)/doc.mkf
+include $(abspath $(BUILD_SUPPORT)/core-build.mkf)
+include $(abspath $(BUILD_SUPPORT)/doc.mkf)
 
 clean: jxa-clean doc-clean
 

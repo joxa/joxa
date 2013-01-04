@@ -15,6 +15,9 @@ TLDR
     $> make escript
     $> mv ./_build/joxa/escript/joxa <someplace-in-the-path>
 
+Please note that on *BSD platforms you need to use `gmake` instead of
+`make` in order to build Joxa successfully.
+
 Get The Dependencies
 --------------------
 
