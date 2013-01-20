@@ -54,9 +54,9 @@ to notify the coordinator."
 notify the coordinator."
   (gen-server/cast ($namespace) {:failure file}))
 
-(defn+ register-namespaces (file namespaces deps)
+(defn+ register-namespace (file namespace deps)
   "Register a namespace with its dependencies."
-  (gen-server/cast ($namespace) {:register file namespaces deps}))
+  (gen-server/cast ($namespace) {:register file namespace deps}))
 
 (defspec joxa-cc-wkr/start-link ((string) (list))  (pid))
 (defspec joxa-cc-wkr/build (pid) :ok)
@@ -136,16 +136,15 @@ frees for building anything that is currently able to be built."
          :ok)))
     (state/dep-info! state0 dep-info1)))
 
-(defn register (state0 file namespaces deps)
+(defn register (state0 file namespace deps)
   "When a worker gets done gathering information about the
 file/namespace it registers that information with the concurrent
 compiler. This does the register and when all files are registered it
 starts building."
-  (let* (state1 (joxa-lists/foldl (namespace namespaces) (state state0)
-                  (check-existence! state file namespace)
-                  (let* (state (check-cycles! state namespace deps))
-                    (state/dep-info! state ({file namespace deps :unbuilt} .
-                                            (state/dep-info state)))))
+  (let* (state1 (do (check-existence! state0 file namespace)
+                    (let* (state (check-cycles! state0 namespace deps))
+                      (state/dep-info! state ({file namespace deps :unbuilt} .
+                                              (state/dep-info state)))))
          new-starting (lists/delete file (state/starting state1)))
     (case new-starting
       ([]
@@ -156,8 +155,8 @@ starts building."
 ;;; gen-server callbacks
 (defn+ handle-cast (request state)
   (case request
-    ({:register file namespaces deps}
-     {:noreply (register state file namespaces deps)})
+    ({:register file namespace deps}
+     {:noreply (register state file namespace deps)})
     ({:success file}
      {:noreply (done-building state file :built)})
     ({:skip file}

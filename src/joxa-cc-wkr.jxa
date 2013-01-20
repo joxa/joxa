@@ -70,14 +70,9 @@ file has not changed then no need to actually build."
           (joxa-concurrent-compiler/build-failure file)
           {:stop :invalid-namespace-definition state})
          (elements
-          (let ({namespaces deps}
-                (joxa-lists/foldl
-                  ({namespace namespace-deps} elements)
-                  ({namespaces deps} {[] []})
-                  {(namespace . namespaces) (lists/append namespace-deps deps)})
-                deps1 (sets/to-list (sets/from-list deps)))
-            (joxa-concurrent-compiler/register-namespaces file namespaces deps1)
-            {:noreply {file opts elements}})))))))
+          (dolist ({namespace deps} elements)
+            (joxa-concurrent-compiler/register-namespace file namespace deps))
+          {:noreply {file opts elements}}))))))
 
 (defn+ terminate (_reason state)
   :ok)
