@@ -1,7 +1,8 @@
 ;; This is an absolute, minimal, better-then-nothing mode for joxa. At
 ;; some point we will build something better.
 
-(define-derived-mode joxa-mode lisp-mode "Joxa Editing Mode" "Major mode for editing Joxa files"
+(define-derived-mode joxa-mode lisp-mode
+  "Joxa Editing Mode" "Major mode for editing Joxa files"
 
   (font-lock-add-keywords 'joxa-mode
                           '(("module" . font-lock-keyword-face)
@@ -36,6 +37,6 @@
 ;;                              (require 'parenface)
 ;;                              (set-face-foreground 'paren-face "#073642")))
 
- (add-to-list 'auto-mode-alist '("\\.jxa\\'" . joxa-mode))
+(add-to-list 'auto-mode-alist '("\\.jxa\\'" . joxa-mode))
 
 (provide 'joxa)
