@@ -1,4 +1,4 @@
-;; This is an absolute, minimal, better-then-nothing mode for joxa. At
+;; This is an absolute, minimal, better-than-nothing mode for joxa. At
 ;; some point we will build something better.
 
 (define-derived-mode joxa-mode lisp-mode
