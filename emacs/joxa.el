@@ -37,3 +37,5 @@
 ;;                              (set-face-foreground 'paren-face "#073642")))
 
  (add-to-list 'auto-mode-alist '("\\.jxa\\'" . joxa-mode))
+
+(provide 'joxa)
