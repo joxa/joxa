@@ -22,15 +22,15 @@ vsn=
 get_version_candidate()
 {
     version_regex='tag: (v([^,\)]+)|([0-9]+(\.[0-9]+)*))'
-    tag_lines=`git log --oneline --decorate | fgrep "tag: "`
-    version_match=`echo "$tag_lines" | sed -r -e "s/^.*\($version_regex\).*/\1/;q"`
+    tag_lines=$(git log --oneline --decorate | fgrep "tag: ")
+    version_match=$(echo "$tag_lines" | perl -e "<> =~ /\($version_regex\)/ && print \${1}")
 
     if [ -n "$version_match" ]; then
-        if [ `echo "$version_match" | sed -r -e 's/^(.).*/\1/'` = "v" ]; then
+        if [ $(echo "$version_match" | perl -e '<> =~ /(.)/ && print ${1}') = 'v' ]; then
             version_tag="$version_match"
-            version_candidate=`echo "$tag_lines" | sed -r -e "s/^.*\($version_regex\).*/\2/;q"`
+            version_candidate=$(echo "$tag_lines" | perl -e "<> =~ /\($version_regex\)/ && print \${2}")
         else
-            version_tag=`echo "$tag_lines" | sed -r -e "s/.*\($version_regex\).*/\3/;q"`
+            version_tag=$(echo "$tag_lines" | perl -e "<> =~ /\($version_regex\)/ && print \${3}")
             version_candidate="$version_tag"
         fi
     else
@@ -42,11 +42,11 @@ get_version_candidate()
 get_commit_count()
 {
     if [ $version_tag = "" ]; then
-        commit_count=`git rev-list HEAD | wc -l`
+        commit_count=$(git rev-list HEAD | wc -l)
     else
-        commit_count=`git rev-list ${version_tag}..HEAD | wc -l`
+        commit_count=$(git rev-list ${version_tag}..HEAD | wc -l)
     fi
-    commit_count=`echo $commit_count | tr -d ' 't`
+    commit_count=$(echo $commit_count | tr -d ' 't)
 }
 
 build_version()
@@ -54,7 +54,7 @@ build_version()
     if [ $commit_count = 0 ]; then
         vsn=$version_candidate
     else
-        local ref=`git log -n 1 --pretty=format:'%h'`
+        local ref=$(git log -n 1 --pretty=format:'%h')
         vsn="${version_candidate}+build.${commit_count}.${ref}"
     fi
 }
