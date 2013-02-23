@@ -10,8 +10,11 @@
 (defmacro+ gen-start-link ()
   ;; Create a default start link function for the most common
   ;; supervisor start method
-  `(defn+ start_link ()
-     (supervisor/start_link {:local ($namespace)} ($namespace) [])))
+  `(do
+     (defn+ start_link ()
+       (supervisor/start_link {:local ($namespace)} ($namespace) []))
+     (defn+ start-link ()
+       (start_link))))
 
 (defn+ default-init (child-list)
   ;; Create a default supervisor spec based on a list of child
