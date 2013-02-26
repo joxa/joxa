@@ -38,13 +38,26 @@ test1_test() ->
     'joxa-cmp-ctx':'push-scope-ctx'(Ctx),
     'joxa-cmp-ctx':'add-def-ctx'({0, [1]}, Ctx, [], foo, [], none),
     'joxa-cmp-ctx':'add-def-ctx'({0, [1]}, Ctx, [], foo, [one, two], none),
+    'joxa-cmp-ctx':'add-def-ctx'({0, [1]}, Ctx, [], baz, [one, two], none),
     'joxa-cmp-ctx':'add-alias-ctx'(Ctx, bar, lists),
     'joxa-cmp-ctx':'add-require-ctx'(Ctx, lists),
-    'joxa-cmp-ctx':'add-reference-to-scope-ctx'({1, [1]}, Ctx, foo, -1,
-                                                 cerl:c_var(foo)),
+    'joxa-cmp-ctx':'add-reference-to-scope-ctx'({1, [1]}, Ctx, baz, -1,
+                                                 cerl:c_var(baz)),
 
-    ?assertMatch({reference, {{c_var, [], foo}, -1}},
-                 'joxa-cmp-ctx':'resolve-reference-ctx'({0, [1]}, Ctx, foo, -1)),
+    ?assertMatch({reference, {{c_var, [], baz}, -1}},
+                 'joxa-cmp-ctx':'resolve-reference-ctx'({0, [1]}, Ctx, baz, -1)),
+
+    ?assertMatch({reference, {{c_var, [], baz}, -1}},
+                 'joxa-cmp-ctx':'resolve-reference-ctx'({0, [1]}, Ctx, baz, 0)),
+
+    ?assertMatch({reference, {{c_var, [], baz}, -1}},
+                 'joxa-cmp-ctx':'resolve-reference-ctx'({0, [1]}, Ctx, baz, 1)),
+
+    ?assertMatch({reference, {{c_var, [], baz}, -1}},
+                 'joxa-cmp-ctx':'resolve-reference-ctx'({0, [1]}, Ctx, baz, 2)),
+
+    ?assertMatch({reference, {{c_var, [], baz}, -1}},
+                 'joxa-cmp-ctx':'resolve-reference-ctx'({0, [1]}, Ctx, baz, 3)),
 
     ?assertMatch({apply, 'not-rest', 'not-macro', {foo, 2}},
                  'joxa-cmp-ctx':'resolve-reference-ctx'({0, [1]}, Ctx, foo, 2)),
