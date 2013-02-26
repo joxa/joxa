@@ -54,6 +54,7 @@ SRCBEAMS = $(BEAMDIR)/joxa-cmp-util.beam \
 TESTBEAMS = $(TEST_EBIN)/joxa-test-let-match.beam \
 	$(TEST_EBIN)/joxa-test-multiple-namespaces.beam \
 	$(TEST_EBIN)/joxa-test-namespace-mutual-recursion.beam \
+	$(TEST_EBIN)/joxa-test-lexical-scoping.beam \
 	$(TEST_EBIN)/joxa-test-joxification.beam
 
 .PHONY: all ootstrap clean update-versions \

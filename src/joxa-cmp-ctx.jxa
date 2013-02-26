@@ -378,8 +378,6 @@
                                        (:not_found
                                         :not_found))))) scopes)
          ({:ok {var new-arity}  _}
-          (when (erlang/or (erlang/== -1 arity)
-                           (erlang/== new-arity arity)))
           {raw-ctx {:reference {var new-arity}}})
          (_
           {raw-ctx  (internal-defined-used-function? name arity raw-ctx)}))))
