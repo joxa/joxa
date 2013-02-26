@@ -36,6 +36,7 @@
                         not/1
                         length/1))
          (joxa-lists :only (dolist/2
+                            foldl/3
                             map/2
                             #/2))))
 
@@ -54,9 +55,9 @@ to notify the coordinator."
 notify the coordinator."
   (gen-server/cast ($namespace) {:failure file}))
 
-(defn+ register-namespaces (file namespaces deps)
+(defn+ register-namespace (file namespace-deps-list)
   "Register a namespace with its dependencies."
-  (gen-server/cast ($namespace) {:register file namespaces deps}))
+  (gen-server/cast ($namespace) {:register file namespace-deps-list}))
 
 (defspec joxa-cc-wkr/start-link ((string) (list))  (pid))
 (defspec joxa-cc-wkr/build (pid) :ok)
@@ -136,14 +137,14 @@ frees for building anything that is currently able to be built."
          :ok)))
     (state/dep-info! state0 dep-info1)))
 
-(defn register (state0 file namespaces deps)
+(defn register (state0 file namespace-deps-list)
   "When a worker gets done gathering information about the
 file/namespace it registers that information with the concurrent
 compiler. This does the register and when all files are registered it
 starts building."
-  (let* (state1 (joxa-lists/foldl (namespace namespaces) (state state0)
-                  (check-existence! state file namespace)
-                  (let* (state (check-cycles! state namespace deps))
+  (let* (state1 (foldl ({namespace deps} namespace-deps-list) (state1 state0)
+                  (check-existence! state1 file namespace)
+                  (let* (state (check-cycles! state1 namespace deps))
                     (state/dep-info! state ({file namespace deps :unbuilt} .
                                             (state/dep-info state)))))
          new-starting (lists/delete file (state/starting state1)))
@@ -156,8 +157,8 @@ starts building."
 ;;; gen-server callbacks
 (defn+ handle-cast (request state)
   (case request
-    ({:register file namespaces deps}
-     {:noreply (register state file namespaces deps)})
+    ({:register file namespace-deps-list}
+     {:noreply (register state file namespace-deps-list)})
     ({:success file}
      {:noreply (done-building state file :built)})
     ({:skip file}
