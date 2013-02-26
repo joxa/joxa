@@ -69,15 +69,9 @@ file has not changed then no need to actually build."
           (io/format :standard_error "~s:0:0 No namespace definition~n" [file])
           (joxa-concurrent-compiler/build-failure file)
           {:stop :invalid-namespace-definition state})
-         (elements
-          (let ({namespaces deps}
-                (joxa-lists/foldl
-                  ({namespace namespace-deps} elements)
-                  ({namespaces deps} {[] []})
-                  {(namespace . namespaces) (lists/append namespace-deps deps)})
-                deps1 (sets/to-list (sets/from-list deps)))
-            (joxa-concurrent-compiler/register-namespaces file namespaces deps1)
-            {:noreply {file opts elements}})))))))
+         (namespace-deps-list
+          (joxa-concurrent-compiler/register-namespace file namespace-deps-list)
+          {:noreply {file opts namespace-deps-list}}))))))
 
 (defn+ terminate (_reason state)
   :ok)

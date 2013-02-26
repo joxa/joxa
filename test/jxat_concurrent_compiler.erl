@@ -24,6 +24,17 @@ given([a,bunch,'of',joxa,source,files], _State, _) ->
                (defrecord+ a b c d)">>
        },
        {
+           "jxat-cc-abc.jxa",
+           <<"(ns jxat-cc-a
+                (use joxa-records))
+              (defrecord+ a b c)
+              (ns jxat-cc-b
+                (require jxat-cc-a))
+              (defn+ foo () (jxat-cc-a/make 1 2 3))
+              (ns jxat-cc-c)
+              (defn+ bar () 42)">>
+       },
+       {
            "jxat-cc-foo.jxa",
            <<"(ns jxat-cc-foo
                 (require jxat-cc-foo-record-1 (erlang :as erl)))
@@ -74,6 +85,9 @@ then([all,files,are,compiled,successfully], Result, _) ->
         ".eunit/jxat-cc-foo-record-3.beam",
         ".eunit/jxat-cc-foo-record-4.beam",
         ".eunit/jxat-cc-foo-record-5.beam",
+        ".eunit/jxat-cc-a.beam",
+        ".eunit/jxat-cc-b.beam",
+        ".eunit/jxat-cc-c.beam",
         ".eunit/jxat-cc-foo.beam",
         ".eunit/jxat-cc-bar.beam",
         ".eunit/jxat-cc-baz.beam",
