@@ -2,6 +2,7 @@
 *.beam
 ebin/joxa.app
 joxa
+joxa.cmd
 deps
 _build
 erl_crash.dump

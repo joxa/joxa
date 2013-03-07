@@ -121,6 +121,7 @@ cucumber: eunit $(SRCBEAMS) $(TESTBEAMS)
 
 bare-escript:
 	$(REBAR) skip_deps=true escriptize
+	$(REBAR) -C rebar.windows.config skip_deps=true escriptize
 
 escript: build bare-escript
 

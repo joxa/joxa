@@ -11,6 +11,8 @@ Machine. So either install that
 `now from source <http://www.erlang.org>`_ or install it from the
 packaging system on your distribution.
 
+If you are using Windows, install a recent Erlang (R15B or newer), add
+Erlang's bin directory to your path, and drop ``joxa.cmd`` in there too.
 
 How to properly install your project. Ideally, your project should be
 installable via a common (simplistic) method: PyPI for Python, PEAR
