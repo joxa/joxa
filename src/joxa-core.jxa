@@ -26,30 +26,30 @@
 
 (defmacro+ and (&rest args)
   (case args
-     ([x y]
-      `(erlang/and ~x ~y))
-     ((a . b)
-      `(erlang/and ~a (joxa-core/and ~@b)))
-    (arg
-     arg)))
+    ([x y]
+     `(erlang/and ~x ~y))
+    ((x . [])
+     x)
+    ((x . rest)
+     `(erlang/and ~x (joxa-core/and ~@rest)))))
 
 (defmacro+ or (&rest args)
   (case args
-     ([x y]
-      `(erlang/or ~x ~y))
-     ((a . b)
-      `(erlang/or ~a (joxa-core/and ~@b)))
-    (arg
-     arg)))
+    ([x y]
+     `(erlang/or ~x ~y))
+    ((x . [])
+     x)
+    ((x . rest)
+     `(erlang/or ~x (joxa-core/or ~@rest)))))
 
 (defn+ + (&rest args)
   (case args
+    ([]
+     0)
     ([x y]
      (erlang/+ x y))
-    ((a . b)
-     (lists/sum args))
-    (arg
-     arg)))
+    (_
+     (lists/sum args))))
 
 (defn internal-sub (num-list acc)
   (case num-list
@@ -60,6 +60,8 @@
 
 (defn+ - (&rest args)
   (case args
+    ([]
+     0)
     ([a]
      (erlang/- 0 a))
     ((a . rest)

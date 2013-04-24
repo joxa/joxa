@@ -1,0 +1,13 @@
+(ns joxa-test-core-subtract
+  (use joxa-assert
+       (joxa-core :only (-/1)))
+  (require joxa-eunit))
+
+(defn+ -_test ()
+  (assert-equal 0 (-))
+  (assert-equal -42 (- 42))
+  (assert-equal 41 (- 42 -2 3))
+  (assert-equal -48 (- -1 46 0 1))
+  (assert-equal -35 (- 5 6 7 8 9 10)))
+
+(joxa-eunit/testable)
