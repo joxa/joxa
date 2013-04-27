@@ -55,9 +55,13 @@ TESTBEAMS = $(TEST_EBIN)/joxa-test-let-match.beam \
 	$(TEST_EBIN)/joxa-test-multiple-namespaces.beam \
 	$(TEST_EBIN)/joxa-test-namespace-mutual-recursion.beam \
 	$(TEST_EBIN)/joxa-test-lexical-scoping.beam \
-	$(TEST_EBIN)/joxa-test-joxification.beam
+	$(TEST_EBIN)/joxa-test-joxification.beam \
+	$(TEST_EBIN)/joxa-test-core-and.beam \
+	$(TEST_EBIN)/joxa-test-core-or.beam \
+	$(TEST_EBIN)/joxa-test-core-add.beam \
+	$(TEST_EBIN)/joxa-test-core-subtract.beam
 
-.PHONY: all ootstrap clean update-versions \
+.PHONY: all bootstrap clean update-versions \
 	jxa test build get-deps proper eunit \
 	cucumber shell bare-escript
 
@@ -111,7 +115,7 @@ jxa-distclean: jxa-clean
 
 test: build proper eunit cucumber
 
-eunit: build
+eunit: build $(TESTBEAMS)
 	$(REBAR) skip_deps=true eunit
 	$(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa-build-support' main eunit $(BEAMDIR) -s init stop
 	$(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa-build-support' main eunit $(TEST_EBIN) -s init stop

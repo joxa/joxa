@@ -1,0 +1,26 @@
+(ns joxa-test-core-or
+  (use joxa-assert
+       (joxa-core :only (or/1)))
+  (require joxa-eunit))
+
+(defn+ or_test ()
+  (assert-equal :true (or :true))
+  (assert-equal :false (or :false))
+  (assert-equal :false (or :false :false))
+  (assert-equal :true (or :true :false))
+  (assert-equal :true (or :false :true))
+  (assert-equal :true (or :true :true))
+  (assert-equal :false (or :false :false :false))
+  (assert-equal :true (or :false :false :true))
+  (assert-equal :true (or :true :false :false))
+  (assert-equal :true (or :true :true :true))
+  (assert-equal :false (or :false :false :false :false))
+  (assert-equal :true (or :false :false :false :true))
+  (assert-equal :true (or :true :false :false :false))
+  (assert-equal :false (or :false :false :false :false :false))
+  (assert-equal :true (or :false :false :false :false :true))
+  (assert-equal :true (or :true :false :false :false :false))
+  (assert-equal :true (or :true :true :true :true :true)))
+
+(joxa-eunit/testable)
+

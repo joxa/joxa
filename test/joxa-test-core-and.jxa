@@ -1,0 +1,24 @@
+(ns joxa-test-core-and
+  (use joxa-assert
+       (joxa-core :only (and/1)))
+  (require joxa-eunit))
+
+(defn+ and_test ()
+  (assert-equal :true (and :true))
+  (assert-equal :false (and :false))
+  (assert-equal :false (and :false :false))
+  (assert-equal :false (and :true :false))
+  (assert-equal :false (and :false :true))
+  (assert-equal :true (and :true :true))
+  (assert-equal :false (and :false :false :false))
+  (assert-equal :false (and :true :true :false))
+  (assert-equal :true (and :true :true :true))
+  (assert-equal :false (and :false :false :false :false))
+  (assert-equal :false (and :true :true :true :false))
+  (assert-equal :true (and :true :true :true :true))
+  (assert-equal :false (and :false :false :false :false :false))
+  (assert-equal :false (and :false :true :true :true :true))
+  (assert-equal :true (and :true :true :true :true :true)))
+
+(joxa-eunit/testable)
+
