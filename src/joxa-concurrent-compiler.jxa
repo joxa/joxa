@@ -9,7 +9,6 @@
     (use (joxa-records :only (defrecord+/1))))
 
 (defrecord+
-  {dep-graph []} ; topo sorted dep graph for cycle detection
   {all-pids []}
   {starting []}
   {dep-info []})
@@ -62,16 +61,17 @@ notify the coordinator."
 (defspec joxa-cc-wkr/start-link ((string) (list))  (pid))
 (defspec joxa-cc-wkr/build (pid) :ok)
 
-(defn check-cycles! (state namespace deps)
-  "Make sure that there are no cycles in the dependency graph. If there
-are exit the build."
-  (let* (dep-sub-graph
-         (map (dep deps)
-              {namespace deps}))
-    (case (joxa-sort-topo/sort (lists/append
-                                (state/dep-graph state)))
-      ({:ok new-dep-graph}
-       (state/dep-graph! state new-dep-graph))
+(defn check-cycles! (namespace-deps)
+  "Make sure that there are no cycles in the dependency graph. This
+exits the build if a cycle is found."
+  (let* (namespace-dep-pairs (foldl ({namespace deps} namespace-deps) (acc [])
+                               (lists/append
+                                 (foldl (dep deps) (acc1 [])
+                                   ({namespace dep} . acc1))
+                                 acc)))
+    (case (joxa-sort-topo/sort namespace-dep-pairs)
+      ({:ok _}
+       :ok)
       ({:cycle cycle}
        (io/format :standard_error "Dependency cycle detected ~p~n" [cycle])
        (erlang/exit {:cycle-detected cycle})))))
@@ -144,12 +144,15 @@ compiler. This does the register and when all files are registered it
 starts building."
   (let* (state1 (foldl ({namespace deps} namespace-deps-list) (state1 state0)
                   (check-existence! state1 file namespace)
-                  (let* (state (check-cycles! state1 namespace deps))
-                    (state/dep-info! state ({file namespace deps :unbuilt} .
-                                            (state/dep-info state)))))
+                  (state/dep-info! state1 ({file namespace deps :unbuilt} .
+                                           (state/dep-info state1))))
          new-starting (lists/delete file (state/starting state1)))
     (case new-starting
       ([]
+       (let* (namespace-deps-pairs
+              (map ({_ namespace deps _} (state/dep-info state1))
+                {namespace deps}))
+         (check-cycles! namespace-deps-pairs))
        (start-building (state/starting! state1 new-starting)))
       (_
        (state/starting! state1 new-starting)))))
