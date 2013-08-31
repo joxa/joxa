@@ -59,7 +59,8 @@ TESTBEAMS = $(TEST_EBIN)/joxa-test-let-match.beam \
 	$(TEST_EBIN)/joxa-test-core-and.beam \
 	$(TEST_EBIN)/joxa-test-core-or.beam \
 	$(TEST_EBIN)/joxa-test-core-add.beam \
-	$(TEST_EBIN)/joxa-test-core-subtract.beam
+	$(TEST_EBIN)/joxa-test-core-subtract.beam \
+	$(TEST_EBIN)/joxa-test-cc.beam
 
 .PHONY: all bootstrap clean update-versions \
 	jxa test build get-deps proper eunit \

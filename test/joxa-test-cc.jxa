@@ -1,0 +1,56 @@
+(ns joxa-test-cc
+  (use joxa-assert
+       joxa-core
+       joxa-lists)
+  (require joxa-eunit
+           joxa-concurrent-compiler
+           (filename :joxify)
+           (file :joxify)
+           (code :joxify)))
+
+(define file-a
+  <<"(ns joxa-test-cc-a
+       (require joxa-test-cc-b))
+     (defn+ hello ()
+       (joxa-test-cc-b/world))
+     (defn+ world ()
+       42)">>)
+
+(define file-b
+  <<"(ns joxa-test-cc-b
+       (require joxa-test-cc-a))
+     (defn+ hello ()
+       (joxa-test-cc-a/world))
+     (defn+ world ()
+       43)">>)
+
+(define file-c
+  <<"(ns joxa-test-cc-c)
+     (defn+ hello ()
+       :hello)">>)
+
+(define file-d
+  <<"(ns joxa-test-cc-d)
+     (defn+ world ()
+       :world)">>)
+
+(defn compile-files (filename-file-pairs)
+  (let* (filepaths
+         (map ({filename file} filename-file-pairs)
+           (let* (pwd (filename/dirname (code/which ($namespace)))
+                  file-path (filename/join [pwd filename]))
+             (file/write-file file-path file)
+             file-path)))
+    (joxa-concurrent-compiler/do-compile filepaths [])))
+
+(defn+ return-success_test ()
+  (assert-equal
+    :ok
+    (compile-files [{"joxa-test-cc-c.jxa" (file-c)}, {"joxa-test-cc-d.jxa" (file-d)}])))
+
+(defn+ cycles_test ()
+  (assert-match
+    {:error {:cycle-detected _}}
+    (compile-files [{"joxa-test-cc-a.jxa" (file-a)} {"joxa-test-cc-b.jxa" (file-b)}])))
+
+(joxa-eunit/testable)
