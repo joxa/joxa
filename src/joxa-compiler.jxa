@@ -592,7 +592,7 @@
 
 (defn+ option-spec-list ()
   [{:to_ast \a "to_ast" :undefined "compile to core ast"}
-   {:to_core \c "to_core" :undefined "compile to core erlang"}
+   {:to_core \C "to_core" :undefined "compile to core erlang"}
    {:outdir \o "outdir" {:string "./"} "the directory to output beam files"}
    {:bootstrap \b "bootstrap" :undefined
                "Use the special limited bootstrap compiler"}])
