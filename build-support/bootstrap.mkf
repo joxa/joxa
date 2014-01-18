@@ -2,52 +2,17 @@
 SRCDIR=$(CURDIR)/src
 BOOTSTRAP=$(CURDIR)/.bootstrap
 BEAMDIR=$(CURDIR)/ebin
-DEPS_DIR=$(CURDIR)/deps
-ERL=$(shell which erl)
-EBIN_DIRS=$(wildcard $(DEPS_DIR)/*/ebin)
-BASE_ERLCFLAGS=$(EBIN_DIRS:%= -pa %)
-ERLCFLAGS=$(BASE_ERLCFLAGS) -pa $(BEAMDIR)
-ERLFLAGS=-noshell $(ERLCFLAGS)
-
-
 ASTDIR=$(SRCDIR)/ast
-COMP= $(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa-compiler' main \
-      -extra
 
-ASTS=$(ASTDIR)/joxa-cmp-util.ast \
-	$(ASTDIR)/joxa-cmp-path.ast \
-	$(ASTDIR)/joxa-cmp-ctx.ast \
-	$(ASTDIR)/joxa-cmp-peg.ast \
-	$(ASTDIR)/joxa-cmp-lexer.ast \
-	$(ASTDIR)/joxa-cmp-ns.ast \
-	$(ASTDIR)/joxa-cmp-call.ast \
-	$(ASTDIR)/joxa-cmp-literal.ast \
-	$(ASTDIR)/joxa-cmp-binary.ast \
-	$(ASTDIR)/joxa-cmp-special-forms.ast \
-	$(ASTDIR)/joxa-cmp-case.ast \
-	$(ASTDIR)/joxa-cmp-spec.ast \
-	$(ASTDIR)/joxa-cmp-expr.ast \
-	$(ASTDIR)/joxa-cmp-defs.ast \
-	$(ASTDIR)/joxa-cmp-joxa-info.ast \
-	$(ASTDIR)/joxa-cmp-checks.ast \
-	$(ASTDIR)/joxa-cmp-error-format.ast \
-	$(ASTDIR)/joxa-cmp-parser.ast \
-	$(ASTDIR)/joxa-compiler.ast
+ESCRIPT=$(shell which escript)
+BUILDSCRIPT=$(ESCRIPT) build-support/build.erl
 
 .PHONY: all
 
 
-all: $(BOOTSTRAP) $(ASTS)
-	@for ast in $(ASTS);\
-	do \
-		$(ERL) $(ERLFLAGS) -s jxa_bootstrap do_bootstrap $(BOOTSTRAP) $$ast -s init stop; \
-	done
-	mv $(BOOTSTRAP)/*.beam $(BEAMDIR)/
-
-$(BOOTSTRAP):
+all:
 	mkdir -p $(BOOTSTRAP)
-
-$(ASTDIR)/%.ast: $(SRCDIR)/%.jxa $(BEAMDIR)/jxa_bootstrap.beam
-	$(ERL) $(ERLFLAGS) -s joxa-compiler main \
-	-extra --to_ast -o $(ASTDIR) $<
-	echo "." >> $@
+	$(BUILDSCRIPT) bootstrap $(ASTDIR) $(BOOTSTRAP)
+	mv $(BOOTSTRAP)/*.beam $(BEAMDIR)/
+	mkdir -p $(BEAMDIR)
+	$(BUILDSCRIPT) ast $(SRCDIR) $(ASTDIR)
