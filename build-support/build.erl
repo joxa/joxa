@@ -20,9 +20,9 @@ main(["bootstrap", ASTDir, OutDir]) ->
     io:format("~n--- bootstrapping ---~n"),
     F = fun(E) ->
                 File = to_ast(ASTDir, E),
-                Skip = last_modified(File) < last_modified(to_beam(OutDir, E)),
-                %% compile File if it is not compiled already
-                if Skip =:= false ->
+                case should_skip(File, to_beam(OutDir, E)) of
+                    false ->
+                        %% compile File if it is not compiled already
                         jxa_bootstrap:do_bootstrap([OutDir, File]);
                    true ->
                         ok
@@ -35,9 +35,9 @@ main(["compile", SrcDir, OutDir]) ->
     io:format("~n--- compiling ---~n"),
     F = fun(E) ->
                 File = to_jxa(SrcDir, E),
-                Skip = last_modified(File) < last_modified(to_beam(OutDir, E)),
-                %% compile File if it is not compiled already
-                if Skip =:= false ->
+                case should_skip(File, to_beam(OutDir, E)) of
+                    false ->
+                        %% compile File if it is not compiled already
                         io:format("writing beam to dir ~p~n", [OutDir]),
                         'joxa-compiler':'do-compile'(File, [{outdir, OutDir}]),
                         io:format("Module Name '~s'~n", [E]);
@@ -110,3 +110,6 @@ last_modified(File) ->
         Else ->
             calendar:datetime_to_gregorian_seconds(Else)
     end.
+
+should_skip(Source, Destination) ->
+    last_modified(Source) < last_modified(Destination).
