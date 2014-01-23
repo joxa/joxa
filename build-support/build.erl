@@ -6,12 +6,19 @@ main(["ast", SrcDir, ASTDir]) ->
     update_code_path(),
     io:format("~n--- making ast files ---~n"),
     F = fun(E) ->
-                io:format("writing ast to dir ~p~n", [ASTDir]),
-                'joxa-compiler':'do-compile'(to_jxa(SrcDir, E),
-                                             [to_ast, {outdir, ASTDir}]),
+                JxaFile = to_jxa(SrcDir, E),
                 ASTFile = to_ast(ASTDir, E),
-                file:write_file(ASTFile, ".", [append]),
-                io:format("File '~s'~n", [ASTFile])
+                case should_skip(JxaFile, ASTFile) of
+                    false ->
+                        %% compile JxaFile to AST if it's not compiled already
+                        io:format("writing ast to dir ~p~n", [ASTDir]),
+                        'joxa-compiler':'do-compile'(JxaFile,
+                                                     [to_ast, {outdir, ASTDir}]),
+                        file:write_file(ASTFile, ".", [append]),
+                        io:format("File '~s'~n", [ASTFile]);
+                    true ->
+                        ok
+                end
         end,
     lists:foreach(F, modules());
 main(["bootstrap", ASTDir, OutDir]) ->
