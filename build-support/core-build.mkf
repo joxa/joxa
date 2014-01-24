@@ -10,46 +10,14 @@ ERLCFLAGS=$(BASE_ERLCFLAGS) -pa $(BEAMDIR)
 ERLFLAGS=-noshell $(ERLCFLAGS)
 ASTDIR=$(SRCDIR)/ast
 
+ESCRIPT=$(shell which escript)
+BUILDSCRIPT=$(ESCRIPT) build-support/build.erl
+
 BOOTSTRAP_ERLFLAGS=-noshell -pa $(BEAMDIR) $(BASE_ERLCFLAGS)
 
 COMP= $(ERL) $(ERLFLAGS) $(TEST_FLAGS) -s 'joxa-compiler' main \
       -extra
 
-
-SRCBEAMS = $(BEAMDIR)/joxa-cmp-util.beam \
-	$(BEAMDIR)/joxa-cmp-path.beam \
-	$(BEAMDIR)/joxa-cmp-ctx.beam \
-	$(BEAMDIR)/joxa-cmp-peg.beam \
-	$(BEAMDIR)/joxa-cmp-lexer.beam \
-	$(BEAMDIR)/joxa-cmp-ns.beam \
-	$(BEAMDIR)/joxa-cmp-call.beam \
-	$(BEAMDIR)/joxa-cmp-literal.beam \
-	$(BEAMDIR)/joxa-cmp-binary.beam \
-	$(BEAMDIR)/joxa-cmp-special-forms.beam \
-	$(BEAMDIR)/joxa-cmp-case.beam \
-	$(BEAMDIR)/joxa-cmp-spec.beam \
-	$(BEAMDIR)/joxa-cmp-expr.beam \
-	$(BEAMDIR)/joxa-cmp-defs.beam \
-	$(BEAMDIR)/joxa-cmp-joxa-info.beam \
-	$(BEAMDIR)/joxa-cmp-checks.beam \
-	$(BEAMDIR)/joxa-cmp-error-format.beam \
-	$(BEAMDIR)/joxa-cmp-parser.beam \
-	$(BEAMDIR)/joxa-compiler.beam \
-	$(BEAMDIR)/joxa-core.beam \
-	$(BEAMDIR)/joxa-shell.beam \
-	$(BEAMDIR)/joxa-records.beam \
-	$(BEAMDIR)/joxa-assert.beam \
-	$(BEAMDIR)/joxa-eunit.beam \
-	$(BEAMDIR)/joxa-lists.beam \
-	$(BEAMDIR)/joxa-otp.beam \
-	$(BEAMDIR)/joxa-otp-gen-server.beam \
-	$(BEAMDIR)/joxa-sort-topo.beam \
-	$(BEAMDIR)/joxa-concurrent-compiler.beam \
-	$(BEAMDIR)/joxa-cc-wkr.beam \
-	$(BEAMDIR)/joxa.beam \
-	$(BEAMDIR)/joxa-build-support.beam \
-	$(BEAMDIR)/joxa-otp-application.beam \
-	$(BEAMDIR)/joxa-otp-supervisor.beam
 
 TESTBEAMS = $(TEST_EBIN)/joxa-test-let-match.beam \
 	$(TEST_EBIN)/joxa-test-multiple-namespaces.beam \
@@ -90,7 +58,10 @@ $(TEST_EBIN)/%.beam: $(TESTDIR)/%.erl $(TEST_EBIN)/.d
 $(TEST_EBIN)/%.beam: $(TESTDIR)/%.jxa $(TEST_EBIN)/.d $(BEAMDIR)/joxa-compiler.beam
 	$(COMP) -o $(TEST_EBIN) $<
 
-jxa: $(SRCBEAMS)
+jxa:
+	@mkdir -p $(BEAMDIR)
+	$(BUILDSCRIPT) bootstrap $(ASTDIR) $(BEAMDIR)
+	$(BUILDSCRIPT) compile $(SRCDIR) $(BEAMDIR)
 
 update-versions:
 	$(CURDIR)/build-support/update-versions.sh
