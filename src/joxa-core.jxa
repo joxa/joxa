@@ -188,3 +188,6 @@
 
 (defmacro+ define (name value)
   `(defmacro ~name () ~value))
+
+(defmacro+ ! (pid message)
+  `(erlang/:'!' ~pid ~message))
