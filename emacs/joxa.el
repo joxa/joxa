@@ -1,39 +1,61 @@
 ;; This is an absolute, minimal, better-then-nothing mode for joxa. At
 ;; some point we will build something better.
 
+(defvar joxa-mode-hook nil)
+(add-to-list 'auto-mode-alist '("\\.jxa\\'" . joxa-mode))
+
+(defvar joxa-mode-syntax-table
+  (let ((table (make-syntax-table)))
+    (modify-syntax-entry ?\< "(>" table)
+    (modify-syntax-entry ?\> ")<" table)
+    (modify-syntax-entry ?\[ "(]" table)
+    (modify-syntax-entry ?\] ")[" table)
+    (modify-syntax-entry ?\{ "(}" table)
+    (modify-syntax-entry ?\} "(}" table)
+    table))
+
+(defvar joxa-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map lisp-mode-shared-map)
+    (define-key map "{" 'paredit-open-curly)
+    (define-key map "}" 'paredit-close-curly)
+    map)
+  "Joxa mode keymap")
+
+(defconst joxa-font-lock-keywords
+  (list
+   (list (concat "("
+                 (regexp-opt '("module"
+                               "deftype"
+                               "defspec"
+                               "definline"
+                               "defmacro+"
+                               "defmacro"
+                               "defn+"
+                               "defn"
+                               "__try"
+                               "use"
+                               "ns"
+                               "fn") t)
+
+                 "\\>"
+                 ;; Any whitespace
+                 "[ \r\n\t]*"
+                 "\\(\\sw+\\)?"
+                 )
+         '(1 font-lock-keyword-face)
+         '(2 font-lock-function-name-face nil t))
+   )
+  "Joxa keywords")
+
 (define-derived-mode joxa-mode lisp-mode "Joxa Editing Mode" "Major mode for editing Joxa files"
-
+  (interactive)
+  (setq major-mode 'joxa-mode)
+  (setq mode-name "Joxa")
+  (set-syntax-table joxa-mode-syntax-table)
+  (use-local-map joxa-mode-map)
   (font-lock-add-keywords 'joxa-mode
-                          '(("module" . font-lock-keyword-face)
-                            ("deftype" . font-lock-keyword-face)
-                            ("defspec" . font-lock-keyword-face)
-                            ("definline" . font-lock-keyword-face)
-                            ("defmacro+" . font-lock-keyword-face)
-                            ("defmacro" . font-lock-keyword-face)
-                            ("defn+" . font-lock-keyword-face)
-                            ("defn" . font-lock-keyword-face)
-                            ("__try" . font-lock-keyword-face)
-                            ("use" . font-lock-keyword-face)
-                            ("ns" . font-lock-keyword-face)
-                            ("fn" . font-lock-keyword-face)))
+                          joxa-font-lock-keywords)
+  (run-hooks 'joxa-mode-hook))
 
-  (define-key joxa-mode-map "{" 'paredit-open-curly)
-  (define-key joxa-mode-map "}" 'paredit-close-curly)
-
-  (modify-syntax-entry ?< "(>" )
-  (modify-syntax-entry ?> ")<" )
-
-  (modify-syntax-entry ?[ "(]" )
-  (modify-syntax-entry ?] ")[" )
-
-  (modify-syntax-entry ?\{ "(}")
-  (modify-syntax-entry ?\} "){"))
-
-
-;; Uncomment this if you want parenface and paredit (which you should)
-;; (add-hook 'joxa-mode-hook '(lambda ()
-;;                              (paredit-mode)
-;;                              (require 'parenface)
-;;                              (set-face-foreground 'paren-face "#073642")))
-
- (add-to-list 'auto-mode-alist '("\\.jxa\\'" . joxa-mode))
+(provide 'joxa-mode)
