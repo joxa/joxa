@@ -1,0 +1,29 @@
+(ns joes-fav-server
+  (require (erlang :as erl :joxify))
+  (use joxa-core))
+
+
+(defn+ universal-server ()
+  (receive
+    ({:become func} (func))))
+
+
+(defn factorial (n)
+  (case n
+    (0 1)
+    (non-zero (erl/* n (factorial (decr n))))))
+
+
+(defn+ factorial-server ()
+  (receive
+    ({from n}
+      (erl/send from (factorial n))
+      (factorial-server))))
+
+
+(defn+ test ()
+  (let* (srv-pid (erl/spawn universal-server/0))
+    (erl/send srv-pid {:become factorial-server/0})
+    (erl/send srv-pid {(erl/self) 50}))
+  (receive
+    (res res)))
