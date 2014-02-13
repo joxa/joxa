@@ -384,3 +384,16 @@
     ((clause . rest)
      (let* (clauses (make-pattern-clause-body (joxa-cmp-path/traverse-path path0) ctx clause))
        (make-pattern (joxa-cmp-path/incr-path path0) ctx rest (clauses . acc))))))
+
+(defn+ make-pattern-receive (path0 ctx form acc)
+  (case form
+    ([]
+     (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 :no-clauses-provided))
+    ([clause]
+     (let* (clauses (make-pattern-clause-body (joxa-cmp-path/traverse-path path0) ctx clause))
+       (lists/reverse (clauses . acc))))
+    ((clause . rest)
+     (let* (clauses (make-pattern-clause-body (joxa-cmp-path/traverse-path path0) ctx clause))
+       (make-pattern-receive (joxa-cmp-path/incr-path path0) ctx rest (clauses . acc))))))
+
+
