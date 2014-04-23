@@ -12,7 +12,7 @@ What is the difference between Joxa and LFE (both Lisps for the Erlang VM)
 --------------------------------------------------------------------------
 
 This is best explained in the following post:
-http://ericbmerritt.posterous.com/differences-between-joxa-and-lfe
+http://blog.ericbmerritt.com/2012/02/21/differences-between-joxa-and-lfe.html
 
 
 How Do You Create Mutually Recursive Functions
