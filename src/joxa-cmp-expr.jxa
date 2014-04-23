@@ -371,7 +371,7 @@
                                     ctx timeout)
              timeout-expr  (make-seq (joxa-cmp-path/incr-path 2 (joxa-cmp-path/traverse-incr-path path0))
                                      ctx do-exprs)
-             cerl-clauses (joxa-cmp-case/make-pattern (joxa-cmp-path/incr-path 2 path0) ctx clauses []))
+             cerl-clauses (joxa-cmp-case/make-pattern-receive (joxa-cmp-path/incr-path 2 path0) ctx clauses []))
          (case (cerl/is_c_int timeout-val)
            (:true
             (cerl/ann_c_receive annots
@@ -383,7 +383,7 @@
       ((:receive . ((:after . _) . _))
        (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 :invalid-receive))
       ((:receive . clauses)
-       (let* (cerl-clauses (joxa-cmp-case/make-pattern (joxa-cmp-path/incr-path path0) ctx clauses []))
+       (let* (cerl-clauses (joxa-cmp-case/make-pattern-receive (joxa-cmp-path/incr-path path0) ctx clauses []))
          (cerl/ann_c_receive annots cerl-clauses)))
       ((:do . args)
        (make-seq (joxa-cmp-path/incr-path path0) ctx args))
