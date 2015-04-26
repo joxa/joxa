@@ -38,7 +38,6 @@ version of `let*` in Joxa. It's similar to the `let` in Clojure, which
 could be used for destructuring, e.g.,
 
 .. code-block:: clojure
-
                 
   (let (a 1
         {b _} {a 2})
