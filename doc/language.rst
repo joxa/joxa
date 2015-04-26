@@ -11,6 +11,45 @@ let*
 
   (let* (val val-expr ...) expr ...)
 
+A non-pattern matching function to bind variables locally. It's similar to `let*`
+in Common Lisp, so it could bind the later variable from the previous one, e.g.,
+
+.. code-block:: clojure
+
+  (let* (a 1
+         b a)
+    b)
+
+In this case, it's not like `let` in Common Lisp.
+It's designed as primitive to use in macros and the like. In fact,
+the macro `let` is defined by `let*` in `joxa-core`, which is a good example
+for the usage of `let*`.
+
+
+let
+^^^^
+
+.. code-block:: clojure
+
+  (let (val val-expr ...) expr ...)
+
+A pattern matching macro to bind variable locally. It's a pattern matching
+version of `let*` in Joxa. It's similar to the `let` in Clojure, which
+could be used for destructuring, e.g.,
+
+.. code-block:: clojure
+
+                
+  (let (a 1
+        {b _} {a 2})
+    b)
+
+`let` wouldn't work in this case, because the expression `{b _}` doesn't
+evaluate to any valid value. The underscore could be used in the place of a
+named variable to ignore the corresponding binding, which is the same as
+pattern matching in Erlang or desctructuring in Clojure. Currently
+there is no warning or error on unused binding.
+
 try*
 ^^^^
 
