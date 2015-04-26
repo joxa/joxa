@@ -37,7 +37,7 @@ main(["bootstrap", ASTDir, OutDir]) ->
         end,
     lists:foreach(F, modules());
 main(["compile", SrcDir, OutDir]) ->
-    %% compiling the rest of joxa (after botstrapping)
+    %% compiling the rest of joxa (after bootstrapping)
     update_code_path(),
     io:format("~n--- compiling ---~n"),
     F = fun(E) ->
