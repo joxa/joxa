@@ -631,7 +631,7 @@ Author's Note
 
 When you use `require` vs `use` is entirely up to you. Joxa is a young
 language and there has not yet been time to hash out what is the best
-practice here. I have had the good fortune to code in may languages
+practice here. I have had the good fortune to code in many languages
 and several of those languages have supported 'import' clause's like
 use. In the best of those languages the general practice is to use the
 `use` clause only when you are importing *operators* the require
