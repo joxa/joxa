@@ -23,4 +23,4 @@ More information can be found on the
 [Joxa Manual](http://docs.joxa.org). Install instructions are in
 INSTALL.md colocated with this Readme. Of course, the canonical source
 for all docs and code is the
-[github repo](http://github.com/erlware/joxa)
+[github repo](http://github.com/joxa/joxa)
