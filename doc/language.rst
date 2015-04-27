@@ -43,7 +43,7 @@ could be used for destructuring, e.g.,
         {b _} {a 2})
     b)
 
-`let` wouldn't work in this case, because the expression `{b _}` doesn't
+`let*` wouldn't work in this case, because the expression `{b _}` doesn't
 evaluate to any valid value. The underscore could be used in the place of a
 named variable to ignore the corresponding binding, which is the same as
 pattern matching in Erlang or desctructuring in Clojure. Currently
