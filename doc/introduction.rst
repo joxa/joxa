@@ -98,7 +98,7 @@ We define a function called `sieve` that takes two arguments. The
 argument `v` and, next, the argument `primes`. We then have a
 single `case` expression that forms the body of the function. A case
 expression allows the author to do pattern matching on the second
-clause of the expression. While he rest of the clauses identify
+clause of the expression. While the rest of the clauses identify
 patterns and what will be evaluate based on the form of the output of
 the second clause. In this example, you can see that an empty list
 will return the argument `primes` unchanged while a cons cell will

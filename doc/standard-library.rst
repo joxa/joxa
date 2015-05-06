@@ -643,12 +643,11 @@ in the tuple and its default value. In our example-person record the
 result of `field-info/0` is
 
 .. code-block:: clojure
-
-  [{name,2,undefined},
-   {age,3,undefined},
-   {sex,4,male},
-   {address,5,"Somewhere in Ireland"},
-   {city,6,undefined}]
+  [{name,2,[quote,undefined]},
+   {age,3,[quote,undefined]},
+   {sex,4,[quote,male]},
+   {address,5,"unknown"},
+   {city,6,[quote,undefined]}]
 
 As you can see it gives you metadata for all the
 fields. `field-info/1` returns the same metadata but only for a single
@@ -656,7 +655,7 @@ field. So if we called `field-info` with `name` we would get
 
 .. code-block:: clojure
 
-    {name,2,undefined}
+    {name,2,[quote,undefined]}
 
 Future Directions
 -----------------

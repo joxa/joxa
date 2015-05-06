@@ -11,6 +11,44 @@ let*
 
   (let* (val val-expr ...) expr ...)
 
+A non-pattern matching function to bind variables locally. It's similar to `let*`
+in Common Lisp, so it could bind the later variable from the previous one, e.g.,
+
+.. code-block:: clojure
+
+  (let* (a 1
+         b a)
+    b)
+
+In this case, it's not like `let` in Common Lisp.
+It's designed as primitive to use in macros and the like. In fact,
+the macro `let` is defined by `let*` in `joxa-core`, which is a good example
+for the usage of `let*`.
+
+
+let
+^^^^
+
+.. code-block:: clojure
+
+  (let (val val-expr ...) expr ...)
+
+A pattern matching macro to bind variable locally. It's a pattern matching
+version of `let*` in Joxa. It's similar to the `let` in Clojure, which
+could be used for destructuring, e.g.,
+
+.. code-block:: clojure
+                
+  (let (a 1
+        {b _} {a 2})
+    b)
+
+`let*` wouldn't work in this case, because the expression `{b _}` doesn't
+evaluate to any valid value. The underscore could be used in the place of a
+named variable to ignore the corresponding binding, which is the same as
+pattern matching in Erlang or desctructuring in Clojure. Currently
+there is no warning or error on unused binding.
+
 try*
 ^^^^
 
@@ -593,7 +631,7 @@ Author's Note
 
 When you use `require` vs `use` is entirely up to you. Joxa is a young
 language and there has not yet been time to hash out what is the best
-practice here. I have had the good fortune to code in may languages
+practice here. I have had the good fortune to code in many languages
 and several of those languages have supported 'import' clause's like
 use. In the best of those languages the general practice is to use the
 `use` clause only when you are importing *operators* the require
