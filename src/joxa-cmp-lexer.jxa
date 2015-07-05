@@ -141,6 +141,7 @@
                 (erlang/binary_to_list
                  (erlang/iolist_to_binary node))))
            {:ident result idx}))))
+
 (definline convert-stringlike-thing (node)
   (case node
     ([_ string _]
@@ -184,7 +185,6 @@
      (fn (node idx)
          {:ident (erlang/list_to_atom
                   (convert-stringlike-thing node)) idx})))
-
 
 (defn inclusive-ident (input index)
   (p input index :ident-types

@@ -308,7 +308,7 @@
                         (_
                          :not-a-reference)))
                      (_
-                      acc))) :not-a-reference (ec-dictionary/to-list  uses)))
+                      acc))) :not-a-reference (ec-dictionary/to-list uses)))
 
 (defn internal-used-function? (name possible-arity raw-ctx)
   (let* (uses (get-context :uses raw-ctx))

@@ -79,7 +79,7 @@
           (joxa-cmp-ctx/add-fun-dep-ctx ctx name a)
           (cerl/ann_c_fname annots name a))
          ({:apply :rest _ {name rest-arity}}
-          (joxa-cmp-ctx/add-fun-dep-ctx ctx name rest-arity )
+          (joxa-cmp-ctx/add-fun-dep-ctx ctx name rest-arity)
           (joxa-cmp-call/make-apply-rest-fun ctx
                                (cerl/ann_c_fname annots name a)
                                a rest-arity))
