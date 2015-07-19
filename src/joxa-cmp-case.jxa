@@ -2,6 +2,7 @@
     (require (cerl :joxify)
              (lists :joxify)
              (erlang :joxify)
+             (maps :joxify)
              joxa-cmp-util
              joxa-cmp-ctx
              joxa-cmp-path
@@ -51,6 +52,7 @@
     ({:erlang :is_record 3} :true)
     ({:erlang :is_reference 1} :true)
     ({:erlang :is_tuple 1} :true)
+    ({:erlang :is_map 1} :true)
     ({:erlang :and 2} :true)
     ({:erlang :or 2} :true)
     ({:erlang :> 2} :true)
@@ -76,6 +78,7 @@
     (:binary :true)
     (:bitstring :true)
     (:tuple (lists/all check-guards/1 (cerl/tuple_es ast)))
+    (:map (lists/all check-guards/1 (cerl/map_es ast)))
     (:var :true)
     (:literal :true)
     (_ :false)))
@@ -212,8 +215,35 @@
       ({:nil  nil-result}
        {[] nil-result})
       ({_ guards3 acc}
-       {guards3 (cerl/ann_c_tuple annots (lists/reverse acc))})
-      )))
+       {guards3 (cerl/ann_c_tuple annots (lists/reverse acc))}))))
+
+(defn make-pattern-map (path0 ctx guards0 args)
+  (let* (annots (joxa-cmp-ctx/annots-from-context [] path0 ctx))
+    (case (lists/foldl (fn (arg acc0)
+                         (case acc0
+                           ({:nil nil-result}
+                            {:nil nil-result})
+                           ({path1 guards1 acc1}
+                            (case arg
+                              ({k1 v1}
+                               (case (make-pattern-element (joxa-cmp-path/traverse-path path1) ctx guards1 k1)
+                                 ({guards2 k2}
+                                  (case (make-pattern-element
+                                         (joxa-cmp-path/traverse-path (joxa-cmp-path/incr-path path1)) ctx guards2 v1)
+                                    ({guards3 v2}
+                                     (let* (annot (joxa-cmp-ctx/annots-from-context [] path1 ctx)
+                                            pair (cerl/ann_c_map_pair annot (cerl/c_atom :exact) k2 v2))
+                                       {(joxa-cmp-path/incr-path 2 path1)
+                                        guards3 (pair . acc1)}))
+                                    (nil-result
+                                     {:nil nil-result})))
+                                 (nil-result
+                                  {:nil nil-result})))))))
+                       {path0 guards0 []} args)
+      ({:nil nil-result}
+       {[] nil-result})
+      ({_ guards4 acc}
+       {guards4 (cerl/ann_c_map annots (lists/reverse acc))}))))
 
 (defn make-pattern-list (path0 ctx guards0 l)
   (let* (annots (joxa-cmp-ctx/annots-from-context [] path0 ctx))
@@ -228,6 +258,20 @@
              {guards2 (cerl/ann_c_cons annots cerl-h cerl-t)})))
          (nil-result
           {[] nil-result}))))))
+
+(defn+ list-to-tuples (elements)
+  (case (lists/foldl (fn (el acc)
+                           (case acc
+                             ({keys values count}
+                              (when (erlang/== (erlang/rem count 2) 0))
+                              {(el . keys) values (erlang/+ count 1)})
+                             ({keys values count}
+                              {keys (el . values) (erlang/+ count 1)})))
+                     {[] [] 0} elements)
+    ({keys values count} (when (erlang/== (erlang/rem count 2) 0))
+     {:true (lists/zip (lists/reverse keys) (lists/reverse values))})
+    ({_ _ _}
+     {:false elements})))
 
 (defn make-pattern-element (path0 ctx guards0 arg0)
   (let* (annots (joxa-cmp-ctx/annots-from-context [] path0 ctx))
@@ -248,6 +292,8 @@
             {guards0 (cerl/ann_c_float annots arg0)})
       (args0 (when (erlang/is_tuple args0))
              (make-pattern-tuple path0 ctx guards0 (erlang/tuple_to_list args0)))
+      (args0 (when (erlang/is_map args0))
+             (make-pattern-map path0 ctx guards0 (maps/to-list args0)))
       ([:= alias pattern] (when (erlang/is_atom alias))
        (make-pattern-alias (joxa-cmp-path/incr-path path0) (joxa-cmp-path/traverse-incr-path 2 path0)
                            ctx guards0 alias pattern))
@@ -277,6 +323,12 @@
        (make-pattern-list (joxa-cmp-path/incr-path path0) ctx guards0 args))
       ((:tuple . args)
        (make-pattern-tuple (joxa-cmp-path/incr-path path0) ctx guards0 args))
+      ((:map . args)
+       (case (list-to-tuples args)
+         ({:true tuples}
+          (make-pattern-map (joxa-cmp-path/incr-path path0) ctx guards0 tuples))
+         (_
+          (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 :invalid-map))))
       ([arg1 :. arg2]
        (case (make-pattern-element (joxa-cmp-path/traverse-path path0) ctx guards0 arg1)
          ({guards1 cerl-arg1}

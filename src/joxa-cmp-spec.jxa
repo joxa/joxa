@@ -1,6 +1,7 @@
 (ns joxa-cmp-spec
     (require (erlang :joxify)
              (lists :joxify)
+             (maps :joxify)
              joxa-cmp-path
              joxa-cmp-ctx))
 
@@ -22,6 +23,16 @@
                      {path0 []} (erlang/tuple_to_list form))
     ({_ tuple-values}
      {:tuple line (erlang/list_to_tuple (lists/reverse tuple-values))})))
+
+(defn make-spec-map (line path0 ctx form)
+  (case (lists/foldl (fn (el acc0)
+                       (case acc0
+                         ({path1 acc1}
+                          (let* (comp-el (make-spec-expr path1 ctx el))
+                            {(joxa-cmp-path/incr-path path1) (comp-el . acc1)}))))
+                     {path0 []} (maps/to_list form))
+    ({_ tuples}
+     {:map line (maps/from_list (lists/reverse tuples))})))
 
 (defn make-spec-args (line ctx args)
   (let* (comp-args (lists/foldl (fn (el acc)
@@ -113,13 +124,28 @@
          {:list line1 (lists/reverse specs)}))
       (arg1
        (when (erlang/is_tuple arg1))
-       (let* (specs (lists/foldl (fn (el acc0)
-                                    (case acc0
-                                      ({path1 acc1}
-                                       {(joxa-cmp-path/incr-path path1)
-                                        ((make-spec-literal path1 ctx el) .  acc1)})))
-                                {path0 []} (erlang/tuple_to_list arg1)))
-         {:tuple line1 (lists/reverse specs)}))
+       (case (lists/foldl (fn (el acc0)
+                            (case acc0
+                              ({path1 acc1}
+                               {(joxa-cmp-path/incr-path path1)
+                                ((make-spec-literal path1 ctx el) .  acc1)})))
+                          {path0 []} (erlang/tuple_to_list arg1))
+         ({_ specs}
+          {:tuple line1 (lists/reverse specs)})))
+      (arg1
+       (when (erlang/is_map arg1))
+       (case (lists/foldl (fn (el acc0)
+                            (case acc0
+                              ({path1 acc1}
+                               (case el
+                                 ({k1 v1}
+                                  (let* (k2 (make-spec-literal (joxa-cmp-path/traverse-path path1) ctx k1)
+                                         v2 (make-spec-literal (joxa-cmp-path/traverse-incr-path path1) ctx v1))
+                                    {(joxa-cmp-path/incr-path 2 path1)
+                                     (v2 . (k2 . acc1))}))))))
+                          {path0 []} (maps/to_list arg1))
+         ({_ specs}
+          {:map line1 (lists/reverse specs)})))
       (_
        (joxa-cmp-ctx/add-error-ctx ctx path0 :invalid-type-literal)))))
 
@@ -133,6 +159,9 @@
       (arg
        (when (erlang/is_tuple arg))
        (make-spec-tuple line1 path0 ctx form))
+      (arg
+       (when (erlang/is_map arg))
+       (make-spec-map line1 path0 ctx form))
       (arg
        (when (erlang/is_integer arg))
        (make-spec-literal path0 ctx arg))

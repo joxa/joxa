@@ -79,6 +79,6 @@
 (defn+ start ()
   (let* (ctx (joxa-compiler/start-interactive))
     (joxa-cmp-ctx/namespace-name-ctx ctx :joxa-is)
-    (io/format "Joxa Version 0.1.2+build.4.3022910~n~n")
+    (io/format "Joxa Version 0.1.2+build.63.7547592~n~n")
     (loop ctx <<>>)
     (joxa-compiler/stop-interactive ctx)))

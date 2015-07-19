@@ -2,6 +2,7 @@
     (require (cerl :joxify)
              (erlang :joxify)
              (lists :joxify)
+             (maps :joxify)
              joxa-cmp-path
              joxa-cmp-ctx))
 
@@ -27,6 +28,22 @@
       ({_ elements1}
        (cerl/ann_c_tuple annots (lists/reverse elements1))))))
 
+(defn make-literal-map (path0 annots ctx elements0)
+  (case (lists/foldl (fn (kv acc)
+                 (case acc
+                   ({path1 acc1}
+                    (case kv
+                      ({k1 v1}
+                       (let* (k2 (make-literal (joxa-cmp-path/traverse-path path1) ctx k1)
+                              v2 (make-literal
+                                  (joxa-cmp-path/traverse-path (joxa-cmp-path/incr-path path1)) ctx v1)
+                              annot2 (joxa-cmp-ctx/annots-from-context [] path1 ctx)
+                              pair (cerl/ann_c_map_pair annot2 (cerl/c_atom :assoc) k2 v2))
+                         {(joxa-cmp-path/incr-path 2 path1) (pair . acc1)}))))))
+               {path0 []} (maps/to_list elements0))
+    ({_ elements1}
+     (cerl/ann_c_map annots (lists/reverse elements1)))))
+
 (defn+ make-literal-string (_path0 annots _ctx string)
   (cerl/ann_c_string annots string))
 
@@ -42,6 +59,9 @@
       (arg1
        (when (erlang/is_tuple arg1))
        (make-literal-tuple path0 annots ctx arg1))
+      (arg1
+       (when (erlang/is_map arg1))
+       (make-literal-map path0 annots ctx arg1))
       (arg1
        (when (erlang/is_integer arg1))
        (cerl/ann_c_int annots arg1))

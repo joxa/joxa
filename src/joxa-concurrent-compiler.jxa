@@ -36,7 +36,6 @@
                         length/1))
          (joxa-lists :only (dolist/2
                             foldl/3
-                            map/2
                             #/2))))
 
 (defn+ build-skip (file)
@@ -89,11 +88,11 @@ frees for building anything that is currently able to be built."
   (let* (all-pids (# ({pid-file _} (state/all-pids state0))
                      (not (=:= pid-file file)))
          dep-info0 (state/dep-info state0)
-         namespaces (map ({file namespace _ _} dep-info0)
+         namespaces (joxa-lists/map ({file namespace _ _} dep-info0)
                          namespace)
          update-deps (fn (deps)
                        (# (dep deps) (not (lists/member dep namespaces))))
-         dep-info1 (map ({f namespace deps build-status} dep-info0)
+         dep-info1 (joxa-lists/map ({f namespace deps build-status} dep-info0)
                         (case f
                           (file
                            {f namespace (update-deps deps) build-type})
@@ -117,9 +116,9 @@ frees for building anything that is currently able to be built."
 (defn start-building (state0)
   "Start the build process by kicking of those modules that dont have dependencies."
   (let* (dep-info0 (state/dep-info state0)
-         namespaces (map ({_ namespace _ _} dep-info0)
+         namespaces (joxa-lists/map ({_ namespace _ _} dep-info0)
                          namespace)
-         dep-info1 (map ({file namespace deps build-status} dep-info0)
+         dep-info1 (joxa-lists/map ({file namespace deps build-status} dep-info0)
                         ;; We are filtering deps to only those deps that are in the list
                         ;; of build-able things to be built. The other deps are considered
                         ;; to exist
@@ -150,7 +149,7 @@ starts building."
     (case new-starting
       ([]
        (let* (namespace-deps-pairs
-              (map ({_ namespace deps _} (state/dep-info state1))
+              (joxa-lists/map ({_ namespace deps _} (state/dep-info state1))
                 {namespace deps}))
          (check-cycles! namespace-deps-pairs))
        (start-building (state/starting! state1 new-starting)))

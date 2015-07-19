@@ -36,7 +36,7 @@
 
 (defn compile-files (filename-file-pairs)
   (let* (filepaths
-         (map ({filename file} filename-file-pairs)
+         (joxa-lists/map ({filename file} filename-file-pairs)
            (let* (pwd (filename/dirname (code/which ($namespace)))
                   file-path (filename/join [pwd filename]))
              (file/write-file file-path file)

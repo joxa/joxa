@@ -288,7 +288,7 @@
         result (compile-context ctx :final))
     (case result
       (:uncompilable
-         :error)
+       :error)
       (:error
        :error)
       (:ok (post-compile-process ctx)))))

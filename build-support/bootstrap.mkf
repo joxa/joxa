@@ -13,6 +13,6 @@ BUILDSCRIPT=$(ESCRIPT) build-support/build.erl
 all:
 	mkdir -p $(BOOTSTRAP)
 	$(BUILDSCRIPT) bootstrap $(ASTDIR) $(BOOTSTRAP)
-	mv $(BOOTSTRAP)/*.beam $(BEAMDIR)/
 	mkdir -p $(BEAMDIR)
+	mv $(BOOTSTRAP)/*.beam $(BEAMDIR)/
 	$(BUILDSCRIPT) ast $(SRCDIR) $(ASTDIR)

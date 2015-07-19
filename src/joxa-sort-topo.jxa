@@ -18,16 +18,15 @@
              joxa-assert
              joxa-lists
              lists)
-    (use (joxa-lists :only (map/2))
-         (joxa-core :only (if/3 let/2))
+    (use (joxa-core :only (if/3 let/2))
          (erlang :only (not/1))))
 
 (defn lhs (l)
-  (map ({x _} l)
+  (joxa-lists/map ({x _} l)
        x))
 
 (defn rhs (l)
-  (map ({_ y} l)
+  (joxa-lists/map ({_ y} l)
        y))
 
 (defn all (l)

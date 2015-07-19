@@ -47,6 +47,8 @@
      "invalid namespace declaration")
     (:invalid-sequence
      "invalid sequence")
+    (:invalid-map
+     "invalid map")
     ({:invalid-use-clause {:bad-use-part forms}}
      (io-lib/format "invalid use clause ~p" [forms]))
     ({:invalid-reference {f -1}}

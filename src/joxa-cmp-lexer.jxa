@@ -133,7 +133,7 @@
                (p-choose [(p-string <<"<<">>)
                           (p-string <<">>">>)
                           (p-string <<"~@">>)
-                          (p-charclass <<"[,`~'\\\\{}/\t\n\s\r\\(\\)\\[\\]\"]">>)]))
+                          (p-charclass <<"[,`~'%\\\\{}/\t\n\s\r\\(\\)\\[\\]\"]">>)]))
               (p-anything)]))
      (fn (node idx)
          (let* (result
@@ -322,6 +322,29 @@
            ([_ _ _]
             {:tuple [] idx})))))
 
+(defn+ map (input index)
+  (p input index :map
+     (p-choose [(p-seq [(p-string "%{")
+                        ignorable/2
+                        value/2
+                        ignorable/2
+                        value/2
+                        (p-zero-or-more (p-seq [ignorable/2
+                                                value/2
+                                                ignorable/2
+                                                value/2]))
+                        ignorable/2
+                        (p-string "}")])
+                (p-seq [(p-string "%{")
+                        ignorable/2
+                        (p-string "}")])])
+     (fn (node idx)
+         (case node
+           ([_ _ k _ v t _ _]
+            {:map (lists/flatten [k v t]) idx})
+           ([_ _ _]
+            {:map [] idx})))))
+
 (defn+ binary (input index)
   (let* (binary-contents (p-choose [integer/2
                                    char/2
@@ -358,6 +381,7 @@
              (p-choose [float/2
                         integer/2
                         binary/2
+                        map/2
                         fun-reference/2
                         quoted-ident/2
                         quote/2

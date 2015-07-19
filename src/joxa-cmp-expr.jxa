@@ -2,6 +2,7 @@
     (require (cerl :joxify)
              (erlang :joxify)
              (lists :joxify)
+             (maps :joxify)
              joxa-cmp-util
              joxa-cmp-path
              joxa-cmp-call
@@ -26,6 +27,31 @@
     ({_ body}
       (cerl/ann_c_tuple (joxa-cmp-ctx/annots-from-context [] path0 ctx)
                         (lists/reverse body)))))
+
+(defn make-map-expr-from-tuples (path0 ctx tuples)
+  (case (lists/foldl (fn (kv acc)
+                          (case acc
+                            ({path1 acc1}
+                             (case kv
+                               ({k1 v1}
+                                (let* (k2 (make-expr (joxa-cmp-path/traverse-path path1) ctx k1)
+                                       v2 (make-expr
+                                           (joxa-cmp-path/traverse-path (joxa-cmp-path/incr-path path1)) ctx v1)
+                                       annot2 (joxa-cmp-ctx/annots-from-context [] path1 ctx)
+                                       pair (cerl/ann_c_map_pair annot2 (cerl/c_atom :assoc) k2 v2))
+                                  {(joxa-cmp-path/incr-path 2 path1) (pair . acc1)}))))))
+                        {path0 []} tuples)
+       ({_ body}
+        (cerl/ann_c_map (joxa-cmp-ctx/annots-from-context [] path0 ctx)
+                        (lists/reverse body)))))
+
+(defn make-map-expr-from-list (path0 ctx elements)
+  (case (joxa-cmp-case/list-to-tuples elements)
+    ({:true tuples}
+     (make-map-expr-from-tuples path0 ctx tuples))
+    (_
+     (joxa-cmp-ctx/add-error-r-nil-ctx ctx path0 :invalid-map))))
+
 (defn+ make-seq (path0 ctx form)
   (let* (annots (joxa-cmp-ctx/annots-from-context :traverse path0 ctx))
     (case form
@@ -360,6 +386,8 @@
            (make-fun path0 ctx form))
       (arg (when (erlang/is_tuple arg))
            (make-tuple-expr path0 ctx (erlang/tuple_to_list arg)))
+      (arg (when (erlang/is_map arg))
+           (make-map-expr-from-tuples path0 ctx (maps/to_list arg)))
       ((:let* . _)
        (make-let path0 ctx form))
       ((:case . (expr . clauses))
@@ -416,6 +444,8 @@
        (make-list (joxa-cmp-path/incr-path path0) ctx args))
       ((:tuple . args)
        (make-tuple-expr (joxa-cmp-path/incr-path path0) ctx args))
+      ((:map . args)
+       (make-map-expr-from-list (joxa-cmp-path/incr-path path0) ctx args))
       ([:macroexpand-1 (val . args)]
        (joxa-cmp-special-forms/make-macroexpand-1 (joxa-cmp-path/incr-path path0) ctx val args))
       ((:try* . _)

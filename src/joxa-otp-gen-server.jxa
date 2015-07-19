@@ -7,10 +7,10 @@
     (require (erlang :joxify)
              (lists :joxify)
              joxa-core
-             (gen_server :joxify))
+             (gen_server :joxify)
+             joxa-lists)
     (use (joxa-core :only (if/3
                            when/2))
-         (joxa-lists :only (map/2))
          (erlang :only (and/2
                         not/1))))
 
@@ -32,7 +32,7 @@
   "Given an alternate name that exists in the module generate the
 main-name as a pass through call to alternate. We expect the compiler
 inliner to take care of the inefficiencies"
-  (let* (args (map (_ (lists/seq 1 arity))
+  (let* (args (joxa-lists/map (_ (lists/seq 1 arity))
                    (joxa-core/gensym (erlang/atom-to-list ($namespace)))))
     `(defn+ ~main-name ~args
        (~alternate-name ~@args))))
@@ -40,7 +40,7 @@ inliner to take care of the inefficiencies"
 (defn generate-error-call (main-name arity)
   "For a call that is truly implemented on the client side generate an
 implementation that throws an error when the function is called."
-  (let* (args (map (_ (lists/seq 1 arity))
+  (let* (args (joxa-lists/map (_ (lists/seq 1 arity))
                    (joxa-core/gensym (erlang/atom-to-list ($namespace)))))
     `(defn+ ~main-name ~args
        (erlang/error {:not-implemented (quote ~main-name) ~args}))))
@@ -56,7 +56,7 @@ implementation that throws an error when the function is called."
 
 (defmacro+ implement-missing (namespace)
   (let* (exports ((erlang/make-fun namespace :module_info 1) :exports))
-    `(do  ~@(map ({main alternate arity} '({init init 1}
+    `(do  ~@(joxa-lists/map ({main alternate arity} '({init init 1}
                                            {handle_call handle-call 3}
                                              {handle_cast handle-cast 2}
                                              {handle_info handle-info 2}
