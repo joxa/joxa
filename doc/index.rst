@@ -2,7 +2,7 @@ The Joxa Programing Language
 ############################
 
 **Joxa is a small semantically clean, functional Lisp**. It is
-desgined as a general-purpose language encouraging interactive
+designed as a general-purpose language encouraging interactive
 development and a functional programming style. Like other Lisps, Joxa
 treats code as data and has a full (unhygienic) macro system. Joxa has
 an advantage over other Lisp in that it runs on the Erlang Virtual
