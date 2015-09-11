@@ -2,9 +2,10 @@ language: erlang
 otp_release:
        - R15B01
        - R15B
+       - R16B03-1
+       - 17.5
 before_script: "make get-deps"
 script: "make test"
 branches:
         only:
                 - master
-                - next
