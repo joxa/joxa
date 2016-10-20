@@ -423,7 +423,7 @@ trivial, contrived example
             (require erlang lists)
             (use (joxa-records :only (defrecord/2))))
 
-     (joxa-records/defrecord+ person name age {sex male}
+     (joxa-records/defrecord+ :person name age {sex male}
                               {address "unknown"} city)
 
 
@@ -478,7 +478,7 @@ descriptions. In our example we called our record `person`
 
 .. code-block:: clojure
 
-     (joxa-records/defrecord+ person name age {sex male}
+     (joxa-records/defrecord+ :person name age {sex male}
                               {address "unknown"} city)
 
 We then followed it up with the fields `name`, `age`, `sex`, `address`
