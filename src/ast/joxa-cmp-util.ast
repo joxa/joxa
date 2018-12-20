@@ -534,7 +534,7 @@
            crypto},
           {c_literal,
            [41,{file,"/Users/emerrit/workspace/joxa/src/joxa-cmp-util.jxa"}],
-           rand_bytes},
+           strong_rand_bytes},
           [{c_literal,
             [41,{file,"/Users/emerrit/workspace/joxa/src/joxa-cmp-util.jxa"}],
             16}]}]}]},
