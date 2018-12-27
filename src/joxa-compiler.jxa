@@ -101,10 +101,10 @@
           (_
            (case (compile/forms cerl-ast
                                 (compile-options ctx type))
-             ({ok [] result []}
+             ({ok _ result []}
               result)
-             ({ok errors result warnings}
-              (handle-errors-and-warnings ctx errors warnings)
+             ({ok _ result warnings}
+              (handle-errors-and-warnings ctx [] warnings)
               result)
              ({error errors warnings}
               (handle-errors-and-warnings ctx errors warnings)
@@ -115,10 +115,10 @@
                                     :return_errors
                                     :return_warnings
                                     :binary])
-       ({ok [] result []}
+       ({ok _ result []}
         result)
-       ({ok errors result warnings}
-        (handle-errors-and-warnings ctx errors warnings)
+       ({ok _ result warnings}
+        (handle-errors-and-warnings ctx [] warnings)
         result)
        ({error errors warnings}
         (handle-errors-and-warnings ctx errors warnings)
