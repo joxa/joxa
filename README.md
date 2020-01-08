@@ -11,9 +11,8 @@ Joxa (pronounced 'jocksah') isn't Erlang, though its very
 compatible. Its not Clojure though there is plenty of shared
 syntax. It's not Common Lisp though that is the source of the macro
 system. While Joxa shares elements of many languages, it is its own
-specific language.  of all these languages, and knowing these
-languages will help you get up to speed with Joxa, but it is its own
-unique language.
+specific language. Although knowing those other languages will
+help you get up to speed with Joxa.
 
 Documentation
 -------------
